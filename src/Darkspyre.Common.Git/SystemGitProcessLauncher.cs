@@ -3,7 +3,7 @@ using System.Diagnostics;
 namespace Darkspyre.Common.Git;
 
 /// <summary>Starts git from PATH with System.Diagnostics.Process. For consumers with no process provider of their own.</summary>
-/// <gotcha>A stop request and a forced stop both kill the child and its descendants: .NET has no portable graceful stop.</gotcha>
+/// <gotcha>A stop request and a forced stop both kill the child only: .NET has no portable graceful stop. A descendant exits when its pipes to the child close.</gotcha>
 public sealed class SystemGitProcessLauncher : IGitProcessLauncher
 {
     /// <inheritdoc />
@@ -47,7 +47,7 @@ public sealed class SystemGitProcessLauncher : IGitProcessLauncher
 
         public Task ForceStopAsync(CancellationToken cancellationToken)
         {
-            try { process.Kill(entireProcessTree: true); }
+            try { process.Kill(); }
             catch (InvalidOperationException) { } // The child already exited.
             return Task.CompletedTask;
         }

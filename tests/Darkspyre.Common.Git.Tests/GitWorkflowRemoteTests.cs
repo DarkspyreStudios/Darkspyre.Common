@@ -46,8 +46,11 @@ public sealed class GitWorkflowRemoteTests
         GitConversation first = repository.First;
         GitConversation second = repository.Open();
         string slow = Path.Combine(repository.Root, "slow");
-        // While the marker exists the remote's hook sleeps and then refuses, so the cancelled push never lands.
-        GitScripts.Write(Path.Combine(repository.Remote, "hooks", "pre-receive"), $"cat >/dev/null\nif [ -f '{slow}' ]; then sleep 3; exit 1; fi\nexit 0");
+        string waiting = Path.Combine(repository.Root, "hook-waiting");
+        // While the marker exists the remote's hook sleeps and then refuses, so the cancelled push never lands. The hook
+        // records that it decided first: a cancelled push stops only the git child, and its remote side runs on.
+        GitScripts.Write(Path.Combine(repository.Remote, "hooks", "pre-receive"),
+            $"cat >/dev/null\nif [ -f '{slow}' ]; then touch '{waiting}'; sleep 3; exit 1; fi\nexit 0");
         await File.WriteAllTextAsync(slow, "");
         repository.Write("a.txt", "pushed\n");
         string pushed = repository.Commit("Pushed");
@@ -55,7 +58,12 @@ public sealed class GitWorkflowRemoteTests
         using CancellationTokenSource cancel = new();
         Task<GitPushResult> pushing = first.Transfers.PushAsync(new(repository.Path, "origin", "main", "refs/heads/main"), cancel.Token);
         await first.StartedAsync("push");
-        await Task.Delay(500);
+        System.Diagnostics.Stopwatch waited = System.Diagnostics.Stopwatch.StartNew();
+        while (!File.Exists(waiting))
+        {
+            Assert.True(waited.Elapsed < TimeSpan.FromSeconds(20), "The remote's hook did not start.");
+            await Task.Delay(20);
+        }
         await cancel.CancelAsync();
         GitPushResult unknown = await pushing;
         File.Delete(slow);
@@ -105,7 +113,7 @@ public sealed class GitWorkflowRemoteTests
         Git.Run(other, "commit", "-q", "-am", "Published");
         string published = Git.Run(other, "rev-parse", "HEAD").TrimEnd('\n');
         Git.Run(other, "push", "-q", "origin", "main", "main:feature", "main:steady");
-        repository.Run("update-ref", "refs/remotes/origin/steady", published);
+        repository.Run("fetch", "-q", "origin", "refs/heads/steady:refs/remotes/origin/steady");
         repository.Run("update-ref", "refs/remotes/nest/child", root);
 
         GitFetchResult fetched = await git.Transfers.FetchAsync(new(repository.Path, "origin",
