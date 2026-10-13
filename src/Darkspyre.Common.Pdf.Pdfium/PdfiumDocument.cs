@@ -101,13 +101,13 @@ internal sealed class PdfiumDocument : IPdfDocument
     private List<PdfTextLine> Text(int pageIndex)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        if (pageIndex < 0 || pageIndex >= Pages.Count) return [];
+        if (pageIndex < 0 || pageIndex >= Pages.Count) throw new ArgumentOutOfRangeException(nameof(pageIndex));
         nint page = Pdfium.FPDF_LoadPage(document, pageIndex);
-        if (page == 0) return [];
+        if (page == 0) throw new IOException("PDF page text could not be read.");
         try
         {
             nint text = Pdfium.FPDFText_LoadPage(page);
-            if (text == 0) return [];
+            if (text == 0) throw new IOException("PDF page text could not be read.");
             try
             {
                 var lines = new List<PdfTextLine>();
@@ -119,6 +119,7 @@ internal sealed class PdfiumDocument : IPdfDocument
                     current.Clear();
                 }
                 int count = Pdfium.FPDFText_CountChars(text);
+                if (count < 0) throw new IOException("PDF page text could not be read.");
                 for (int index = 0; index < count; index++)
                 {
                     uint code = Pdfium.FPDFText_GetUnicode(text, index);

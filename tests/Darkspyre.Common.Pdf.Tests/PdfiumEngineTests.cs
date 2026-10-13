@@ -63,6 +63,37 @@ public sealed class PdfiumEngineTests
     }
 
     [Fact]
+    public async Task InvalidPageIndexDoesNotReportBlankText()
+    {
+        await using IPdfDocument document = await OpenAsync("three-pages.pdf");
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => document.TextAsync(-1, default));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => document.TextAsync(document.Pages.Count, default));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task BlankPageAndUnreadablePageHaveDifferentOutcomes(bool unreadable)
+    {
+        // The second fixture names a missing page object. PDFium opens its catalog but cannot load that page.
+        string page = unreadable ? "" : "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >> endobj\n";
+        byte[] bytes = System.Text.Encoding.ASCII.GetBytes("%PDF-1.4\n"
+            + "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n"
+            + "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n" + page
+            + "trailer << /Root 1 0 R >>\n%%EOF\n");
+        PdfOpenResult result = await new PdfiumEngine().OpenAsync(bytes, null, default);
+        Assert.Equal(PdfOpenStatus.Opened, result.Status);
+        await using IPdfDocument document = result.Document!;
+        Assert.Single(document.Pages);
+        if (unreadable)
+        {
+            IOException error = await Assert.ThrowsAsync<IOException>(() => document.TextAsync(0, default));
+            Assert.Equal("PDF page text could not be read.", error.Message);
+        }
+        else Assert.Empty(await document.TextAsync(0, default));
+    }
+
+    [Fact]
     public async Task ReadsBookmarksAndInternalLinks()
     {
         await using IPdfDocument document = await OpenAsync("three-pages.pdf");

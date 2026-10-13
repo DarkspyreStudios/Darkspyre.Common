@@ -123,3 +123,8 @@ public sealed class GitReadException : IOException
     /// <summary>Why the read failed.</summary>
     public GitReadFailure Failure { get; }
 }
+
+/// <summary>One local branch observed in the repository's ref inventory.</summary>
+/// <param name="FullRefName">The full branch name under refs/heads/.</param>
+/// <param name="CommitId">The exact local commit ID at the time of the read.</param>
+public sealed record GitBranchEntry(string FullRefName, string CommitId);

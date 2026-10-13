@@ -62,8 +62,11 @@ GitRepositorySnapshot? snapshot = await client.InspectAsync(directory, cancellat
 - A cherry-pick runs a plain pick. When a pick stops with `CHERRY_PICK_HEAD` present, no unmerged path and an index equal
   to HEAD, the commit was already applied: the library runs `cherry-pick --skip`, at most once per source commit. A stop
   with staged changes, such as one a hook caused, stays stopped. Skipped commits are named by stable patch ID.
-- Both callers of `git worktree list --porcelain` run it as a read and parse it with one parser. A worktree path that
-  holds a newline is unsupported: it parses as a wrong path.
+- `ReadWorktreesAsync` lists registered worktrees, their observed HEAD and branch, including unavailable locations.
+  Paths the caller's policy refuses are omitted. `ReadLocalBranchesAsync` lists local branch refs and exact commit IDs.
+  Neither read contacts a remote or changes Git. A failed read throws and never represents an empty inventory.
+- Every caller of `git worktree list --porcelain` uses one parser. Incomplete or unsupported output throws, including
+  newline-containing paths that the line protocol cannot represent. Callers cannot infer deletion from that failure.
 - A repository-relative path has no empty, `.` or `..` component.
 - `GitPathChecks.NamedPathExists` reports whether a directory entry exists at a path without following a final link, so
   a new clone or worktree never takes the place of a dangling link.
@@ -111,7 +114,10 @@ load context of `Darkspyre.Common.Pdf.Pdfium.dll`. No portable code checks the o
   reports `PasswordRequired` when none is given and `IncorrectPassword` when the given one fails.
 - A render draws an area of a page with its annotations and form fields. The area is at most 1024 pixels a side; a
   larger page is drawn as tiles.
-- Text comes as lines in reading order, each with its box. Links list only targets inside the document.
+- Text comes as lines in reading order, each with its box. A valid blank page returns an empty list. An invalid page index
+  throws `ArgumentOutOfRangeException`; failed native page/text reads throw `IOException` with
+  `PDF page text could not be read.`. Search can distinguish unreadable pages from pages that need OCR.
+  Links list only targets inside the document.
 
 ### Tests
 

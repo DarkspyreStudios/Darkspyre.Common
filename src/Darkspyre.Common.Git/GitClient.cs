@@ -38,6 +38,20 @@ public sealed class GitClient
     public Task<GitRepositorySnapshot?> InspectAsync(string directory, CancellationToken cancellationToken = default) =>
         this.reader.InspectAsync(directory, cancellationToken);
 
+    /// <summary>
+    /// Lists registered worktrees, including detached and unavailable locations, leaving out paths the policy refuses.
+    /// It never prunes entries, changes a checkout or contacts a remote. A failed inventory throws.
+    /// </summary>
+    public Task<IReadOnlyList<GitWorktreeEntry>> ReadWorktreesAsync(string directory, CancellationToken cancellationToken = default) =>
+        this.reader.ReadWorktreesAsync(directory, cancellationToken);
+
+    /// <summary>
+    /// Lists local branch refs and their observed commit IDs without reading content or contacting a remote.
+    /// A failed inventory throws; a successful empty list means no local branches exist.
+    /// </summary>
+    public Task<IReadOnlyList<GitBranchEntry>> ReadLocalBranchesAsync(string directory, CancellationToken cancellationToken = default) =>
+        this.reader.ReadLocalBranchesAsync(directory, cancellationToken);
+
     /// <summary>Clones a remote into a new absolute destination and returns the resulting repository. A failed clone is not cleaned up.</summary>
     public Task<GitRepositorySnapshot> CloneAsync(GitCloneRequest request, CancellationToken cancellationToken = default) =>
         this.transfers.CloneAsync(request, cancellationToken);

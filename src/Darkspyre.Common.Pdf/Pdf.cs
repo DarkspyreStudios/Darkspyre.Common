@@ -51,7 +51,9 @@ public interface IPdfDocument : IAsyncDisposable
     /// <exception cref="ArgumentOutOfRangeException">The area's width or height is outside 1 to 1024.</exception>
     Task<PdfBitmap?> RenderAsync(int pageIndex, double scale, PdfPixelArea area, CancellationToken cancellationToken);
 
-    /// <summary>The page's text as lines in reading order. Empty when the page has no text or cannot be read.</summary>
+    /// <summary>The page's text as lines in reading order. Empty only when the page has no readable text.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">The page index is outside the document.</exception>
+    /// <exception cref="IOException">PDF page text could not be read.</exception>
     Task<IReadOnlyList<PdfTextLine>> TextAsync(int pageIndex, CancellationToken cancellationToken);
 
     /// <summary>The page's links to pages of this document. Links to anything else are left out.</summary>
