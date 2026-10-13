@@ -65,6 +65,7 @@ GitRepositorySnapshot? snapshot = await client.InspectAsync(directory, cancellat
 - `ReadWorktreesAsync` lists registered worktrees, their observed HEAD and branch, including unavailable locations.
   Paths the caller's policy refuses are omitted. `ReadLocalBranchesAsync` lists local branch refs and exact commit IDs.
   Neither read contacts a remote or changes Git. A failed read throws and never represents an empty inventory.
+  Inventory diagnostics also fail the read: Git can omit broken refs with a warning while returning exit zero.
 - Every caller of `git worktree list --porcelain` uses one parser. Incomplete or unsupported output throws, including
   newline-containing paths that the line protocol cannot represent. Callers cannot infer deletion from that failure.
 - A repository-relative path has no empty, `.` or `..` component.

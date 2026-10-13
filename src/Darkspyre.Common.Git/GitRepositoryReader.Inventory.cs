@@ -5,7 +5,7 @@ internal sealed partial class GitRepositoryReader
     internal async Task<IReadOnlyList<GitWorktreeEntry>> ReadWorktreesAsync(string directory, CancellationToken cancellationToken)
     {
         GitLayout layout = await this.OpenAsync(directory, cancellationToken).ConfigureAwait(false);
-        byte[] output = await this.ReadAsync(layout.WorktreePath, ["worktree", "list", "--porcelain"], cancellationToken).ConfigureAwait(false);
+        byte[] output = await this.ReadInventoryAsync(layout.WorktreePath, ["worktree", "list", "--porcelain"], cancellationToken).ConfigureAwait(false);
         List<GitWorktreeEntry> entries = [];
         foreach (GitWorktreeEntry entry in GitWorktreeList.Parse(output))
             if (await PermitsAsync(this.paths, entry.Path, cancellationToken).ConfigureAwait(false))
@@ -16,7 +16,7 @@ internal sealed partial class GitRepositoryReader
     internal async Task<IReadOnlyList<GitBranchEntry>> ReadLocalBranchesAsync(string directory, CancellationToken cancellationToken)
     {
         GitLayout layout = await this.OpenAsync(directory, cancellationToken).ConfigureAwait(false);
-        byte[] output = await this.ReadAsync(layout.WorktreePath,
+        byte[] output = await this.ReadInventoryAsync(layout.WorktreePath,
             ["for-each-ref", "--format=%(objectname) %(refname)", "refs/heads/"], cancellationToken).ConfigureAwait(false);
         if (output.Length == 0) return [];
         List<GitBranchEntry> branches = [];
@@ -30,4 +30,13 @@ internal sealed partial class GitRepositoryReader
         }
         return branches.AsReadOnly();
     }
+    private async Task<byte[]> ReadInventoryAsync(string directory, IReadOnlyList<string> arguments, CancellationToken cancellationToken)
+    {
+        GitRunResult result = await this.RunAsync(directory, arguments, cancellationToken).ConfigureAwait(false);
+        GitOperationChecks.Check(result, "read inventory");
+        // for-each-ref can omit a broken ref, emit a warning and still exit zero. That cannot prove pruning.
+        if (result.Errors.Length != 0) throw new IOException("Git could not read a complete inventory.");
+        return result.Output;
+    }
+
 }

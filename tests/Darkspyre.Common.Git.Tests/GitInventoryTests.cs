@@ -58,6 +58,17 @@ public sealed class GitInventoryTests
         await Assert.ThrowsAsync<DirectoryNotFoundException>(() => client.ReadLocalBranchesAsync(repository.Path));
     }
 
+    [Fact]
+    public async Task BrokenRefCannotLookLikePrunedBranch()
+    {
+        await using GitTestRepository repository = GitTestRepository.Create("inventory-broken-ref");
+        repository.Commit();
+        repository.Run("branch", "topic");
+        await File.WriteAllTextAsync(Path.Combine(repository.Path, ".git", "refs", "heads", "topic"), "broken\n");
+        GitClient client = new(repository.Launcher, repository.Paths, new());
+        await Assert.ThrowsAsync<IOException>(() => client.ReadLocalBranchesAsync(repository.Path));
+    }
+
     [Theory]
     [InlineData("worktree /repo\n")]
     [InlineData("worktree /repo\nHEAD bad\n\n")]
