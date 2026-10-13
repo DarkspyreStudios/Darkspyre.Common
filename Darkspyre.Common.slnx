@@ -1,8 +1,11 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Darkspyre.Common.Git/Darkspyre.Common.Git.csproj" />
+    <Project Path="src/Darkspyre.Common.Pdf/Darkspyre.Common.Pdf.csproj" />
+    <Project Path="src/Darkspyre.Common.Pdf.Pdfium/Darkspyre.Common.Pdf.Pdfium.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Darkspyre.Common.Git.Tests/Darkspyre.Common.Git.Tests.csproj" />
+    <Project Path="tests/Darkspyre.Common.Pdf.Tests/Darkspyre.Common.Pdf.Tests.csproj" />
   </Folder>
 </Solution>

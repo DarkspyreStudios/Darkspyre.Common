@@ -74,3 +74,47 @@ GitRepositorySnapshot? snapshot = await client.InspectAsync(directory, cancellat
 per-process scratch root, `<parent>/darkspyre-common-tests-<process id>`. The parent is `AGENTDS_TEST_SCRATCH` when set,
 else `/Volumes/Data/tmp` when it exists; with neither, the tests fail at start. `GitVersionTests` writes the Git
 version a run used to the test output.
+
+## Darkspyre.Common.Pdf and Darkspyre.Common.Pdf.Pdfium
+
+A PDF engine in two DLLs. It opens documents and inspects their pages, renders pages, extracts text with positions, and
+reads bookmarks and internal links.
+
+- `Darkspyre.Common.Pdf` is the portable contract every consumer compiles against: `IPdfEngine`, `IPdfDocument`, their
+  result records, and `UnavailablePdfEngine`, which a build with no PDF implementation returns. Every coordinate is in
+  points from the top-left of the page as displayed, after the page's rotation. Pixels are 8-bit RGBA, top row first,
+  with no row padding.
+- `Darkspyre.Common.Pdf.Pdfium` is the PDFium implementation, `PdfiumEngine`, for 64-bit macOS and Linux
+  (`[SupportedOSPlatform("macos")]`, `[SupportedOSPlatform("linux")]`). It holds the native bindings, so it is a
+  platform implementation under the operating-system boundary rule.
+
+### Starting it
+
+```csharp
+IPdfEngine engine = new PdfiumEngine(); // on a platform without PDFium: new UnavailablePdfEngine()
+PdfOpenResult open = await engine.OpenAsync(bytes, password: null, cancellationToken);
+if (open.Status != PdfOpenStatus.Opened) { /* ask for a password, then open again with it */ }
+await using IPdfDocument document = open.Document!;
+PdfBitmap? tile = await document.RenderAsync(0, 2, new PdfPixelArea(0, 0, 512, 512), cancellationToken);
+```
+
+`Darkspyre.Common.Pdf.Pdfium` references no native package. The consumer's platform build links its runtime's PDFium
+native package (`bblanchon.PDFium.macOS` or `bblanchon.PDFium.Linux`), and `LibraryImport("pdfium")` resolves in the
+load context of `Darkspyre.Common.Pdf.Pdfium.dll`. No portable code checks the operating system.
+
+### Behaviour
+
+- PDFium is not thread-safe. One lock per load context serializes every PDFium call, and the library is initialized on
+  first use and never destroyed. A consumer shares one engine instance, so every caller in an application goes through
+  one lock.
+- An open copies the bytes into native memory that lives until the document is disposed. A file that needs a password
+  reports `PasswordRequired` when none is given and `IncorrectPassword` when the given one fails.
+- A render draws an area of a page with its annotations and form fields. The area is at most 1024 pixels a side; a
+  larger page is drawn as tiles.
+- Text comes as lines in reading order, each with its box. Links list only targets inside the document.
+
+### Tests
+
+`tests/Darkspyre.Common.Pdf.Tests` runs the real PDFium engine against the fixtures `three-pages.pdf` and
+`three-pages-protected.pdf` (password `secret`). The test project references both PDFium native packages, and the
+runtime picks its own native file. The test class carries both `SupportedOSPlatform` attributes.

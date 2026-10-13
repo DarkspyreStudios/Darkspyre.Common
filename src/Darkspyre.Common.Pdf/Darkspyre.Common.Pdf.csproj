@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>The PDF engine contract: open documents, inspect and render pages, read text, bookmarks and links.</Description>
+    <RootNamespace>Darkspyre.Common.Pdf</RootNamespace>
+    <Version>$(DarkspyreCommonPdfVersion)</Version>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="bblanchon.PDFium.macOS" />
+    <PackageReference Include="bblanchon.PDFium.Linux" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Darkspyre.Common.Pdf.Pdfium/Darkspyre.Common.Pdf.Pdfium.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Fixtures/*.pdf" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
