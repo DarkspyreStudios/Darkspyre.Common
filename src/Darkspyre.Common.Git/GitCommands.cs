@@ -4,9 +4,10 @@ using System.Collections.Immutable;
 namespace Darkspyre.Common.Git;
 
 /// <summary>Raw Git transport over the caller's process launcher, never a shell or a second launcher.</summary>
-internal sealed class GitCommands(IGitProcessLauncher processes)
+internal sealed class GitCommands(IGitProcessLauncher processes, GitReadPolicy readPolicy = GitReadPolicy.Configured)
 {
     private readonly IGitProcessLauncher processes = processes;
+    internal GitReadPolicy ReadPolicy { get; } = readPolicy;
 
     // Git credential helpers/configuration remain Git-owned. Ambient repository overrides must not
     // redirect a scoped operation to another index, object directory or working tree.
@@ -50,7 +51,7 @@ internal sealed class GitCommands(IGitProcessLauncher processes)
     internal Task<GitRunResult> RunReadAsync(string directory, IReadOnlyList<string> arguments,
         TimeSpan? timeout = null, ReadOnlyMemory<byte> input = default, CancellationToken cancellationToken = default) =>
         this.RunCoreAsync(directory, [.. ReadOptions, .. arguments],
-            new(CurrentReadEnvironment(), GitProcessKind.Read, new() { Timeout = timeout, Input = input }), cancellationToken);
+            new(this.CurrentReadEnvironment(), GitProcessKind.Read, new() { Timeout = timeout, Input = input }), cancellationToken);
 
     /// <summary>
     /// Runs one rebase or cherry-pick command with <c>GIT_EDITOR</c> and <c>GIT_SEQUENCE_EDITOR</c> set to <c>:</c>, so Git
@@ -69,7 +70,7 @@ internal sealed class GitCommands(IGitProcessLauncher processes)
     {
         cancellationToken.ThrowIfCancellationRequested();
         GitProcessStart start = new(["--no-pager", "-c", "core.fsmonitor=false", .. ReadOptions, .. arguments],
-            directory, CurrentReadEnvironment(), GitProcessKind.Read);
+            directory, this.CurrentReadEnvironment(), GitProcessKind.Read);
         return this.processes.StartAsync(start, cancellationToken);
     }
 
@@ -91,7 +92,7 @@ internal sealed class GitCommands(IGitProcessLauncher processes)
 
     // GIT_CONFIG_KEY_n, GIT_CONFIG_VALUE_n and any other GIT_TRACE* name exist only as the host inherited them, so they are
     // read from the host's environment at each start and cleared.
-    private static ImmutableDictionary<string, string?> CurrentReadEnvironment()
+    private ImmutableDictionary<string, string?> CurrentReadEnvironment()
     {
         ImmutableDictionary<string, string?> environment = ReadEnvironment;
         foreach (DictionaryEntry inherited in System.Environment.GetEnvironmentVariables())
@@ -99,6 +100,8 @@ internal sealed class GitCommands(IGitProcessLauncher processes)
                 || name.StartsWith("GIT_CONFIG_KEY_", StringComparison.Ordinal)
                 || name.StartsWith("GIT_CONFIG_VALUE_", StringComparison.Ordinal)))
                 environment = environment.SetItem(name, null);
+        // Git 2.34 supports this transport allowlist. An empty list also forbids implicit file/remote-helper fetches.
+        if (this.ReadPolicy == GitReadPolicy.LocalOnly) environment = environment.SetItem("GIT_ALLOW_PROTOCOL", "");
         return environment;
     }
 }

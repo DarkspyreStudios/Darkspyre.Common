@@ -24,6 +24,11 @@ GitRepositorySnapshot? snapshot = await client.InspectAsync(directory, cancellat
 ```
 
 `GitClient` checks no version. A consumer reads `GitVersion` once before its first call; an older Git fails per command.
+Its optional `readPolicy` argument defaults to `GitReadPolicy.Configured`. Search passes `GitReadPolicy.LocalOnly`:
+all read commands, including the persistent blob process, receive an empty `GIT_ALLOW_PROTOCOL` transport allowlist.
+They cannot fetch from network, file or helper transports, even when repository configuration allows them.
+This process-local policy changes no Git configuration and does not change explicit mutation operations.
+The setting is supported by [Git 2.34](https://git-scm.com/docs/git/2.34.0#Documentation/git.txt-codeGITALLOWPROTOCOLcode).
 
 ### Seams
 
@@ -52,7 +57,9 @@ GitRepositorySnapshot? snapshot = await client.InspectAsync(directory, cancellat
   (`extensions.partialclone`, or a `remote.<name>.promisor` that Git reads as true). Only then does each blob read first
   run `git rev-list --objects --no-object-names --no-walk --ignore-missing --missing=print`. A missing object throws
   `GitReadException` with `GitReadFailure.ObjectMissing` and nothing is fetched. Other reads (tree listings, diffs,
-  history, patch IDs) run no existence check and can fetch in a partial clone, as plain Git does.
+  history, patch IDs) run no existence check and can fetch in a partial clone under `Configured`, as plain Git does.
+  `LocalOnly` prevents those transports; failed reads and content-read diagnostics report unavailable local content,
+  never a complete empty tree. Existing object-existence checks still apply to blobs.
 - A file read lists the entry with `ls-tree` without `-l`; the byte limit is checked from the `cat-file --batch` header
   before the body is read.
 - A fetch reads the commit of each `source:destination` destination with `for-each-ref` before and after

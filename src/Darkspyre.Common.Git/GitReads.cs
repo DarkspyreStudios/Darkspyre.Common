@@ -128,3 +128,12 @@ public sealed class GitReadException : IOException
 /// <param name="FullRefName">The full branch name under refs/heads/.</param>
 /// <param name="CommitId">The exact local commit ID at the time of the read.</param>
 public sealed record GitBranchEntry(string FullRefName, string CommitId);
+
+/// <summary>Whether Git read commands may use the repository's configured transports.</summary>
+public enum GitReadPolicy
+{
+    /// <summary>Uses the repository's normal read behavior, including implicit fetches where Git permits them.</summary>
+    Configured,
+    /// <summary>Forbids all Git transports during reads; unavailable local objects fail the read.</summary>
+    LocalOnly,
+}

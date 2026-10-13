@@ -19,12 +19,15 @@ public sealed class GitClient
     /// <param name="processes">Starts every Git child.</param>
     /// <param name="paths">Resolves and checks every caller path.</param>
     /// <param name="locks">Serializes changes per repository; share one instance among the clients of one process.</param>
-    public GitClient(IGitProcessLauncher processes, IGitPathPolicy paths, GitRepositoryLocks locks)
+    /// <param name="readPolicy">Transport policy for reads. Explicit mutations retain their existing behavior.</param>
+    public GitClient(IGitProcessLauncher processes, IGitPathPolicy paths, GitRepositoryLocks locks,
+        GitReadPolicy readPolicy = GitReadPolicy.Configured)
     {
         ArgumentNullException.ThrowIfNull(processes);
         ArgumentNullException.ThrowIfNull(paths);
         ArgumentNullException.ThrowIfNull(locks);
-        GitCommands git = new(processes);
+        if (!Enum.IsDefined(readPolicy)) throw new ArgumentOutOfRangeException(nameof(readPolicy));
+        GitCommands git = new(processes, readPolicy);
         this.reader = new(git, paths);
         this.transfers = new(git, this.reader, locks, paths);
         this.worktrees = new(git, this.reader, locks, paths);

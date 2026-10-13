@@ -237,6 +237,9 @@ internal sealed partial class GitRepositoryReader(GitCommands git, IGitPathPolic
     {
         GitRunResult result = await this.RunAsync(directory, arguments, cancellationToken).ConfigureAwait(false);
         Check(result, "read repository");
+        // ls-tree can exit zero after a denied lazy fetch and return incomplete size information.
+        if (this.git.ReadPolicy == GitReadPolicy.LocalOnly && result.Errors.Length != 0)
+            throw new IOException("Git content is unavailable from the local object store.");
         return result.Output;
     }
 
