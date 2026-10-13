@@ -69,6 +69,8 @@ The setting is supported by [Git 2.34](https://git-scm.com/docs/git/2.34.0#Docum
 - A cherry-pick runs a plain pick. When a pick stops with `CHERRY_PICK_HEAD` present, no unmerged path and an index equal
   to HEAD, the commit was already applied: the library runs `cherry-pick --skip`, at most once per source commit. A stop
   with staged changes, such as one a hook caused, stays stopped. Skipped commits are named by stable patch ID.
+- `InspectAsync` identifies both the common directory and the individual worktree administrative directory.
+  A caller can watch that worktree's HEAD/index without inferring an administrative name from its absolute checkout path.
 - `ReadWorktreesAsync` lists registered worktrees, their observed HEAD and branch, including unavailable locations.
   Paths the caller's policy refuses are omitted. `ReadLocalBranchesAsync` lists local branch refs and exact commit IDs.
   Neither read contacts a remote or changes Git. A failed read throws and never represents an empty inventory.

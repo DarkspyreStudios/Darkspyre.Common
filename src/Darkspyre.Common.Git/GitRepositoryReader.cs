@@ -27,8 +27,10 @@ internal sealed partial class GitRepositoryReader(GitCommands git, IGitPathPolic
         if (branch.Exit.ExitCode != 1) Check(branch, "read branch");
         byte[] status = await this.ReadAsync(layout.WorktreePath,
             ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--ignored=traditional"], cancellationToken).ConfigureAwait(false);
+        string administrative = this.paths.Resolve(Text(await this.ReadAsync(layout.WorktreePath,
+            ["rev-parse", "--absolute-git-dir"], cancellationToken).ConfigureAwait(false)));
         return new(layout.CommonDirectory, layout.WorktreePath, layout.HeadCommit,
-            branch.Exit.ExitCode == 0 ? Line(branch.Output) : null, ParseStatus(status)) { ObjectFormat = layout.ObjectFormat };
+            branch.Exit.ExitCode == 0 ? Line(branch.Output) : null, ParseStatus(status), administrative) { ObjectFormat = layout.ObjectFormat };
     }
 
     /// <summary>

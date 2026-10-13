@@ -17,6 +17,12 @@ public sealed class GitInventoryTests
         repository.Run("worktree", "add", "-q", "-b", "topic", linked);
         repository.Run("worktree", "add", "-q", "--detach", detached);
         GitClient client = new(repository.Launcher, repository.Paths, new());
+        var mainSnapshot = (await client.InspectAsync(repository.Path))!;
+        var linkedSnapshot = (await client.InspectAsync(linked))!;
+        Assert.Equal(mainSnapshot.CommonDirectory, mainSnapshot.GitDirectory);
+        Assert.Equal(mainSnapshot.CommonDirectory, linkedSnapshot.CommonDirectory);
+        Assert.Equal(Path.Combine(mainSnapshot.CommonDirectory, "worktrees", "linked"), linkedSnapshot.GitDirectory);
+        Assert.True(File.Exists(Path.Combine(linkedSnapshot.GitDirectory, "HEAD")));
         IReadOnlyList<GitWorktreeEntry> worktrees = await client.ReadWorktreesAsync(repository.Path);
         Assert.Equal(3, worktrees.Count);
         Assert.Contains(worktrees, w => w.Path == linked && w.BranchRef == "refs/heads/topic" && w.HeadCommit == commit);

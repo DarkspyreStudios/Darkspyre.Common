@@ -15,7 +15,7 @@
     <!-- Library versions: <net>.<major>.<minor>.<build>. The first part is the .NET major version the libraries target
          (net11.0). The last part goes up by one when the library's code changes. Each library's csproj sets
          <Version> from its property. -->
-    <DarkspyreCommonGitVersion>11.0.10.3</DarkspyreCommonGitVersion>
+    <DarkspyreCommonGitVersion>11.0.10.4</DarkspyreCommonGitVersion>
     <DarkspyreCommonPdfVersion>11.0.10.1</DarkspyreCommonPdfVersion>
     <DarkspyreCommonPdfPdfiumVersion>11.0.10.1</DarkspyreCommonPdfPdfiumVersion>
   </PropertyGroup>

@@ -15,8 +15,9 @@ public sealed record GitStatusEntry(string Path, string IndexStatus, string Work
 /// <param name="HeadCommit">The commit HEAD names, or null when the branch has no commits.</param>
 /// <param name="BranchRef">The full ref of the checked-out branch, or null when HEAD is detached.</param>
 /// <param name="Status">The working tree's status entries.</param>
+/// <param name="GitDirectory">The absolute administrative directory containing this working tree's HEAD and index.</param>
 public sealed record GitRepositorySnapshot(string CommonDirectory, string WorktreePath,
-    string? HeadCommit, string? BranchRef, IReadOnlyList<GitStatusEntry> Status)
+    string? HeadCommit, string? BranchRef, IReadOnlyList<GitStatusEntry> Status, string GitDirectory)
 {
     /// <summary>The repository's object format, which sets the width of its object IDs.</summary>
     public GitObjectFormat ObjectFormat { get; init; }
