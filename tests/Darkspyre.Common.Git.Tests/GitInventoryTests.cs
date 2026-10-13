@@ -6,6 +6,7 @@ namespace Darkspyre.Common.Git.Tests;
 /// <summary>Local inventory distinguishes authoritative removal from an unavailable read.</summary>
 public sealed class GitInventoryTests
 {
+    /// <summary>Removing a worktree leaves its branch until an explicit prune.</summary>
     [Fact]
     public async Task LinkedAndDetachedWorktreesRemainSeparateFromRetainedBranches()
     {
@@ -29,6 +30,7 @@ public sealed class GitInventoryTests
         Assert.All(repository.Launcher.Requests, start => Assert.Equal(GitProcessKind.Read, start.Kind));
     }
 
+    /// <summary>An unavailable location remains registered while path-policy refusals stay private.</summary>
     [Fact]
     public async Task MissingWorktreeRemainsListedAndDeniedLocationsAreOmitted()
     {
@@ -45,6 +47,7 @@ public sealed class GitInventoryTests
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => client.ReadLocalBranchesAsync(repository.Path));
     }
 
+    /// <summary>An unborn branch is empty; an unavailable repository is a failed observation.</summary>
     [Fact]
     public async Task UnbornBranchHasNoCommittedRefAndUnavailableRepositoryThrows()
     {
@@ -58,6 +61,7 @@ public sealed class GitInventoryTests
         await Assert.ThrowsAsync<DirectoryNotFoundException>(() => client.ReadLocalBranchesAsync(repository.Path));
     }
 
+    /// <summary>A broken ref diagnostic prevents a false deletion observation.</summary>
     [Fact]
     public async Task BrokenRefCannotLookLikePrunedBranch()
     {
@@ -69,6 +73,7 @@ public sealed class GitInventoryTests
         await Assert.ThrowsAsync<IOException>(() => client.ReadLocalBranchesAsync(repository.Path));
     }
 
+    /// <summary>Malformed output never supplies an authoritative inventory.</summary>
     [Theory]
     [InlineData("worktree /repo\n")]
     [InlineData("worktree /repo\nHEAD bad\n\n")]

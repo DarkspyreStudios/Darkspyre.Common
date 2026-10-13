@@ -62,6 +62,7 @@ public sealed class PdfiumEngineTests
             && line.Box.Left + line.Box.Width <= page.Width && line.Box.Top + line.Box.Height <= page.Height));
     }
 
+    /// <summary>An invalid page cannot masquerade as a page with no text.</summary>
     [Fact]
     public async Task InvalidPageIndexDoesNotReportBlankText()
     {
@@ -70,6 +71,7 @@ public sealed class PdfiumEngineTests
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => document.TextAsync(document.Pages.Count, default));
     }
 
+    /// <summary>Real PDFium distinguishes a valid blank page from a missing page object.</summary>
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
