@@ -1,0 +1,20 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <AnalysisLevelStyle>latest-none</AnalysisLevelStyle>
+    <Deterministic>true</Deterministic>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <Copyright>Copyright © 2026 Brandon Mathis. All rights reserved.</Copyright>
+    <Company>Mathis</Company>
+    <!-- Library versions: <net>.<major>.<minor>.<build>. The first part is the .NET major version the libraries target
+         (net11.0). The last part goes up by one when the library's code changes. Each library's csproj sets
+         <Version> from its property. -->
+    <DarkspyreCommonGitVersion>11.0.10.0</DarkspyreCommonGitVersion>
+  </PropertyGroup>
+</Project>

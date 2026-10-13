@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Darkspyre.Common.Git/Darkspyre.Common.Git.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Darkspyre.Common.Git.Tests/Darkspyre.Common.Git.Tests.csproj" />
+  </Folder>
+</Solution>

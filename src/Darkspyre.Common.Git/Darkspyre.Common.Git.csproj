@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Git operations over the installed git executable (Git 2.34 or newer), with a process seam and a path policy seam.</Description>
+    <RootNamespace>Darkspyre.Common.Git</RootNamespace>
+    <Version>$(DarkspyreCommonGitVersion)</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Darkspyre.Common.Git.Tests" />
+  </ItemGroup>
+</Project>

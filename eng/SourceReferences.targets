@@ -1,0 +1,13 @@
+<Project>
+  <!-- Source mode for consumers of the Darkspyre.Common packages. A consuming repository imports this file from its
+       Directory.Build.targets when DarkspyreCommonSourceRoot names a Darkspyre.Common checkout. Each Darkspyre.Common
+       PackageReference becomes a ProjectReference to its project, keeping its asset metadata. -->
+  <ItemGroup>
+    <_DarkspyreCommonSourceProject Include="@(PackageReference->WithMetadataValue('Identity', 'Darkspyre.Common.Git')->'$(MSBuildThisFileDirectory)../src/Darkspyre.Common.Git/Darkspyre.Common.Git.csproj')" />
+    <PackageReference Remove="Darkspyre.Common.Git" />
+    <ProjectReference Include="@(_DarkspyreCommonSourceProject)">
+      <Private Condition="'%(ExcludeAssets)' == 'all' or $([System.String]::Copy(';%(ExcludeAssets);').Contains(';runtime;'))">false</Private>
+      <ReferenceOutputAssembly Condition="'%(ExcludeAssets)' == 'all' or $([System.String]::Copy(';%(ExcludeAssets);').Contains(';compile;'))">false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
+</Project>
