@@ -84,13 +84,6 @@ public sealed class DiffView : TemplatedControl
         if (change.Property == OldTextProperty || change.Property == NewTextProperty) this.Compare();
     }
 
-    /// <inheritdoc />
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
-    {
-        this.computing?.Cancel();
-        base.OnDetachedFromVisualTree(e);
-    }
-
     // The comparison runs off the UI thread; a newer pair of texts cancels it and only the latest result is shown.
     private void Compare()
     {

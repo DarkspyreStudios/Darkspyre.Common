@@ -236,13 +236,6 @@ public sealed class PdfViewer : TemplatedControl, IDisposable
         }
     }
 
-    /// <inheritdoc />
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
-    {
-        this.Dispose();
-        base.OnDetachedFromVisualTree(e);
-    }
-
     private static Button ToolButton(string text, string name, Action click)
     {
         Button button = new() { Content = text };
