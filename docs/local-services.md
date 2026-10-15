@@ -335,3 +335,12 @@ The Contracts library emits XML documentation for wire envelopes, fields, lifecy
 The runtime library emits documentation for subscriber leases, request admission, package pins and shutdown.
 The macOS implementation emits documentation for native directory identities, lease ownership and connection setup.
 The SDK reference reads this output alongside its assembly. Protocol values and message shapes remain unchanged.
+
+## macOS fixture signing
+
+The test backend executable uses Apple Development certificate
+`96BA98550C1A060322A9B7A217D81A07A2C39BED` and the fixed identifier
+`com.darkspyrestudios.localservices.tests.backend`. Sign the copied AgenticTools test output before
+running its native lifecycle cases. The fixtures capture their package manifests from those signed bytes.
+The test runner uses `/Volumes/Data/tmp/signed-test-host/dotnet` with identifier
+`com.darkspyrestudios.agent.tests.testhost` and team `L469XNMGLQ`.
