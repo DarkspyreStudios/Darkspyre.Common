@@ -3,7 +3,7 @@ using Microsoft.Win32.SafeHandles;
 
 namespace Darkspyre.LocalServices.Platform.Linux;
 
-// Sizes and signatures follow glibc posix/spawn.h on Linux x64.
+// Sizes and signatures follow glibc posix/spawn.h on Linux x64 and ARM64.
 internal static partial class LinuxSpawn
 {
     [LibraryImport("libc.so.6", EntryPoint = "posix_spawn", StringMarshalling = StringMarshalling.Utf8)]

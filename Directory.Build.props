@@ -22,7 +22,7 @@
     <DarkspyreLocalServicesContractsVersion>11.0.10.0</DarkspyreLocalServicesContractsVersion>
     <DarkspyreLocalServicesVersion>11.0.10.0</DarkspyreLocalServicesVersion>
     <DarkspyreLocalServicesPlatformMacOSVersion>11.0.10.0</DarkspyreLocalServicesPlatformMacOSVersion>
-    <DarkspyreLocalServicesPlatformLinuxVersion>11.0.10.0</DarkspyreLocalServicesPlatformLinuxVersion>
+    <DarkspyreLocalServicesPlatformLinuxVersion>11.0.10.1</DarkspyreLocalServicesPlatformLinuxVersion>
     <DarkspyreLocalServicesPlatformWindowsVersion>11.0.10.0</DarkspyreLocalServicesPlatformWindowsVersion>
   </PropertyGroup>
 </Project>

@@ -285,7 +285,9 @@ that work before native ownership can be released.
 The Linux driver uses private descriptor-relative files and permanent flock leases. Its Unix socket
 checks SO_PEERCRED against the effective user before the shared capability handshake. Detached
 launch uses glibc posix_spawn with a new session and retains only null standard streams and the
-inherited package lease. The native ABI implementation supports Linux x64 with glibc.
+inherited package lease. The native ABI implementation supports Linux x64 and ARM64 with glibc.
+File inspection translates each architecture's `stat` layout into the same device, inode, link-count,
+mode and user fields. Directory and no-follow open flags also use the architecture's ABI values.
 
 Data uses XDG_DATA_HOME or the user’s .local/share directory. Rendezvous uses an owned
 XDG_RUNTIME_DIR when available, otherwise the private data directory. Cache, registration, launch
