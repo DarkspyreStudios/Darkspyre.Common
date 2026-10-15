@@ -58,6 +58,7 @@ public sealed class PdfViewerTests
 
         Assert.Equal(3, viewer.Find("needle"));
         Assert.Equal(0, viewer.CurrentPage);
+        Assert.Equal(1, viewer.CurrentMatch);
         viewer.FindNext();
         ViewSession.Settle();
         Assert.Equal(1, viewer.CurrentPage);

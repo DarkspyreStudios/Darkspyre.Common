@@ -211,6 +211,9 @@ public sealed class PdfViewer : TemplatedControl, IDisposable
         if (this.matches.Count > 0) this.ShowMatch((this.currentMatch - 1 + this.matches.Count) % this.matches.Count);
     }
 
+    /// <summary>The one-based index of the shown match, or 0 when none is shown.</summary>
+    public int CurrentMatch => this.currentMatch + 1;
+
     /// <summary>Stops drawing and reading, and releases every drawn bitmap. The document stays open for its owner.</summary>
     public void Dispose()
     {

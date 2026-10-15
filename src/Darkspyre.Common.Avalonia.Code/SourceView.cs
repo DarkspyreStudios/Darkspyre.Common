@@ -25,16 +25,15 @@ public sealed class SourceView : TemplatedControl
     public static readonly StyledProperty<string?> LanguageProperty = AvaloniaProperty.Register<SourceView, string?>(nameof(Language));
 
     private readonly TextEditor editor = CodeEditors.Create(lineNumbers: true);
-    private readonly List<(int Offset, int Length)> matches = [];
+    private readonly EditorFind finder;
     private RegistryOptions? registry;
     private TextMate.Installation? highlighting;
-    private int current = -1;
     private int target;
 
     /// <summary>Creates the view.</summary>
     public SourceView()
     {
-        this.editor.TextArea.TextView.BackgroundRenderers.Add(new RangeMarks(this.Marks));
+        this.finder = new EditorFind(this.editor, this);
         this.Template = new FuncControlTemplate<SourceView>((view, _) => view.editor);
         global::Avalonia.Automation.AutomationProperties.SetName(this.editor, "Source");
         this.ActualThemeVariantChanged += (_, _) =>
@@ -69,36 +68,16 @@ public sealed class SourceView : TemplatedControl
     }
 
     /// <summary>Marks every case-insensitive match of <paramref name="query"/>, selects the first, and returns how many there are.</summary>
-    public int Find(string query)
-    {
-        this.matches.Clear();
-        this.current = -1;
-        string text = this.editor.Document.Text;
-        if (!string.IsNullOrEmpty(query))
-        {
-            for (int at = text.IndexOf(query, StringComparison.OrdinalIgnoreCase); at >= 0;
-                at = text.IndexOf(query, at + Math.Max(1, query.Length), StringComparison.OrdinalIgnoreCase))
-                this.matches.Add((at, query.Length));
-        }
-        if (this.matches.Count > 0) this.Select(0);
-        this.editor.TextArea.TextView.InvalidateLayer(AvaloniaEdit.Rendering.KnownLayer.Selection);
-        return this.matches.Count;
-    }
+    public int Find(string query) => this.finder.Find(query);
 
     /// <summary>Selects the match after the current one, wrapping to the first.</summary>
-    public void FindNext()
-    {
-        if (this.matches.Count > 0) this.Select((this.current + 1) % this.matches.Count);
-    }
+    public void FindNext() => this.finder.FindNext();
 
     /// <summary>Selects the match before the current one, wrapping to the last.</summary>
-    public void FindPrevious()
-    {
-        if (this.matches.Count > 0) this.Select((this.current - 1 + this.matches.Count) % this.matches.Count);
-    }
+    public void FindPrevious() => this.finder.FindPrevious();
 
     /// <summary>The one-based index of the selected match, or 0 when none is selected.</summary>
-    public int CurrentMatch => this.current + 1;
+    public int CurrentMatch => this.finder.CurrentMatch;
 
     /// <inheritdoc />
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -106,8 +85,7 @@ public sealed class SourceView : TemplatedControl
         base.OnPropertyChanged(change);
         if (change.Property == TextProperty)
         {
-            this.matches.Clear();
-            this.current = -1;
+            this.finder.Clear();
             this.editor.Document.Text = this.Text ?? string.Empty;
             if (this.target > 0) this.GoToLine(this.target);
         }
@@ -142,23 +120,5 @@ public sealed class SourceView : TemplatedControl
             : language.StartsWith('.') ? this.registry.GetLanguageByExtension(language)
             : this.registry.GetAvailableLanguages().FirstOrDefault(item => string.Equals(item.Id, language, StringComparison.OrdinalIgnoreCase));
         this.highlighting.SetGrammar(found is null ? null : this.registry.GetScopeByLanguageId(found.Id));
-    }
-
-    private void Select(int index)
-    {
-        this.current = index;
-        (int offset, int length) = this.matches[index];
-        this.editor.Select(offset, length);
-        AvaloniaEdit.Document.TextLocation location = this.editor.Document.GetLocation(offset);
-        this.editor.ScrollTo(location.Line, location.Column);
-        this.editor.TextArea.TextView.InvalidateLayer(AvaloniaEdit.Rendering.KnownLayer.Selection);
-    }
-
-    private IReadOnlyList<(int Offset, int Length, IBrush Brush)> Marks()
-    {
-        if (this.matches.Count == 0) return [];
-        IBrush match = CodeEditors.Brush(this, "accent.brush.20", new SolidColorBrush(Colors.Gold, 0.35));
-        IBrush selected = CodeEditors.Brush(this, "accent.brush.50", new SolidColorBrush(Colors.Orange, 0.6));
-        return [.. this.matches.Select((item, index) => (item.Offset, item.Length, index == this.current ? selected : match))];
     }
 }

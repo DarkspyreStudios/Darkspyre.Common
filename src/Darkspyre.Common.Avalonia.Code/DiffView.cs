@@ -28,6 +28,7 @@ public sealed class DiffView : TemplatedControl
     private readonly TextEditor editor = CodeEditors.Create(lineNumbers: false);
     private readonly TextBlock status = new() { Margin = new Thickness(12), TextWrapping = TextWrapping.Wrap };
     private readonly DiffGutter gutter;
+    private readonly EditorFind finder;
     private IReadOnlyList<DiffRow> rows = [];
     private CancellationTokenSource? computing;
 
@@ -37,6 +38,7 @@ public sealed class DiffView : TemplatedControl
         this.gutter = new DiffGutter(() => this.rows);
         this.editor.TextArea.LeftMargins.Insert(0, this.gutter);
         this.editor.TextArea.TextView.BackgroundRenderers.Add(new RowShading(this));
+        this.finder = new EditorFind(this.editor, this);
         global::Avalonia.Automation.AutomationProperties.SetName(this.editor, "Read-only file comparison");
         this.status.Classes.Add("diff-status");
         Panel content = new();
@@ -59,6 +61,18 @@ public sealed class DiffView : TemplatedControl
         get => this.GetValue(NewTextProperty);
         set => this.SetValue(NewTextProperty, value);
     }
+
+    /// <summary>Marks every case-insensitive match of <paramref name="query"/> in the shown diff, selects the first, and returns how many there are.</summary>
+    public int Find(string query) => this.finder.Find(query);
+
+    /// <summary>Selects the match after the current one, wrapping to the first.</summary>
+    public void FindNext() => this.finder.FindNext();
+
+    /// <summary>Selects the match before the current one, wrapping to the last.</summary>
+    public void FindPrevious() => this.finder.FindPrevious();
+
+    /// <summary>The one-based index of the selected match, or 0 when none is selected.</summary>
+    public int CurrentMatch => this.finder.CurrentMatch;
 
     /// <summary>The hunks shown, after the latest comparison finished.</summary>
     public IReadOnlyList<DiffHunk> Hunks { get; private set; } = [];
@@ -121,6 +135,7 @@ public sealed class DiffView : TemplatedControl
             }
         }
         this.rows = shown;
+        this.finder.Clear();
         this.editor.Document.Text = text.ToString();
         this.editor.IsVisible = shown.Count > 0;
         this.status.Text = error ?? "No text differences.";
