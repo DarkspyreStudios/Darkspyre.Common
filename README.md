@@ -165,13 +165,13 @@ a size. agent-ds supplies all of them from the theme.
 - **`DiffView`** compares `OldText` and `NewText` with `TextDiff` off the UI thread and shows a unified diff: a header
   per hunk, old and new line numbers, plus and minus marks, added and removed rows shaded, and a "No final newline"
   note. Line endings take part in the comparison. Equal texts show "No text differences."; a comparison over the work
-  limit (4 million table cells) shows its error. `TextDiff` and its line types are public for callers that compare
-  without a view.
+  limit (4 million table cells) shows its error. `Find` works on the shown diff as it does in `SourceView`. `TextDiff`
+  and its line types are public for callers that compare without a view.
 - **`PdfViewer`** shows an `IPdfDocument` the caller opened (password included) and disposes after the viewer. It has a
   toolbar (side panel, zoom out, zoom list, zoom in, page status) and a side panel with thumbnails and bookmarks.
   Pages are drawn in tiles of up to 1024 device pixels, two at a time, only near the visible area. Each page's text is
   read once in the background into transparent, selectable lines over the page; internal links scroll to their
-  target. `Find`, `FindNext` and `FindPrevious` search the text read so far. `Zoom` is a percentage from 50 to 400,
+  target. `Find`, `FindNext` and `FindPrevious` search the text read so far; `CurrentMatch` is the shown match. `Zoom` is a percentage from 50 to 400,
   fit width or fit page.
 - **`TerminalView`** is a VT screen over RoyalTerminal with no process of its own. `Write` feeds the process's output
   in; the person's keystrokes come out of `InputReceived` already encoded, and `ScreenSizeChanged` reports the cell
