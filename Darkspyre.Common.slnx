@@ -1,11 +1,17 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Darkspyre.LocalServices.Contracts/Darkspyre.LocalServices.Contracts.csproj" />
+    <Project Path="src/Darkspyre.LocalServices/Darkspyre.LocalServices.csproj" />
+    <Project Path="src/Darkspyre.LocalServices.Platform.MacOS/Darkspyre.LocalServices.Platform.MacOS.csproj" />
+    <Project Path="src/Darkspyre.LocalServices.Platform.Linux/Darkspyre.LocalServices.Platform.Linux.csproj" />
+    <Project Path="src/Darkspyre.LocalServices.Platform.Windows/Darkspyre.LocalServices.Platform.Windows.csproj" />
     <Project Path="src/Darkspyre.Common.Git/Darkspyre.Common.Git.csproj" />
     <Project Path="src/Darkspyre.Common.Pdf/Darkspyre.Common.Pdf.csproj" />
     <Project Path="src/Darkspyre.Common.Pdf.Pdfium/Darkspyre.Common.Pdf.Pdfium.csproj" />
     <Project Path="src/Darkspyre.Common.Workspaces/Darkspyre.Common.Workspaces.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Darkspyre.LocalServices.TestBackend/Darkspyre.LocalServices.TestBackend.csproj" />
     <Project Path="tests/Darkspyre.Common.Git.Tests/Darkspyre.Common.Git.Tests.csproj" />
     <Project Path="tests/Darkspyre.Common.Pdf.Tests/Darkspyre.Common.Pdf.Tests.csproj" />
     <Project Path="tests/Darkspyre.Common.Workspaces.Tests/Darkspyre.Common.Workspaces.Tests.csproj" />

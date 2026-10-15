@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <DebugType>portable</DebugType>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <Authors>Darkspyre Studios</Authors>
+    <Company>Darkspyre Studios</Company>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/DarkspyreStudios/Darkspyre.Common</RepositoryUrl>
+  </PropertyGroup>
+  <PropertyGroup><OutputType>Exe</OutputType><IsPackable>false</IsPackable></PropertyGroup>
+  <Import Project="../../build/LocalServices/ServicePlatform.props" />
+  <ItemGroup>
+    <Compile Remove="FixturePlatform.*.cs" />
+    <Compile Include="FixturePlatform.$(ServicePlatform).cs" />
+    <ProjectReference Include="../../src/Darkspyre.LocalServices.Platform.$(ServicePlatform)/Darkspyre.LocalServices.Platform.$(ServicePlatform).csproj" />
+    <ProjectReference Include="../../src/Darkspyre.LocalServices/Darkspyre.LocalServices.csproj" />
+  </ItemGroup>
+</Project>

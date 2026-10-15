@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Version>$(DarkspyreLocalServicesVersion)</Version>
+    <IsPackable>false</IsPackable>
+    <DebugType>portable</DebugType>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <Authors>Darkspyre Studios</Authors>
+    <Company>Darkspyre Studios</Company>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/DarkspyreStudios/Darkspyre.Common</RepositoryUrl>
+  </PropertyGroup>
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Darkspyre.LocalServices.Contracts/Darkspyre.LocalServices.Contracts.csproj" />
+  </ItemGroup>
+  <PropertyGroup><GenerateDocumentationFile>true</GenerateDocumentationFile></PropertyGroup>
+</Project>

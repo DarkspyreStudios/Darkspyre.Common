@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <ServiceRuntimeIdentifier Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</ServiceRuntimeIdentifier>
+    <ServiceRuntimeIdentifier Condition="'$(ServiceRuntimeIdentifier)' == ''">$(NETCoreSdkRuntimeIdentifier)</ServiceRuntimeIdentifier>
+    <ServicePlatform Condition="$(ServiceRuntimeIdentifier.StartsWith('osx-'))">MacOS</ServicePlatform>
+    <ServicePlatform Condition="$(ServiceRuntimeIdentifier.StartsWith('linux-'))">Linux</ServicePlatform>
+    <ServicePlatform Condition="$(ServiceRuntimeIdentifier.StartsWith('win-'))">Windows</ServicePlatform>
+  </PropertyGroup>
+</Project>

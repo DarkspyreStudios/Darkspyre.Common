@@ -200,3 +200,29 @@ a `WorkspaceActor`, the acting owner and the trigger, which each log line names.
 
 `tests/Darkspyre.Common.Workspaces.Tests` runs against the real `git` on PATH, in the same per-process scratch root as
 the Git tests. Each test builds two repositories with bare origins.
+
+## Darkspyre.LocalServices.Contracts
+
+The independent contract library contains service installation, ownership and subscription interfaces,
+wire messages and the shared launch/package/result types. It references .NET only. Consumers can use
+`IServiceConnector`, `IServiceSubscription` and `IServicePlatform` without referencing the implementation,
+Connect, Search or Harness. Existing types retain their namespaces.
+
+## Darkspyre.LocalServices
+
+The runtime implements the connector, subscription, request transport, launch budget and service drain.
+It references Contracts. A subscriber library installs its verified package through `IServicePlatform`,
+constructs `ServiceConnector`, and owns the returned `IServiceSubscription`. The first connection launches
+the service; subsequent connections join it. The final departure starts the existing drain.
+The application Host does not register, install or start the service.
+
+## Darkspyre.LocalServices.Platform.MacOS, Linux and Windows
+
+Each platform library implements `IServicePlatform` and owns native files, locks, transport and detached
+launch. It references Contracts and Runtime. `build/LocalServices/ServicePlatform.props` selects the
+implementation from the target RID. The runtime and contracts contain no platform selection.
+The libraries build from Common without Harness build imports. The disposable fixture executable lives
+in `tests/Darkspyre.LocalServices.TestBackend`; AgentDSPlugins retains its existing lifecycle tests.
+
+[Local service contracts and lifecycle](docs/local-services.md) describes the wire, installation and
+ownership behavior. The [shared service design](https://darkspyre.atlassian.net/browse/DSA-855) records this boundary.
