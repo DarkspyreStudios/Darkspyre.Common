@@ -77,6 +77,12 @@ The setting is supported by [Git 2.34](https://git-scm.com/docs/git/2.34.0#Docum
   Inventory diagnostics also fail the read: Git can omit broken refs with a warning while returning exit zero.
 - Every caller of `git worktree list --porcelain` uses one parser. Incomplete or unsupported output throws, including
   newline-containing paths that the line protocol cannot represent. Callers cannot infer deletion from that failure.
+- `LockWorktreeAsync` locks a linked worktree with a reason and leaves an existing lock as it is; `UnlockWorktreeAsync`
+  unlocks one that is locked. `UnlockWorktreeRecordAsync` unlocks the record of a worktree whose folder may be gone:
+  `git worktree prune` keeps a locked record, and its branch stays checked out there. Git refuses to remove a locked worktree, so a caller that removes its own locked worktree
+  unlocks it first. `PruneWorktreesAsync` runs `git worktree prune`. `AttachWorktreeAsync` adds a worktree on a branch
+  that may exist: the local branch, else a new untracked branch at `origin/<branch>`, else a new untracked branch at the
+  base; the result says which ([DSA-1028](https://darkspyre.atlassian.net/browse/DSA-1028)).
 - A repository-relative path has no empty, `.` or `..` component.
 - `GitPathChecks.NamedPathExists` reports whether a directory entry exists at a path without following a final link, so
   a new clone or worktree never takes the place of a dangling link.
@@ -134,3 +140,63 @@ load context of `Darkspyre.Common.Pdf.Pdfium.dll`. No portable code checks the o
 `tests/Darkspyre.Common.Pdf.Tests` runs the real PDFium engine against the fixtures `three-pages.pdf` and
 `three-pages-protected.pdf` (password `secret`). The test project references both PDFium native packages, and the
 runtime picks its own native file. The test class carries both `SupportedOSPlatform` attributes.
+
+## Darkspyre.Common.Workspaces
+
+Workspace folders: a folder holding one git worktree per repository, all on one branch, each locked, and the folder
+`tmp` with `tmp/home`. `WorkspaceFolders` is the one implementation that creates, inspects, removes and repairs them.
+It runs every Git operation through `Darkspyre.Common.Git` and holds no state; it knows nothing of sessions or of who
+uses a workspace ([DSA-1028](https://darkspyre.atlassian.net/browse/DSA-1028)).
+
+### Starting it
+
+```csharp
+GitClient git = new(launcher, paths, locks);
+WorkspaceFolders folders = new(git, paths, logger);
+WorkspaceCreateResult created = await folders.CreateAsync(
+    new(folder, "dsa-1/work", [new("agent-ds", agentDsRepository, "origin/dev")], SkipFailures: false),
+    new WorkspaceActor($"session {sessionId}", "new session"), cancellationToken);
+```
+
+The path policy must be the Git client's own, so the library compares paths the way Git reports them. Every call takes
+a `WorkspaceActor`, the acting owner and the trigger, which each log line names.
+
+### Behaviour
+
+- Every step writes one Information line naming its path, the actor and the trigger: creating the folder, fetching a
+  base, creating, locking, unlocking and removing a worktree, deleting a branch or the folder, stashing, pruning,
+  re-creating, moving an item and re-applying a stash.
+- Every worktree the library makes is locked with `WorkspaceFolders.LockReason`, "Darkspyre session workspace; do not
+  remove", so Git and tools that clean up worktrees leave it alone. The library unlocks a worktree just before it
+  removes it, and locks it again when Git keeps it.
+- `CreateAsync` refuses an existing folder. For each repository in order it fetches a base that names a
+  remote-tracking branch, creates the worktree at `<folder>/<name>` on the new branch and locks it; then it creates
+  `tmp/home`. With `SkipFailures` a repository whose fetch or worktree fails is skipped and reported with its reason;
+  otherwise, and on cancellation, the first failure undoes everything and is thrown. A creation that makes no
+  worktree deletes the folder. It changes nothing outside the folder and the repositories.
+- `InspectAsync` reports each configured repository as healthy (a worktree's own folder with the repository's common
+  directory, locked or not), missing or broken; every other top-level folder that is a git worktree's own folder, such
+  as one made for a single task, as another worktree; and every remaining top-level item except `tmp` as a stray, so
+  a caller can warn instead of refusing.
+- `RemoveAsync` takes a workspace folder or a single worktree. Every worktree must lose nothing but ignored files and
+  have every commit on a remote-tracking branch, and a workspace must hold nothing but worktrees and `tmp`; otherwise
+  `WorkspaceRemovalBlockedException` names the cause and nothing is removed. It unlocks and removes each worktree,
+  deletes each branch while it still names the removed head, and deletes the folder.
+- `RepairAsync` stashes each healthy worktree's uncommitted and untracked changes (`darkspyre-repair <timestamp>`);
+  moves each broken repository folder into `tmp/repaired-<yyyyMMdd-HHmmss>`; unlocks each missing worktree's record and
+  prunes the repositories; re-creates each missing worktree on the branch (the local branch, else a new branch at
+  `origin/<branch>`, else a new branch at the base, fetched first); locks every configured worktree, keeping existing
+  locks; moves every stray item, folder or file, into the repair folder, and leaves another worktree where it is and
+  reports it; then re-applies each stash by its commit and
+  drops it only when it applied cleanly. A conflicting stash stays, the worktree keeps its conflicts, and the result
+  names the repository, the paths and the stash commit. Nothing is deleted.
+
+### Notes for callers
+
+- The library does not track which workspaces an owner created. When a session is deleted, the caller removes every
+  workspace that session created, so it records them as it creates them (Brandon, 2026-10-14).
+
+### Tests
+
+`tests/Darkspyre.Common.Workspaces.Tests` runs against the real `git` on PATH, in the same per-process scratch root as
+the Git tests. Each test builds two repositories with bare origins.

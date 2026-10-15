@@ -96,6 +96,9 @@ internal sealed class GitWorkflowRepository : IAsyncDisposable
 
     public ValueTask DisposeAsync()
     {
+        // Git writes its objects read-only, and Windows refuses to delete a read-only file.
+        foreach (string file in Directory.EnumerateFiles(this.Root, "*", SearchOption.AllDirectories))
+            File.SetAttributes(file, FileAttributes.Normal);
         Directory.Delete(this.Root, recursive: true);
         return ValueTask.CompletedTask;
     }
@@ -116,6 +119,7 @@ internal sealed class GitConversation
         this.Transfers = new(this.Commands, this.Reader, locks, paths);
         this.Sequences = new(this.Commands, this.Reader, locks, paths);
         this.Local = new(this.Commands, this.Reader, locks, paths);
+        this.Worktrees = new(this.Commands, this.Reader, locks, paths);
     }
 
     /// <summary>Every Git child this conversation starts, recorded with its command.</summary>
@@ -126,6 +130,7 @@ internal sealed class GitConversation
     public GitTransfers Transfers { get; }
     public GitSequences Sequences { get; }
     public GitLocalChanges Local { get; }
+    public GitWorktrees Worktrees { get; }
 
     public Task<GitStatusSnapshot?> StatusAsync(string repository) => this.Reader.ReadStatusAsync(repository, default);
 

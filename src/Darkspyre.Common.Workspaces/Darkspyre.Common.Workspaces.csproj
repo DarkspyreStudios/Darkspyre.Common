@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Workspace folders of locked git worktrees: create, inspect, remove and repair, over Darkspyre.Common.Git.</Description>
+    <RootNamespace>Darkspyre.Common.Workspaces</RootNamespace>
+    <Version>$(DarkspyreCommonWorkspacesVersion)</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Darkspyre.Common.Git/Darkspyre.Common.Git.csproj" />
+  </ItemGroup>
+</Project>

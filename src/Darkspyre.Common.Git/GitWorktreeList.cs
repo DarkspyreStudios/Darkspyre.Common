@@ -5,7 +5,8 @@ namespace Darkspyre.Common.Git;
 /// <param name="BranchRef">The full ref of the checked-out branch, or null when HEAD is detached or the worktree is bare.</param>
 /// <param name="HeadCommit">The observed commit, or null for an unborn branch or a bare entry.</param>
 /// <param name="IsBare">Whether this entry names a bare repository.</param>
-public sealed record GitWorktreeEntry(string Path, string? BranchRef, string? HeadCommit, bool IsBare);
+/// <param name="Locked">Whether Git locked the worktree.</param>
+public sealed record GitWorktreeEntry(string Path, string? BranchRef, string? HeadCommit, bool IsBare, bool Locked = false);
 
 /// <summary>The one parser of <c>git worktree list --porcelain</c> output.</summary>
 internal static class GitWorktreeList
@@ -25,16 +26,18 @@ internal static class GitWorktreeList
         string? branch = null;
         string? head = null;
         bool bare = false;
+        bool locked = false;
         void Add()
         {
             if (path is null) return;
             if (!System.IO.Path.IsPathFullyQualified(path) || !bare && head is null)
                 throw new InvalidDataException("Git returned an incomplete worktree entry.");
-            entries.Add(new(path, branch, head is null || head.All(c => c == '0') ? null : head, bare));
+            entries.Add(new(path, branch, head is null || head.All(c => c == '0') ? null : head, bare, locked));
             path = null;
             branch = null;
             head = null;
             bare = false;
+            locked = false;
         }
         foreach (string line in GitPaths.Decode(output).Split('\n'))
         {
@@ -55,8 +58,8 @@ internal static class GitWorktreeList
                     throw new InvalidDataException("Git returned an invalid worktree commit.");
             }
             else if (line == "bare") bare = true;
-            else if (line != "detached" && line != "locked" && line != "prunable"
-                && !line.StartsWith("locked ", StringComparison.Ordinal) && !line.StartsWith("prunable ", StringComparison.Ordinal))
+            else if (line == "locked" || line.StartsWith("locked ", StringComparison.Ordinal)) locked = true;
+            else if (line != "detached" && line != "prunable" && !line.StartsWith("prunable ", StringComparison.Ordinal))
                 throw new InvalidDataException("Git returned an unsupported worktree entry.");
         }
         Add();

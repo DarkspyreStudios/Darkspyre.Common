@@ -281,6 +281,34 @@ public sealed class GitClient
     public Task<GitRemovalResult> RemoveOwnedWorktreeAsync(string worktreePath, PreparedGitWorktree expected, CancellationToken cancellationToken = default) =>
         this.worktrees.RemoveOwnedAsync(worktreePath, expected, cancellationToken);
 
+    /// <summary>
+    /// Adds a linked worktree on the request's branch: the local branch when it exists, otherwise a new local branch at
+    /// <c>origin/</c> the branch, otherwise a new local branch at the request's base.
+    /// </summary>
+    public Task<GitWorktreeAttachResult> AttachWorktreeAsync(GitWorktreeAttachRequest request, CancellationToken cancellationToken = default) =>
+        this.worktrees.AttachAsync(request, cancellationToken);
+
+    /// <summary>Locks a linked worktree with <paramref name="reason"/>; an already locked worktree keeps its lock.</summary>
+    /// <gotcha>Git refuses to remove a locked worktree. Unlock it first with <see cref="UnlockWorktreeAsync"/>.</gotcha>
+    public Task LockWorktreeAsync(string worktreePath, string reason, CancellationToken cancellationToken = default) =>
+        this.worktrees.LockAsync(worktreePath, reason, cancellationToken);
+
+    /// <summary>Unlocks a linked worktree; a worktree that is not locked is left as it is.</summary>
+    public Task UnlockWorktreeAsync(string worktreePath, CancellationToken cancellationToken = default) =>
+        this.worktrees.UnlockAsync(worktreePath, cancellationToken);
+
+    /// <summary>
+    /// Unlocks the repository's record of a linked worktree whose folder may be gone; a record that is not locked is left
+    /// as it is.
+    /// </summary>
+    /// <gotcha><see cref="PruneWorktreesAsync"/> keeps a locked record, and its branch stays checked out there.</gotcha>
+    public Task UnlockWorktreeRecordAsync(string repositoryPath, string worktreePath, CancellationToken cancellationToken = default) =>
+        this.worktrees.UnlockRecordAsync(repositoryPath, worktreePath, cancellationToken);
+
+    /// <summary>Drops the repository's records of worktrees whose folders are gone (<c>git worktree prune</c>).</summary>
+    public Task PruneWorktreesAsync(string repositoryPath, CancellationToken cancellationToken = default) =>
+        this.worktrees.PruneAsync(repositoryPath, cancellationToken);
+
     /// <summary>Deletes the branch <paramref name="created"/> made, only while it still names the commit it was created at.</summary>
     public Task DeleteCreatedBranchAsync(GitWorktreeSnapshot created, CancellationToken cancellationToken = default) =>
         this.worktrees.DeleteCreatedBranchAsync(created, cancellationToken);

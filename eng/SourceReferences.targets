@@ -6,7 +6,8 @@
     <_DarkspyreCommonSourceProject Include="@(PackageReference->WithMetadataValue('Identity', 'Darkspyre.Common.Git')->'$(MSBuildThisFileDirectory)../src/Darkspyre.Common.Git/Darkspyre.Common.Git.csproj')" />
     <_DarkspyreCommonSourceProject Include="@(PackageReference->WithMetadataValue('Identity', 'Darkspyre.Common.Pdf')->'$(MSBuildThisFileDirectory)../src/Darkspyre.Common.Pdf/Darkspyre.Common.Pdf.csproj')" />
     <_DarkspyreCommonSourceProject Include="@(PackageReference->WithMetadataValue('Identity', 'Darkspyre.Common.Pdf.Pdfium')->'$(MSBuildThisFileDirectory)../src/Darkspyre.Common.Pdf.Pdfium/Darkspyre.Common.Pdf.Pdfium.csproj')" />
-    <PackageReference Remove="Darkspyre.Common.Git;Darkspyre.Common.Pdf;Darkspyre.Common.Pdf.Pdfium" />
+    <_DarkspyreCommonSourceProject Include="@(PackageReference->WithMetadataValue('Identity', 'Darkspyre.Common.Workspaces')->'$(MSBuildThisFileDirectory)../src/Darkspyre.Common.Workspaces/Darkspyre.Common.Workspaces.csproj')" />
+    <PackageReference Remove="Darkspyre.Common.Git;Darkspyre.Common.Pdf;Darkspyre.Common.Pdf.Pdfium;Darkspyre.Common.Workspaces" />
     <ProjectReference Include="@(_DarkspyreCommonSourceProject)">
       <Private Condition="'%(ExcludeAssets)' == 'all' or $([System.String]::Copy(';%(ExcludeAssets);').Contains(';runtime;'))">false</Private>
       <ReferenceOutputAssembly Condition="'%(ExcludeAssets)' == 'all' or $([System.String]::Copy(';%(ExcludeAssets);').Contains(';compile;'))">false</ReferenceOutputAssembly>

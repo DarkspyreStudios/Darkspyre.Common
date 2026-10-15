@@ -173,6 +173,26 @@ public sealed record GitWorktreeRequest(string RepositoryPath, string WorktreePa
 /// <param name="BranchRef">The full ref of the new branch.</param>
 /// <param name="BaseCommit">The commit the branch was created at.</param>
 public sealed record GitWorktreeSnapshot(string CommonDirectory, string WorktreePath, string BranchRef, string BaseCommit);
+/// <summary>A request to add a linked worktree on a branch that may already exist.</summary>
+/// <param name="RepositoryPath">A directory inside the source repository.</param>
+/// <param name="WorktreePath">The absolute path of the new worktree. It must not already exist.</param>
+/// <param name="BranchName">The short name of the branch the worktree checks out.</param>
+/// <param name="BaseRef">The commit or ref a new branch starts at when neither the local branch nor <c>origin/</c> the branch exists.</param>
+public sealed record GitWorktreeAttachRequest(string RepositoryPath, string WorktreePath, string BranchName, string BaseRef);
+/// <summary>Where the branch of an attached worktree came from.</summary>
+public enum GitWorktreeAttachSource
+{
+    /// <summary>The local branch existed and the worktree checks it out.</summary>
+    LocalBranch,
+    /// <summary>The branch existed only on <c>origin</c>; a new local branch starts at it.</summary>
+    RemoteBranch,
+    /// <summary>The branch existed nowhere; a new local branch starts at the base.</summary>
+    NewBranch,
+}
+/// <summary>A linked worktree the host attached, and where its branch came from.</summary>
+/// <param name="Worktree">The worktree; its base commit is the commit it checked out.</param>
+/// <param name="Source">Where the branch came from.</param>
+public sealed record GitWorktreeAttachResult(GitWorktreeSnapshot Worktree, GitWorktreeAttachSource Source);
 /// <summary>A request to commit explicit paths on the checked-out branch.</summary>
 /// <param name="WorktreePath">The worktree root. A subdirectory is rejected.</param>
 /// <param name="Paths">
