@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <UseAppHost>false</UseAppHost>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Darkspyre.LocalServices/Darkspyre.LocalServices.csproj" />
+    <ProjectReference Include="../../src/Darkspyre.LocalServices.Platform.MacOS/Darkspyre.LocalServices.Platform.MacOS.csproj" />
+    <ProjectReference Include="../../src/Darkspyre.LocalServices.Platform.Linux/Darkspyre.LocalServices.Platform.Linux.csproj" />
+    <ProjectReference Include="../../src/Darkspyre.LocalServices.Platform.Windows/Darkspyre.LocalServices.Platform.Windows.csproj" />
+  </ItemGroup>
+</Project>

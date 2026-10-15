@@ -4,26 +4,6 @@ namespace Darkspyre.LocalServices;
 
 internal sealed partial class ServicePackageCache
 {
-    /// <summary>Captures a trusted build output inventory. A distribution must register/verify the returned digest.</summary>
-    internal async Task<ServicePackageManifest> CaptureAsync(string sourceDirectory, string entryPoint, CancellationToken cancellationToken = default)
-    {
-        string source = this.files.Root(sourceDirectory);
-        var inventory = this.files.Inventory(source, cached: false);
-        List<ServicePackageFile> files = [];
-        foreach (string path in inventory.Files)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            using var handle = this.fileSystem.Open(System.IO.Path.Combine(source, path), directory: false);
-            using var input = new FileStream(handle, FileAccess.Read);
-            long length = input.Length;
-            string hash = await ServicePackageFiles.HashAsync(input, length, null, cancellationToken).ConfigureAwait(false);
-            files.Add(new(path, length, hash, this.fileSystem.IsExecutable(System.IO.Path.Combine(source, path))));
-        }
-        var manifest = new ServicePackageManifest(ServicePackageManifest.CurrentFormat, entryPoint, inventory.Directories, [.. files]);
-        manifest.Validate();
-        return manifest;
-    }
-
     private async Task CopyPayloadAsync(string source, string destination, ServicePackageManifest manifest, byte[] manifestBytes, CancellationToken token)
     {
         foreach (string directory in manifest.Directories.OrderBy(path => path.Length))

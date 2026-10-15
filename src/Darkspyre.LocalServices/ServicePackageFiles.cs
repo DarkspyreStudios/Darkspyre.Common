@@ -6,6 +6,26 @@ namespace Darkspyre.LocalServices;
 
 internal sealed class ServicePackageFiles(ServiceFileSystem fileSystem)
 {
+    /// <summary>Captures a trusted build output inventory. A distribution must register/verify the returned digest.</summary>
+    internal async Task<ServicePackageManifest> CaptureAsync(string sourceDirectory, string entryPoint, CancellationToken cancellationToken = default)
+    {
+        string source = Root(sourceDirectory);
+        var inventory = Inventory(source, cached: false);
+        List<ServicePackageFile> files = [];
+        foreach (string path in inventory.Files)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            using var handle = fileSystem.Open(Path.Combine(source, path), directory: false);
+            using var input = new FileStream(handle, FileAccess.Read);
+            long length = input.Length;
+            string hash = await ServicePackageFiles.HashAsync(input, length, null, cancellationToken).ConfigureAwait(false);
+            files.Add(new(path, length, hash, fileSystem.IsExecutable(Path.Combine(source, path))));
+        }
+        var manifest = new ServicePackageManifest(ServicePackageManifest.CurrentFormat, entryPoint, inventory.Directories, [.. files]);
+        manifest.Validate();
+        return manifest;
+    }
+
     internal string Root(string path)
     {
         if (!Path.IsPathFullyQualified(path) || path.Replace(Path.DirectorySeparatorChar, '/').Split('/').Any(part => part is "." or ".."))

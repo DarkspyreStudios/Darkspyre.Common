@@ -228,3 +228,17 @@ layout and directory/no-follow open flags inside the Linux library. Consumers us
 
 [Local service contracts and lifecycle](docs/local-services.md) describes the wire, installation and
 ownership behavior. The [shared service design](https://darkspyre.atlassian.net/browse/DSA-855) records this boundary.
+
+## LocalServices packaging tool
+
+`build/Darkspyre.LocalServices.Packaging` supplies the shared `ServicePackageBuild` API and a
+`finalize <directory>` CLI. It captures actual service files through the existing platform file seam.
+Its portable DLL selects the running OS inside its composition and needs no Harness or Search dependency.
+The tool runs during builds/signing and is excluded from subscriber payloads.
+
+Mac signers sign inner files first, then refresh each `service/manifest.json` from its sibling
+`service/payload/`. The helper writes changed canonical inventories only and returns their paths.
+The signer signs those manifests before sealing/verifying the containing package. Unchanged retained
+copies keep their bytes and signatures. Runtime installation verifies the final manifest and every
+payload file through the existing immutable cache. This ordering follows
+[DSA-855](https://darkspyre.atlassian.net/browse/DSA-855), Tech Design section 5.12.4a.

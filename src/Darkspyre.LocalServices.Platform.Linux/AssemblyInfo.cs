@@ -5,4 +5,4 @@ using System.Runtime.Versioning;
 [assembly: InternalsVisibleTo("Darkspyre.Agent.Plugins.AgenticTools.Tests")]
 [assembly: InternalsVisibleTo("Darkspyre.Agent.Plugins.Memory.Tests")]
 
-[assembly: InternalsVisibleTo("Darkspyre.Search.Packaging")]
+[assembly: InternalsVisibleTo("Darkspyre.LocalServices.Packaging")]

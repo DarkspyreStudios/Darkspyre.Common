@@ -9,6 +9,5 @@ using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("Darkspyre.Search.Tests")]
 
-[assembly: InternalsVisibleTo("Darkspyre.Search.Packaging")]
 
 [assembly: InternalsVisibleTo("Darkspyre.LocalServices")]

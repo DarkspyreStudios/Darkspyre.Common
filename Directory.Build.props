@@ -19,10 +19,10 @@
     <DarkspyreCommonPdfVersion>11.0.10.1</DarkspyreCommonPdfVersion>
     <DarkspyreCommonPdfPdfiumVersion>11.0.10.1</DarkspyreCommonPdfPdfiumVersion>
     <DarkspyreCommonWorkspacesVersion>11.0.10.0</DarkspyreCommonWorkspacesVersion>
-    <DarkspyreLocalServicesContractsVersion>11.0.10.0</DarkspyreLocalServicesContractsVersion>
-    <DarkspyreLocalServicesVersion>11.0.10.0</DarkspyreLocalServicesVersion>
-    <DarkspyreLocalServicesPlatformMacOSVersion>11.0.10.0</DarkspyreLocalServicesPlatformMacOSVersion>
-    <DarkspyreLocalServicesPlatformLinuxVersion>11.0.10.1</DarkspyreLocalServicesPlatformLinuxVersion>
-    <DarkspyreLocalServicesPlatformWindowsVersion>11.0.10.0</DarkspyreLocalServicesPlatformWindowsVersion>
+    <DarkspyreLocalServicesContractsVersion>11.0.10.1</DarkspyreLocalServicesContractsVersion>
+    <DarkspyreLocalServicesVersion>11.0.10.1</DarkspyreLocalServicesVersion>
+    <DarkspyreLocalServicesPlatformMacOSVersion>11.0.10.1</DarkspyreLocalServicesPlatformMacOSVersion>
+    <DarkspyreLocalServicesPlatformLinuxVersion>11.0.10.2</DarkspyreLocalServicesPlatformLinuxVersion>
+    <DarkspyreLocalServicesPlatformWindowsVersion>11.0.10.1</DarkspyreLocalServicesPlatformWindowsVersion>
   </PropertyGroup>
 </Project>
