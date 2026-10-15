@@ -22,7 +22,10 @@ public sealed partial class WorkspaceFolders
     /// <summary>The folder in a workspace for its temporary files. It is never a worktree.</summary>
     public const string TemporaryFolderName = "tmp";
 
-    /// <summary>The folder in <see cref="TemporaryFolderName"/> that is the <c>HOME</c> of the workspace's processes.</summary>
+    /// <summary>
+    /// The folder in <see cref="TemporaryFolderName"/> for the user data of the workspace's build tools, such as the
+    /// dotnet CLI home. The workspace's processes keep the account's home directory.
+    /// </summary>
     public const string HomeFolderName = "home";
 
     private readonly GitClient git;
