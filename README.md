@@ -141,6 +141,43 @@ load context of `Darkspyre.Common.Pdf.Pdfium.dll`. No portable code checks the o
 `three-pages-protected.pdf` (password `secret`). The test project references both PDFium native packages, and the
 runtime picks its own native file. The test class carries both `SupportedOSPlatform` attributes.
 
+## Avalonia viewers
+
+Four libraries hold viewers another app can use: `Darkspyre.Common.Avalonia.Markdown`, `.Code`, `.Pdf` and `.Terminal`.
+Each is a `TemplatedControl` with its own API; the third-party library behind it is an implementation detail, so
+replacing one changes one project and no caller. None references agent-ds. Each viewer carries its own styles, so a
+host adds nothing to its application. Colours and fonts come from these resource keys when the host supplies them, and
+fall back to light or dark defaults when it does not: `panel`, `text`, `accent` and `line` as `Color`; `x.brush` and
+the translucent `x.brush.NN` variants as brushes; `font-ui` and `font-code` as `FontFamily`; `font-size-code-13` as
+a size. agent-ds supplies all of them from the theme.
+
+- **`MarkdownViewer`** renders Markdown through LiveMarkdown. Raw HTML is shown as text; generic attributes and media
+  embeds are off. A link or image target that is not an absolute http or https address with a host, a mailto address
+  or a relative path is emptied, so it cannot be followed or loaded. Activating an allowed link raises `LinkActivated`;
+  the viewer opens nothing itself. Code blocks have a copy button and no syntax colouring. While `Streaming` is true
+  and the new text extends the old, only the tail is appended. A `mermaid` fence becomes a diagram drawn by
+  `IMermaidRenderer` (default `MermaiderRenderer`: Mermaider, then `SvgCssFlattener`, which resolves the CSS custom
+  properties and colour mixes Svg.Skia cannot draw). A fence the renderer cannot draw stays a code block. Diagrams are
+  drawn again when the theme changes.
+- **`SourceView`** shows read-only text in AvaloniaEdit with line numbers and TextMate highlighting chosen by file
+  extension or language id. `Find` marks every case-insensitive match; `FindNext` and `FindPrevious` wrap. `GoToLine`
+  scrolls to a line. The highlighter exists only while the view is in a window.
+- **`DiffView`** compares `OldText` and `NewText` with `TextDiff` off the UI thread and shows a unified diff: a header
+  per hunk, old and new line numbers, plus and minus marks, added and removed rows shaded, and a "No final newline"
+  note. Line endings take part in the comparison. Equal texts show "No text differences."; a comparison over the work
+  limit (4 million table cells) shows its error. `TextDiff` and its line types are public for callers that compare
+  without a view.
+- **`PdfViewer`** shows an `IPdfDocument` the caller opened (password included) and disposes after the viewer. It has a
+  toolbar (side panel, zoom out, zoom list, zoom in, page status) and a side panel with thumbnails and bookmarks.
+  Pages are drawn in tiles of up to 1024 device pixels, two at a time, only near the visible area. Each page's text is
+  read once in the background into transparent, selectable lines over the page; internal links scroll to their
+  target. `Find`, `FindNext` and `FindPrevious` search the text read so far. `Zoom` is a percentage from 50 to 400,
+  fit width or fit page.
+- **`TerminalView`** is a VT screen over RoyalTerminal with no process of its own. `Write` feeds the process's output
+  in; the person's keystrokes come out of `InputReceived` already encoded, and `ScreenSizeChanged` reports the cell
+  size when the view is resized. Both run through a transport the view owns, so RoyalTerminal starts no shell. The
+  owner disposes the view when its panel closes.
+
 ## Darkspyre.Common.Workspaces
 
 Workspace folders: a folder holding one git worktree per repository, all on one branch, each locked, and the folder

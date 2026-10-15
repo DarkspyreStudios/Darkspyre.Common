@@ -19,6 +19,10 @@
     <DarkspyreCommonPdfVersion>11.0.10.1</DarkspyreCommonPdfVersion>
     <DarkspyreCommonPdfPdfiumVersion>11.0.10.1</DarkspyreCommonPdfPdfiumVersion>
     <DarkspyreCommonWorkspacesVersion>11.0.10.0</DarkspyreCommonWorkspacesVersion>
+    <DarkspyreCommonAvaloniaCodeVersion>11.0.10.0</DarkspyreCommonAvaloniaCodeVersion>
+    <DarkspyreCommonAvaloniaMarkdownVersion>11.0.10.0</DarkspyreCommonAvaloniaMarkdownVersion>
+    <DarkspyreCommonAvaloniaPdfVersion>11.0.10.0</DarkspyreCommonAvaloniaPdfVersion>
+    <DarkspyreCommonAvaloniaTerminalVersion>11.0.10.0</DarkspyreCommonAvaloniaTerminalVersion>
     <DarkspyreLocalServicesContractsVersion>11.0.10.1</DarkspyreLocalServicesContractsVersion>
     <DarkspyreLocalServicesVersion>11.0.10.1</DarkspyreLocalServicesVersion>
     <DarkspyreLocalServicesPlatformMacOSVersion>11.0.10.1</DarkspyreLocalServicesPlatformMacOSVersion>

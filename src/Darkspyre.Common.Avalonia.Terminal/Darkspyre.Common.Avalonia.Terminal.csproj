@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>An Avalonia VT terminal screen over RoyalTerminal: bytes in, input bytes out, size changes reported.</Description>
+    <RootNamespace>Darkspyre.Common.Avalonia.Terminal</RootNamespace>
+    <Version>$(DarkspyreCommonAvaloniaTerminalVersion)</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="RoyalApps.RoyalTerminal.Avalonia" />
+  </ItemGroup>
+</Project>

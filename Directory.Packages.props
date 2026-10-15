@@ -8,5 +8,16 @@
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
     <PackageVersion Include="bblanchon.PDFium.macOS" Version="157.0.8086" />
     <PackageVersion Include="bblanchon.PDFium.Linux" Version="157.0.8086" />
+    <!-- Avalonia controls (DSA-1024). 12.1.4 because RoyalTerminal needs 12.1.3 or later. -->
+    <PackageVersion Include="Avalonia" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Headless" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Skia" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.4" />
+    <PackageVersion Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
+    <PackageVersion Include="AvaloniaEdit.TextMate" Version="12.0.0" />
+    <PackageVersion Include="LiveMarkdown.Avalonia" Version="2.4.3" />
+    <PackageVersion Include="Mermaider" Version="0.15.1" />
+    <PackageVersion Include="Svg.Skia" Version="3.0.2" />
+    <PackageVersion Include="RoyalApps.RoyalTerminal.Avalonia" Version="0.6.3" />
   </ItemGroup>
 </Project>

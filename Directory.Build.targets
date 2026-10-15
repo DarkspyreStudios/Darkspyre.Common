@@ -1,0 +1,8 @@
+<Project>
+  <!-- Avalonia's package props append to UsedAvaloniaProducts; clearing it here, after them, turns off the
+       Avalonia.BuildServices task, which reports project name, Avalonia version and target framework to AvaloniaUI
+       and writes under the user profile. -->
+  <PropertyGroup>
+    <UsedAvaloniaProducts />
+  </PropertyGroup>
+</Project>

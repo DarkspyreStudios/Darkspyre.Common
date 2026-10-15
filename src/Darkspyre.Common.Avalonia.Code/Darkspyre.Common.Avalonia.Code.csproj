@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Avalonia source and diff viewers over AvaloniaEdit with TextMate highlighting, and the line diff they show.</Description>
+    <RootNamespace>Darkspyre.Common.Avalonia.Code</RootNamespace>
+    <Version>$(DarkspyreCommonAvaloniaCodeVersion)</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.AvaloniaEdit" />
+    <PackageReference Include="AvaloniaEdit.TextMate" />
+    <InternalsVisibleTo Include="Darkspyre.Common.Avalonia.Tests" />
+  </ItemGroup>
+</Project>
