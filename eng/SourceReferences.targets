@@ -7,7 +7,11 @@
     <_DarkspyreCommonSourceProject Include="@(PackageReference->WithMetadataValue('Identity', 'Darkspyre.Common.Pdf')->'$(MSBuildThisFileDirectory)../src/Darkspyre.Common.Pdf/Darkspyre.Common.Pdf.csproj')" />
     <_DarkspyreCommonSourceProject Include="@(PackageReference->WithMetadataValue('Identity', 'Darkspyre.Common.Pdf.Pdfium')->'$(MSBuildThisFileDirectory)../src/Darkspyre.Common.Pdf.Pdfium/Darkspyre.Common.Pdf.Pdfium.csproj')" />
     <_DarkspyreCommonSourceProject Include="@(PackageReference->WithMetadataValue('Identity', 'Darkspyre.Common.Workspaces')->'$(MSBuildThisFileDirectory)../src/Darkspyre.Common.Workspaces/Darkspyre.Common.Workspaces.csproj')" />
-    <PackageReference Remove="Darkspyre.Common.Git;Darkspyre.Common.Pdf;Darkspyre.Common.Pdf.Pdfium;Darkspyre.Common.Workspaces" />
+    <_DarkspyreCommonSourceProject Include="@(PackageReference->WithMetadataValue('Identity', 'Darkspyre.Common.Avalonia.Code')->'$(MSBuildThisFileDirectory)../src/Darkspyre.Common.Avalonia.Code/Darkspyre.Common.Avalonia.Code.csproj')" />
+    <_DarkspyreCommonSourceProject Include="@(PackageReference->WithMetadataValue('Identity', 'Darkspyre.Common.Avalonia.Markdown')->'$(MSBuildThisFileDirectory)../src/Darkspyre.Common.Avalonia.Markdown/Darkspyre.Common.Avalonia.Markdown.csproj')" />
+    <_DarkspyreCommonSourceProject Include="@(PackageReference->WithMetadataValue('Identity', 'Darkspyre.Common.Avalonia.Pdf')->'$(MSBuildThisFileDirectory)../src/Darkspyre.Common.Avalonia.Pdf/Darkspyre.Common.Avalonia.Pdf.csproj')" />
+    <_DarkspyreCommonSourceProject Include="@(PackageReference->WithMetadataValue('Identity', 'Darkspyre.Common.Avalonia.Terminal')->'$(MSBuildThisFileDirectory)../src/Darkspyre.Common.Avalonia.Terminal/Darkspyre.Common.Avalonia.Terminal.csproj')" />
+    <PackageReference Remove="Darkspyre.Common.Git;Darkspyre.Common.Pdf;Darkspyre.Common.Pdf.Pdfium;Darkspyre.Common.Workspaces;Darkspyre.Common.Avalonia.Code;Darkspyre.Common.Avalonia.Markdown;Darkspyre.Common.Avalonia.Pdf;Darkspyre.Common.Avalonia.Terminal" />
     <ProjectReference Include="@(_DarkspyreCommonSourceProject)">
       <Private Condition="'%(ExcludeAssets)' == 'all' or $([System.String]::Copy(';%(ExcludeAssets);').Contains(';runtime;'))">false</Private>
       <ReferenceOutputAssembly Condition="'%(ExcludeAssets)' == 'all' or $([System.String]::Copy(';%(ExcludeAssets);').Contains(';compile;'))">false</ReferenceOutputAssembly>
