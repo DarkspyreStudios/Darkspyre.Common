@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
 using Avalonia.Styling;
@@ -31,8 +32,11 @@ public sealed class MarkdownLinkEventArgs(string target) : EventArgs
 /// The allow-list is absolute http and https addresses with a host, mailto addresses, and relative paths. Generic
 /// attributes and media links are off, so Markdown cannot add attributes or embed players. Code blocks carry a copy
 /// button and no syntax colouring. A <c>mermaid</c> fence is drawn by <see cref="MermaidRenderer"/>; when that draws
-/// nothing, the fence stays a code block. Colours come from the theme token resources (<c>panel</c>, <c>text</c>,
-/// <c>accent</c>, <c>line</c>) and diagrams are drawn again when they change.
+/// nothing, the fence stays a code block. Colours come from the theme token resources and follow them when they change:
+/// inline code, code blocks and quotes sit on <c>raised</c>, code text is <c>text</c>, a code block's header, table rules and
+/// thematic breaks are <c>line</c>, tables sit on <c>panel</c>, links and the quote rule are <c>accent</c>, and diagrams are
+/// drawn again in <c>panel</c>, <c>text</c>, <c>accent</c> and <c>line</c>. A token the resources lack keeps
+/// LiveMarkdown's default colour.
 /// </remarks>
 public sealed class MarkdownViewer : TemplatedControl
 {
@@ -48,6 +52,17 @@ public sealed class MarkdownViewer : TemplatedControl
 
     internal static readonly MarkdownPipeline Pipeline = CreatePipeline();
 
+    // LiveMarkdown's colour resources, and the theme token each one follows.
+    private static readonly (string Key, string Token)[] Palette =
+    [
+        ("ForegroundColor", "text"),
+        ("CodeInlineColor", "text"),
+        ("SecondaryCardBackgroundColor", "raised"),
+        ("BorderColor", "line"),
+        ("CardBackgroundColor", "panel"),
+        ("QuoteBorderColor", "accent"),
+    ];
+
     private readonly MarkdownRenderer renderer = new();
     private readonly ObservableStringBuilder builder = new();
     private string shown = string.Empty;
@@ -60,6 +75,18 @@ public sealed class MarkdownViewer : TemplatedControl
         this.Styles.Add(new StyleInclude(new Uri("avares://LiveMarkdown.Avalonia/")) { Source = new Uri("avares://LiveMarkdown.Avalonia/Styles.axaml") });
         this.Resources.MergedDictionaries.Add(new ResourceInclude(new Uri("avares://LiveMarkdown.Avalonia/")) { Source = new Uri("avares://LiveMarkdown.Avalonia/Defaults.axaml") });
         this.Styles.Add(new Style(selector => selector.OfType<CodeBlock>()) { Setters = { new Setter(CodeBlock.AutoSyntaxHighlightProperty, false) } });
+        this.Styles.Add(new Style(selector => selector.OfType<MarkdownRenderer>().Descendant().OfType<Link>())
+        {
+            Setters = { new Setter(Link.ForegroundProperty, new DynamicResourceExtension("accent.brush")) },
+            Children = { new Style(selector => selector.Nesting().Class(":clicked")) { Setters = { new Setter(Link.ForegroundProperty, new DynamicResourceExtension("accent.brush")) } } },
+        });
+        // The renderer's own resources shadow the defaults merged above, so a token the theme lacks keeps the default.
+        foreach ((string key, string token) in Palette)
+            this.GetResourceObservable(token).Subscribe(new Observer(value =>
+            {
+                if (value is Color colour) this.renderer.Resources[key] = colour;
+                else this.renderer.Resources.Remove(key);
+            }));
         this.renderer.UpdateProducer = new MarkdownUpdateProducer { Pipeline = Pipeline, MarkdownBuilder = this.builder };
         this.renderer.LinkCommand = new LinkActivation(this.Activate);
         this.Template = new FuncControlTemplate<MarkdownViewer>((viewer, _) => viewer.renderer);
@@ -158,6 +185,19 @@ public sealed class MarkdownViewer : TemplatedControl
         pipeline.Extensions.AddIfNotAlready<MermaidFences>();
         pipeline.Extensions.AddIfNotAlready<InertLinks>();
         return pipeline.DisableHtml().UseCodeBlockSpanFixer().Build();
+    }
+
+    private sealed class Observer(Action<object?> next) : IObserver<object?>
+    {
+        public void OnCompleted()
+        {
+        }
+
+        public void OnError(Exception error)
+        {
+        }
+
+        public void OnNext(object? value) => next(value);
     }
 
     /// <summary>Runs the viewer's link check for the link the renderer reports.</summary>
