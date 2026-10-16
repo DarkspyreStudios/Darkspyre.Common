@@ -14,6 +14,7 @@ using Markdig.Renderers;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 using CodeBlock = LiveMarkdown.Avalonia.CodeBlock;
+using CodeInline = LiveMarkdown.Avalonia.CodeInline;
 
 namespace Darkspyre.Common.Avalonia.Markdown;
 
@@ -33,10 +34,12 @@ public sealed class MarkdownLinkEventArgs(string target) : EventArgs
 /// attributes and media links are off, so Markdown cannot add attributes or embed players. Code blocks carry a copy
 /// button and no syntax colouring. A <c>mermaid</c> fence is drawn by <see cref="MermaidRenderer"/>; when that draws
 /// nothing, the fence stays a code block. Colours come from the theme token resources and follow them when they change:
-/// inline code, code blocks and quotes sit on <c>raised</c>, code text is <c>text</c>, a code block's header, table rules and
-/// thematic breaks are <c>line</c>, tables sit on <c>panel</c>, links and the quote rule are <c>accent</c>, and diagrams are
-/// drawn again in <c>panel</c>, <c>text</c>, <c>accent</c> and <c>line</c>. A token the resources lack keeps
-/// LiveMarkdown's default colour.
+/// inline code, code blocks and quotes sit on <c>raised</c>, code text is <c>text</c>, a code block's header and border, table
+/// rules and thematic breaks are <c>line</c>, tables sit on <c>panel</c>, links and the quote rule are <c>accent</c>, selected
+/// text is highlighted in <c>color-primary.brush.40</c> as the app's text controls are, and diagrams are drawn again in
+/// <c>panel</c>, <c>text</c>, <c>accent</c> and <c>line</c>. A colour token the resources lack keeps LiveMarkdown's default
+/// colour. Inline code and code blocks are set in the theme's code font, <c>font-code</c>; their size is the body text's,
+/// as LiveMarkdown has no code size.
 /// </remarks>
 public sealed class MarkdownViewer : TemplatedControl
 {
@@ -59,6 +62,7 @@ public sealed class MarkdownViewer : TemplatedControl
         ("CodeInlineColor", "text"),
         ("SecondaryCardBackgroundColor", "raised"),
         ("BorderColor", "line"),
+        ("BorderBrush", "line"),
         ("CardBackgroundColor", "panel"),
         ("QuoteBorderColor", "accent"),
     ];
@@ -74,7 +78,18 @@ public sealed class MarkdownViewer : TemplatedControl
     {
         this.Styles.Add(new StyleInclude(new Uri("avares://LiveMarkdown.Avalonia/")) { Source = new Uri("avares://LiveMarkdown.Avalonia/Styles.axaml") });
         this.Resources.MergedDictionaries.Add(new ResourceInclude(new Uri("avares://LiveMarkdown.Avalonia/")) { Source = new Uri("avares://LiveMarkdown.Avalonia/Defaults.axaml") });
-        this.Styles.Add(new Style(selector => selector.OfType<CodeBlock>()) { Setters = { new Setter(CodeBlock.AutoSyntaxHighlightProperty, false) } });
+        this.Styles.Add(new Style(selector => selector.OfType<CodeBlock>())
+        {
+            Setters = { new Setter(CodeBlock.AutoSyntaxHighlightProperty, false), new Setter(CodeBlock.FontFamilyProperty, new DynamicResourceExtension("font-code")) },
+        });
+        this.Styles.Add(new Style(selector => selector.OfType<MarkdownRenderer>().Descendant().OfType<CodeInline>())
+        {
+            Setters = { new Setter(CodeInline.FontFamilyProperty, new DynamicResourceExtension("font-code")) },
+        });
+        this.Styles.Add(new Style(selector => selector.OfType<MarkdownTextBlock>())
+        {
+            Setters = { new Setter(SelectableTextBlock.SelectionBrushProperty, new DynamicResourceExtension("color-primary.brush.40")) },
+        });
         this.Styles.Add(new Style(selector => selector.OfType<MarkdownRenderer>().Descendant().OfType<Link>())
         {
             Setters = { new Setter(Link.ForegroundProperty, new DynamicResourceExtension("accent.brush")) },
