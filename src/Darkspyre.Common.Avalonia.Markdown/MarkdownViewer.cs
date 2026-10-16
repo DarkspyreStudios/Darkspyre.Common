@@ -34,7 +34,8 @@ public sealed class MarkdownLinkEventArgs(string target) : EventArgs
 /// attributes and media links are off, so Markdown cannot add attributes or embed players. Code blocks carry a copy
 /// button and no syntax colouring. A <c>mermaid</c> fence is drawn by <see cref="MermaidRenderer"/>; when that draws
 /// nothing, the fence stays a code block. Colours come from the theme token resources and follow them when they change:
-/// inline code, code blocks and quotes sit on <c>raised</c>, code text is <c>text</c>, a code block's header and border, table
+/// inline code has no fill of its own and its text is <c>code-inline</c>, code blocks and quotes sit on <c>raised</c>, code
+/// block text is <c>text</c>, a code block's header and border, table
 /// rules and thematic breaks are <c>line</c>, tables sit on <c>panel</c>, links and the quote rule are <c>accent</c>, selected
 /// text is highlighted in <c>color-primary.brush.40</c> as the app's text controls are, and diagrams are drawn again in
 /// <c>panel</c>, <c>text</c>, <c>accent</c> and <c>line</c>. A colour token the resources lack keeps LiveMarkdown's default
@@ -59,7 +60,7 @@ public sealed class MarkdownViewer : TemplatedControl
     private static readonly (string Key, string Token)[] Palette =
     [
         ("ForegroundColor", "text"),
-        ("CodeInlineColor", "text"),
+        ("CodeInlineColor", "code-inline"),
         ("SecondaryCardBackgroundColor", "raised"),
         ("BorderColor", "line"),
         ("BorderBrush", "line"),
@@ -84,7 +85,7 @@ public sealed class MarkdownViewer : TemplatedControl
         });
         this.Styles.Add(new Style(selector => selector.OfType<MarkdownRenderer>().Descendant().OfType<CodeInline>())
         {
-            Setters = { new Setter(CodeInline.FontFamilyProperty, new DynamicResourceExtension("font-code")) },
+            Setters = { new Setter(CodeInline.FontFamilyProperty, new DynamicResourceExtension("font-code")), new Setter(CodeInline.BackgroundProperty, Brushes.Transparent) },
         });
         this.Styles.Add(new Style(selector => selector.OfType<MarkdownTextBlock>())
         {
