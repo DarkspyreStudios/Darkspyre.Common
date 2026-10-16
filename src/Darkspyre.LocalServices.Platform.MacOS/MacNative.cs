@@ -31,6 +31,26 @@ internal static partial class MacNative
     internal static partial int UnlinkAt(SafeFileHandle directory, string name, int flags);
     [LibraryImport(LibSystem, EntryPoint = "mkdirat", SetLastError = true, StringMarshalling = StringMarshalling.Utf8)]
     internal static partial int MakeDirectoryAt(SafeFileHandle directory, string name, uint mode);
+    [LibraryImport(LibSystem, EntryPoint = "fsync", SetLastError = true)]
+    internal static partial int Fsync(SafeFileHandle descriptor);
+    // fcntl is variadic; F_FULLFSYNC takes no third argument, so the fixed two-argument form matches the ABI.
+    [LibraryImport(LibSystem, EntryPoint = "fcntl", SetLastError = true)]
+    private static partial int FcntlWithoutArgument(SafeFileHandle descriptor, int command);
+
+    /// <summary>
+    /// Asks the drive to write its whole cache to permanent storage (F_FULLFSYNC). A file system without F_FULLFSYNC reports
+    /// ENOTSUP; its fsync is then the strongest flush it offers, as the .NET runtime also treats it.
+    /// </summary>
+    internal static void FullFsync(SafeFileHandle descriptor)
+    {
+        const int FullFsyncCommand = 51, Interrupted = 4, NotSupported = 45;
+        while (FcntlWithoutArgument(descriptor, FullFsyncCommand) != 0)
+        {
+            int error = Marshal.GetLastPInvokeError();
+            if (error == NotSupported) return;
+            if (error != Interrupted) throw Error("F_FULLFSYNC", error);
+        }
+    }
     [LibraryImport(LibSystem, EntryPoint = "flock", SetLastError = true)]
     internal static partial int Flock(SafeFileHandle descriptor, int operation);
     [LibraryImport(LibSystem, EntryPoint = "ioctl", SetLastError = true)]

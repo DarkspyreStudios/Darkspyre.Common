@@ -14,6 +14,9 @@ internal sealed class WindowsServiceFileSystem : ServiceFileSystem
     internal override void InspectPrivate(SafeFileHandle handle, bool directory, bool readOnly = false, bool executable = false) => WindowsFileSecurity.Inspect(handle, directory, readOnly, executable);
     internal override bool IsExecutable(string path) => Path.GetExtension(path).Equals(".exe", StringComparison.OrdinalIgnoreCase);
     internal override FileStream CreateFile(string path) => new(WindowsPrivateDirectory.OpenNative(path, WindowsNative.Write, 0, 1, directory: false), FileAccess.Write);
+    // FlushFileBuffers also flushes the device write cache, so no separate device flush remains.
+    internal override void SyncFile(FileStream file) => file.Flush(flushToDisk: true);
+    internal override void FlushDevice(FileStream file) { }
     internal override void CreateDirectory(string path) => new DirectoryInfo(path).Create((DirectorySecurity)WindowsFileSecurity.Create(directory: true));
     internal override void Seal(string path, bool executable)
     {

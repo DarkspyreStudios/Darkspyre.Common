@@ -10,6 +10,19 @@ internal abstract class ServiceFileSystem
     internal abstract void InspectPrivate(SafeFileHandle handle, bool directory, bool readOnly = false, bool executable = false);
     internal abstract bool IsExecutable(string path);
     internal abstract FileStream CreateFile(string path);
+
+    /// <summary>
+    /// Writes <paramref name="file"/>'s buffered bytes and hands them to the storage device. The bytes are durable only after a
+    /// later <see cref="FlushDevice"/>, which a writer calls once after its last file.
+    /// </summary>
+    internal abstract void SyncFile(FileStream file);
+
+    /// <summary>
+    /// Makes every file already passed to <see cref="SyncFile"/> on the same device durable. A writer calls it once, after its
+    /// last <see cref="SyncFile"/> and before it publishes the files.
+    /// </summary>
+    /// <param name="file">An open file on the device to flush, which has already been passed to <see cref="SyncFile"/>.</param>
+    internal abstract void FlushDevice(FileStream file);
     internal abstract void CreateDirectory(string path);
     internal abstract void Seal(string path, bool executable);
     internal abstract void RemoveTree(string path);

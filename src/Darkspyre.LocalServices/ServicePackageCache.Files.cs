@@ -17,13 +17,15 @@ internal sealed partial class ServicePackageCache
             string hash = await ServicePackageFiles.HashAsync(input, file.Length, output, token).ConfigureAwait(false);
             if (!hash.Equals(file.Sha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("The source payload changed during installation.");
             await output.FlushAsync(token).ConfigureAwait(false);
-            output.Flush(flushToDisk: true);
+            this.fileSystem.SyncFile(output);
         }
         string metadata = System.IO.Path.Combine(destination, ServicePackageManifest.FileName);
         await using var manifestFile = this.fileSystem.CreateFile(metadata);
         await manifestFile.WriteAsync(manifestBytes, token).ConfigureAwait(false);
         await manifestFile.FlushAsync(token).ConfigureAwait(false);
-        manifestFile.Flush(flushToDisk: true);
+        this.fileSystem.SyncFile(manifestFile);
+        // One device flush covers every payload file synced above; the build is published only after it.
+        this.fileSystem.FlushDevice(manifestFile);
     }
 
     private async Task<ServicePackageManifest> VerifyCachedAsync(string path, string digest, CancellationToken token)

@@ -252,6 +252,9 @@ It references Contracts. A subscriber library installs its verified package thro
 constructs `ServiceConnector`, and owns the returned `IServiceSubscription`. The first connection launches
 the service; subsequent connections join it. The final departure starts the existing drain.
 The application Host does not register, install or start the service.
+The package cache copies a payload into a staging folder and syncs each file with `ServiceFileSystem.SyncFile`. It then
+flushes the device once with `ServiceFileSystem.FlushDevice` and only after that publishes the build by rename. On macOS
+the one flush is F_FULLFSYNC; on Linux and Windows the per-file sync already flushes the device.
 
 ## Darkspyre.LocalServices.Platform.MacOS, Linux and Windows
 

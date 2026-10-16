@@ -21,6 +21,9 @@ internal sealed class LinuxServiceFileSystem : ServiceFileSystem
         Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None,
         Options = FileOptions.Asynchronous, UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite,
     });
+    // fsync also flushes the device write cache on Linux, so no separate device flush remains.
+    internal override void SyncFile(FileStream file) => file.Flush(flushToDisk: true);
+    internal override void FlushDevice(FileStream file) { }
     internal override void CreateDirectory(string path) => Directory.CreateDirectory(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
     internal override void Seal(string path, bool executable) => File.SetUnixFileMode(path, executable ? UnixFileMode.UserRead | UnixFileMode.UserExecute : UnixFileMode.UserRead);
     internal override void RemoveTree(string path)

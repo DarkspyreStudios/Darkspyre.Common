@@ -21,6 +21,13 @@ internal sealed class MacServiceFileSystem : ServiceFileSystem
         Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None,
         Options = FileOptions.Asynchronous, UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite,
     });
+    // fsync hands the data to the drive; F_FULLFSYNC then flushes the drive's write cache once for all synced files.
+    internal override void SyncFile(FileStream file)
+    {
+        file.Flush();
+        if (MacNative.Fsync(file.SafeFileHandle) != 0) throw MacNative.Error("fsync", Marshal.GetLastPInvokeError());
+    }
+    internal override void FlushDevice(FileStream file) => MacNative.FullFsync(file.SafeFileHandle);
     internal override void CreateDirectory(string path) => Directory.CreateDirectory(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
     internal override void Seal(string path, bool executable) => File.SetUnixFileMode(path, executable ? UnixFileMode.UserRead | UnixFileMode.UserExecute : UnixFileMode.UserRead);
     internal override void RemoveTree(string path) => MacPackageFiles.RemoveTree(path);

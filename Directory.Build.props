@@ -24,9 +24,9 @@
     <DarkspyreCommonAvaloniaPdfVersion>11.0.10.0</DarkspyreCommonAvaloniaPdfVersion>
     <DarkspyreCommonAvaloniaTerminalVersion>11.0.10.0</DarkspyreCommonAvaloniaTerminalVersion>
     <DarkspyreLocalServicesContractsVersion>11.0.10.1</DarkspyreLocalServicesContractsVersion>
-    <DarkspyreLocalServicesVersion>11.0.10.1</DarkspyreLocalServicesVersion>
-    <DarkspyreLocalServicesPlatformMacOSVersion>11.0.10.1</DarkspyreLocalServicesPlatformMacOSVersion>
-    <DarkspyreLocalServicesPlatformLinuxVersion>11.0.10.2</DarkspyreLocalServicesPlatformLinuxVersion>
-    <DarkspyreLocalServicesPlatformWindowsVersion>11.0.10.1</DarkspyreLocalServicesPlatformWindowsVersion>
+    <DarkspyreLocalServicesVersion>11.0.10.2</DarkspyreLocalServicesVersion>
+    <DarkspyreLocalServicesPlatformMacOSVersion>11.0.10.2</DarkspyreLocalServicesPlatformMacOSVersion>
+    <DarkspyreLocalServicesPlatformLinuxVersion>11.0.10.3</DarkspyreLocalServicesPlatformLinuxVersion>
+    <DarkspyreLocalServicesPlatformWindowsVersion>11.0.10.2</DarkspyreLocalServicesPlatformWindowsVersion>
   </PropertyGroup>
 </Project>
