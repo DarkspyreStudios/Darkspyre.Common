@@ -1,4 +1,6 @@
 using Avalonia.Controls;
+using Avalonia.LogicalTree;
+using Avalonia.Media;
 using Darkspyre.Common.Avalonia.Markdown;
 using LiveMarkdown.Avalonia;
 using Markdig.Syntax;
@@ -87,6 +89,59 @@ public sealed class MarkdownViewerTests
         viewer.Text = "Something else";
         await ViewSession.WaitForAsync(() => Text(viewer).Contains("Something else", StringComparison.Ordinal));
         Assert.DoesNotContain("First part", Text(viewer), StringComparison.Ordinal);
+    });
+
+    /// <summary>
+    /// LiveMarkdown's own styles set Arial at 14 (headings 24 to 16) on every text block, whatever the parent's font.
+    /// Paragraphs, quotes, list items, table cells and list markers take the body entry, each heading level its own
+    /// entry, and code the code entry; a change to one entry restyles only that entry's text.
+    /// </summary>
+    [Fact]
+    public Task MarkdownTextAndHeadingsTakeTheEntryFonts() => ViewSession.RunAsync(async () =>
+    {
+        MarkdownViewer viewer = new()
+        {
+            Text = "# One\n\n## Two\n\n### Three\n\n#### Four\n\n##### Five\n\n###### Six\n\nPara `inline`\n\n> Quote\n\n- Item\n\n1. Numbered\n\n"
+                + "| Head |\n| --- |\n| Cell |\n\n```\nblock\n```\n\nEnd",
+        };
+        Border host = new() { Child = viewer };
+        FontFamily body = new("Courier New"), code = new("Menlo");
+        host.Resources["font-body"] = body;
+        host.Resources["font-size-body"] = 21d;
+        host.Resources["font-code"] = code;
+        host.Resources["font-size-code"] = 17d;
+        for (int level = 1; level <= 6; level++)
+        {
+            host.Resources[$"font-heading-{level}"] = new FontFamily($"Heading Face {level}");
+            host.Resources[$"font-size-heading-{level}"] = 40d - level;
+        }
+        ViewSession.Show(host);
+        await ViewSession.WaitForAsync(() => Text(viewer).Contains("End", StringComparison.Ordinal));
+        MarkdownTextBlock[] blocks = [.. ViewSession.All<MarkdownTextBlock>(viewer)];
+
+        MarkdownTextBlock[] paragraphs = [.. blocks.Where(block => block.Classes.Contains("ParagraphBlock"))];
+        Assert.Equal(["Para inline", "Quote", "Item", "Numbered", "Head", "Cell", "End"], paragraphs.Select(block => block.ActualText.Trim()));
+        Assert.All(paragraphs, block => Assert.Equal((body, 21d), (block.FontFamily, block.FontSize)));
+        TextBlock[] markers = [.. ViewSession.All<TextBlock>(viewer).Where(block => block.Classes.Contains("ListBlockBullet") || block.Classes.Contains("ListBlockNumber"))];
+        Assert.Equal(2, markers.Length);
+        Assert.All(markers, marker => Assert.Equal((body, 21d), (marker.FontFamily, marker.FontSize)));
+        for (int level = 1; level <= 6; level++)
+        {
+            MarkdownTextBlock heading = Assert.Single(blocks, block => block.Classes.Contains($"Heading{level}"));
+            Assert.Equal((new FontFamily($"Heading Face {level}"), 40d - level), (heading.FontFamily, heading.FontSize));
+        }
+        MarkdownRenderer renderer = Assert.Single(ViewSession.All<MarkdownRenderer>(viewer));
+        LiveMarkdown.Avalonia.CodeInline inline = Assert.Single(renderer.GetLogicalDescendants().OfType<LiveMarkdown.Avalonia.CodeInline>());
+        Assert.Equal((code, 17d), (inline.FontFamily, inline.FontSize));
+        LiveMarkdown.Avalonia.CodeBlock fence = Assert.Single(ViewSession.All<LiveMarkdown.Avalonia.CodeBlock>(viewer));
+        Assert.Equal((code, 17d), (fence.FontFamily, fence.FontSize));
+
+        host.Resources["font-size-heading-1"] = 50d;
+        ViewSession.Settle();
+
+        Assert.Equal(50d, Assert.Single(blocks, block => block.Classes.Contains("Heading1")).FontSize);
+        Assert.Equal(38d, Assert.Single(blocks, block => block.Classes.Contains("Heading2")).FontSize);
+        Assert.All(paragraphs, block => Assert.Equal(21d, block.FontSize));
     });
 
     private static string Text(MarkdownViewer viewer) => string.Join("\n", ViewSession.All<MarkdownTextBlock>(viewer).Select(block => block.ActualText));

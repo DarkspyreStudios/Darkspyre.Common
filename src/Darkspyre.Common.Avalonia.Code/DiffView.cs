@@ -190,7 +190,8 @@ public sealed class DiffView : TemplatedControl
 
         private FormattedText Text(string text, IBrush brush) => new(text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
             new Typeface(this.TextView?.GetValue(TextBlock.FontFamilyProperty) ?? FontFamily.Default),
-            this.TextView?.GetValue(TextBlock.FontSizeProperty) ?? 12, brush);
+            this.TextView?.GetValue(TextBlock.FontSizeProperty)
+                ?? (this.TryFindResource("font-size-code", out object? size) && size is double code ? code : this.GetValue(TextBlock.FontSizeProperty)), brush);
 
         private void Redraw(object? sender, EventArgs args) => this.InvalidateVisual();
     }
