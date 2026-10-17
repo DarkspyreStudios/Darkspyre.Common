@@ -1,4 +1,3 @@
-using System.Security.Authentication;
 using Darkspyre.LocalServices;
 using Darkspyre.LocalServices.Contracts;
 
@@ -59,33 +58,16 @@ internal static class ServiceFixture
                     result.Position = 0;
                     return new(ServiceResultStatus.Succeeded, result);
                 }, owner.StagingPath, startupTimestamp: TimeProvider.System.GetTimestamp());
-            using var accepting = new CancellationTokenSource();
-            List<Task> peers = [];
-            Task accept = AcceptAsync();
+            using var peers = new ServicePeerHost(owner, control);
             await control.Draining;
             ServiceCleanupReport cleanup = await ServiceProcessShutdown.RunAsync([
-                new("accept", async _ => { accepting.Cancel(); await accept; }),
-                new("subscribers", async _ => { await control.DisposeAsync(); await Task.WhenAll(peers); }),
+                new("accept", _ => peers.StopAcceptingAsync()),
+                new("subscribers", async _ => { await control.DisposeAsync(); await peers.JoinPeersAsync(); }),
             ]);
             if (!cleanup.Succeeded) Environment.Exit(18); // Retain ownership until abnormal process exit.
             await owner.CompleteAsync();
             await File.WriteAllTextAsync(Path.Combine(coordination, $"finished-{owner.Epoch:N}"), "clean");
             return 0;
-
-            async Task AcceptAsync()
-            {
-                while (!accepting.IsCancellationRequested)
-                {
-                    try
-                    {
-                        ServicePeer peer = await owner.AcceptAsync(accepting.Token);
-                        peers.Add(control.RunPeerAsync(peer));
-                    }
-                    catch (OperationCanceledException) when (accepting.IsCancellationRequested) { return; }
-                    catch (AuthenticationException) { }
-                    catch (ServiceProtocolException) { }
-                }
-            }
         }
         catch (Exception error)
         {
