@@ -1,0 +1,67 @@
+<Project>
+  <!--
+    Bundles a local service with its subscriber library. The importing project sets:
+      LocalServiceProject         the service executable's project file
+      LocalServiceEntryPoint      the service executable's name, without the Windows .exe extension
+      LocalServiceMetadataPrefix  the prefix of the generated <prefix>.LayoutId and <prefix>.ClientBuildDigest metadata
+      LocalServiceLayoutId        the installed package layout identity
+      LocalServicePackageFolder   the folder beside the subscriber that holds manifest.json and payload/; its last
+                                  segment must be "service", which the signing manifest refresh looks for
+  -->
+  <PropertyGroup>
+    <_LocalServicePackagingProject>$(MSBuildThisFileDirectory)../Darkspyre.LocalServices.Packaging/Darkspyre.LocalServices.Packaging.csproj</_LocalServicePackagingProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(LocalServiceProject)" ReferenceOutputAssembly="false" Private="false" />
+    <!-- Package inspection runs on the build machine, independently of the service's target RID. -->
+    <ProjectReference Include="$(_LocalServicePackagingProject)" ReferenceOutputAssembly="false" Private="false"
+                      GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;ServiceRuntimeIdentifier;ServicePlatform;DarkspyrePlatform" />
+  </ItemGroup>
+
+  <!-- The built service's output folder and this project's subscriber output folder. Neither call builds anything. -->
+  <Target Name="LocateLocalServiceSubscriber">
+    <Error Condition="'$(LocalServiceProject)' == '' or '$(LocalServiceEntryPoint)' == '' or '$(LocalServiceMetadataPrefix)' == '' or '$(LocalServiceLayoutId)' == '' or '$(LocalServicePackageFolder)' == ''"
+           Text="A local service subscriber must set LocalServiceProject, LocalServiceEntryPoint, LocalServiceMetadataPrefix, LocalServiceLayoutId and LocalServicePackageFolder." />
+    <MSBuild Projects="$(LocalServiceProject)" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="_LocalServiceAssembly" />
+    </MSBuild>
+    <PropertyGroup>
+      <_LocalServiceOutput>@(_LocalServiceAssembly->'%(RootDir)%(Directory)')</_LocalServiceOutput>
+      <_LocalServicePackageOutput>$(IntermediateOutputPath)subscriber/</_LocalServicePackageOutput>
+    </PropertyGroup>
+  </Target>
+
+  <!-- Writes the subscriber manifest and the generated client metadata before the client compiles. -->
+  <Target Name="PrepareLocalServiceSubscriber" BeforeTargets="CoreCompile" DependsOnTargets="ResolveReferences;LocateLocalServiceSubscriber">
+    <MSBuild Projects="$(_LocalServicePackagingProject)" Targets="GetTargetPath" Properties="Configuration=$(Configuration)"
+             RemoveProperties="RuntimeIdentifier;SelfContained;ServiceRuntimeIdentifier;ServicePlatform;DarkspyrePlatform">
+      <Output TaskParameter="TargetOutputs" ItemName="_LocalServicePackagingAssembly" />
+    </MSBuild>
+    <PropertyGroup>
+      <_LocalServiceEntryFile>$(LocalServiceEntryPoint)</_LocalServiceEntryFile>
+      <_LocalServiceEntryFile Condition="'$(ServicePlatform)' == 'Windows'">$(LocalServiceEntryPoint).exe</_LocalServiceEntryFile>
+    </PropertyGroup>
+    <MakeDir Directories="$(_LocalServicePackageOutput)" />
+    <WriteLinesToFile File="$(_LocalServicePackageOutput)inputs.txt" Lines="@(Compile->'%(FullPath)');@(ReferencePath->'%(FullPath)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <Exec Command="dotnet &quot;@(_LocalServicePackagingAssembly)&quot; capture &quot;$(_LocalServiceOutput)&quot; &quot;$(_LocalServiceEntryFile)&quot; &quot;$(_LocalServicePackageOutput)&quot; &quot;$(LocalServiceMetadataPrefix)&quot; &quot;$(LocalServiceLayoutId)&quot;" />
+    <ItemGroup>
+      <Compile Include="$(_LocalServicePackageOutput)ServicePackageMetadata.cs" />
+    </ItemGroup>
+  </Target>
+
+  <!--
+    Adds the service payload and the subscriber manifest to the files copied beside each subscriber. It runs after
+    AssignTargetPaths, which a build and a publish both run, so a no-build publish of a subscriber still carries the
+    service folder its earlier build wrote.
+  -->
+  <Target Name="AddLocalServiceSubscriberPayload" AfterTargets="AssignTargetPaths" DependsOnTargets="LocateLocalServiceSubscriber">
+    <ItemGroup>
+      <_LocalServicePayload Include="$(_LocalServiceOutput)**/*" />
+      <ContentWithTargetPath Include="@(_LocalServicePayload)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest">
+        <TargetPath>$(LocalServicePackageFolder)/payload/%(_LocalServicePayload.RecursiveDir)%(_LocalServicePayload.Filename)%(_LocalServicePayload.Extension)</TargetPath>
+      </ContentWithTargetPath>
+      <ContentWithTargetPath Include="$(_LocalServicePackageOutput)manifest.json" TargetPath="$(LocalServicePackageFolder)/manifest.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
+</Project>

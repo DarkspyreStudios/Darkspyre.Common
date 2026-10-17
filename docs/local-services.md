@@ -345,6 +345,18 @@ through real LocalServices frames. Its test-only friend access creates paired au
 The Search build packager reuses the internal package capture path through a friend assembly.
 Its platform composition supplies the same executable-file inspection used during installation.
 
+## Subscriber packaging
+
+`build/LocalServices/SubscriberPackage.targets` bundles a service with its subscriber library. The subscriber project
+sets `LocalServiceProject`, `LocalServiceEntryPoint`, `LocalServiceMetadataPrefix`, `LocalServiceLayoutId` and
+`LocalServicePackageFolder`, then imports the targets. Before the subscriber compiles, the packaging tool's `capture`
+command inventories the built service output and writes `manifest.json` and `ServicePackageMetadata.cs`, which carries
+the `<prefix>.LayoutId` and `<prefix>.ClientBuildDigest` assembly metadata. The client digest covers the manifest and
+the hashes of the subscriber's compile inputs and references. The payload is copied to `<folder>/payload/` and the
+manifest to `<folder>/manifest.json` beside the subscriber, for builds and no-build publishes. The folder's last
+segment must be `service`: the packaging tool's `finalize` command, run by Mac signing, refreshes every
+`service/manifest.json` from its signed `payload/`.
+
 ## Wire documentation
 
 The Contracts library emits XML documentation for wire envelopes, fields, lifecycle states and safe errors.
