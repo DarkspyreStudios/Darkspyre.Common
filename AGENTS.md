@@ -3,8 +3,7 @@
 Shared libraries for Darkspyre applications. Each library is its own project and DLL under `src/`, with its tests under
 `tests/`.
 
-Every rule for agents on this workstation lives in `~/.agents/` (`~/.agents/AGENTS.md` and the files it names). This file
-adds only what is particular to this repository.
+The Darkspyre Harness rules are in agent-ds `AGENTS.md`. This file adds only what is particular to this repository.
 
 ## Design record
 
@@ -19,7 +18,7 @@ every caller in the same change (L1).
 
 ## Laws
 
-The common laws apply (`~/.agents/CommonLaws.md`). This repository records no law exception.
+This repository records no law exception.
 
 ## Operating-system boundaries
 
