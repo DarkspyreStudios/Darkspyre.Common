@@ -171,8 +171,8 @@ public sealed record GitWorktreeRequest(string RepositoryPath, string WorktreePa
 /// <param name="CommonDirectory">The absolute Git common directory of the repository.</param>
 /// <param name="WorktreePath">The absolute root of the new worktree.</param>
 /// <param name="BranchRef">The full ref of the new branch.</param>
-/// <param name="BaseCommit">The commit the branch was created at.</param>
-public sealed record GitWorktreeSnapshot(string CommonDirectory, string WorktreePath, string BranchRef, string BaseCommit);
+/// <param name="BaseCommit">The commit the worktree's branch started at, or null when it started with no commits.</param>
+public sealed record GitWorktreeSnapshot(string CommonDirectory, string WorktreePath, string BranchRef, string? BaseCommit);
 /// <summary>A request to add a linked worktree on a branch that may already exist.</summary>
 /// <param name="RepositoryPath">A directory inside the source repository.</param>
 /// <param name="WorktreePath">The absolute path of the new worktree. It must not already exist.</param>
@@ -501,7 +501,8 @@ public sealed class GitOperationException(GitFailure failure, string message) : 
 /// <param name="RepositoryPath">The source repository's worktree root.</param>
 /// <param name="CommonDirectory">The repository's Git common directory.</param>
 /// <param name="RequestedSourceRef">The ref the caller asked to start from.</param>
-/// <param name="BaseCommit">The commit that ref resolved to.</param>
+/// <param name="BaseCommit">The commit the new branch starts at, or null when the repository has no commits and the
+/// branch starts with none.</param>
 /// <param name="BranchName">The new branch's short name.</param>
 public sealed record PreparedGitWorktree(string RepositoryPath, string CommonDirectory,
-    string RequestedSourceRef, string BaseCommit, string BranchName);
+    string RequestedSourceRef, string? BaseCommit, string BranchName);

@@ -150,6 +150,80 @@ public sealed class WorkspaceFoldersTests
         Assert.Contains(conflict.StashCommit, Git.Run(worktree, "stash", "list", "--format=%H"), StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// DSA-1088: in a repository with no commits, a creation makes a locked worktree on a new branch with no commits, and
+    /// the source repository still has none.
+    /// </summary>
+    [Fact]
+    public async Task CreateMakesAnOrphanWorktreeInARepositoryWithNoCommits()
+    {
+        Fixture fixture = Fixture.Create();
+        string empty = fixture.Empty("empty");
+
+        WorkspaceCreateResult created = await fixture.Folders.CreateAsync(
+            new(fixture.Folder, "dsa-1088/empty", [new("empty", empty, "HEAD")], false), Actor);
+
+        Assert.Empty(created.Skipped);
+        WorkspaceWorktree worktree = Assert.Single(created.Worktrees);
+        Assert.Null(worktree.Worktree.BaseCommit);
+        Assert.Equal("refs/heads/dsa-1088/empty", worktree.Worktree.BranchRef);
+        Assert.Equal("dsa-1088/empty", Git.Run(worktree.Path, "branch", "--show-current").Trim());
+        Assert.True(Locked(worktree.Path));
+        Assert.Empty(Git.Run(empty, "rev-list", "--all").Trim());
+        Assert.Empty(Git.Run(empty, "status", "--porcelain").Trim());
+    }
+
+    /// <summary>
+    /// DSA-1088: an entry whose base names a remote-tracking branch, in a repository with no commits, is not fetched and
+    /// still gets its worktree on a new branch with no commits.
+    /// </summary>
+    [Fact]
+    public async Task AnEntryWithARemoteBaseInARepositoryWithNoCommitsGetsAnOrphanWorktree()
+    {
+        Fixture fixture = Fixture.Create();
+        string empty = fixture.Empty("empty");
+        string emptyOrigin = Path.Combine(Path.GetDirectoryName(empty)!, "empty-origin.git");
+        Git.Run(Path.GetDirectoryName(empty)!, "init", "-q", "--bare", "-b", "main", emptyOrigin);
+        Git.Run(empty, "remote", "add", "origin", emptyOrigin);
+
+        WorkspaceCreateResult created = await fixture.Folders.CreateAsync(
+            new(fixture.Folder, "remote-base", [new("empty", empty, "origin/dev")], true), Actor);
+
+        Assert.Empty(created.Skipped);
+        WorkspaceWorktree worktree = Assert.Single(created.Worktrees);
+        Assert.Null(worktree.Worktree.BaseCommit);
+        Assert.Equal("remote-base", Git.Run(worktree.Path, "branch", "--show-current").Trim());
+        Assert.Empty(Git.Run(empty, "rev-list", "--all").Trim());
+    }
+
+    /// <summary>
+    /// DSA-1088: a worktree on a branch with no commits is kept while it holds an untracked file, and removed with its
+    /// folder once it is clean; no branch is deleted, since none has a ref.
+    /// </summary>
+    [Fact]
+    public async Task RemoveRemovesACleanOrphanWorktreeAndKeepsOneWithFiles()
+    {
+        Fixture fixture = Fixture.Create();
+        string empty = fixture.Empty("empty");
+        WorkspaceCreateResult created = await fixture.Folders.CreateAsync(
+            new(fixture.Folder, "orphan", [new("empty", empty, "HEAD")], false), Actor);
+        string worktree = Assert.Single(created.Worktrees).Path;
+        string notes = Path.Combine(worktree, "notes.txt");
+        File.WriteAllText(notes, "keep\n");
+
+        await Assert.ThrowsAsync<WorkspaceRemovalBlockedException>(() => fixture.Folders.RemoveAsync(fixture.Folder, Actor));
+        Assert.Equal("keep\n", File.ReadAllText(notes));
+        Assert.True(Locked(worktree));
+
+        File.Delete(notes);
+        WorkspaceRemovalResult removed = await fixture.Folders.RemoveAsync(fixture.Folder, Actor);
+
+        Assert.Equal([worktree], removed.Worktrees);
+        Assert.Empty(removed.Branches);
+        Assert.False(Directory.Exists(fixture.Folder));
+        Assert.DoesNotContain("orphan", Git.Run(empty, "worktree", "list", "--porcelain"), StringComparison.Ordinal);
+    }
+
     // Whether git worktree list names the worktree locked with the workspace reason. Git prints '/' on every system.
     private static bool Locked(string worktree)
     {
@@ -192,6 +266,9 @@ public sealed class WorkspaceFoldersTests
 
         public static Fixture Create() => new(TestScratchRoot.CreateDirectory("workspaces-"));
 
+        // A repository with no commits beside the fixture's repositories.
+        public string Empty(string name) => InitEmpty(Path.Combine(Path.GetDirectoryName(this.First)!, name));
+
         // Commits a file in a clone of origin and pushes it to dev, so only a fetch brings it; returns the commit.
         public string PublishToOrigin(string repository, string file)
         {
@@ -204,7 +281,7 @@ public sealed class WorkspaceFoldersTests
             return Git.Run(clone, "rev-parse", "HEAD").Trim();
         }
 
-        private static string Init(string directory)
+        private static string InitEmpty(string directory)
         {
             Directory.CreateDirectory(directory);
             Git.Run(directory, "init", "-q", "-b", "main");
@@ -213,6 +290,12 @@ public sealed class WorkspaceFoldersTests
             Git.Run(directory, "config", "user.email", "workspace@example.invalid");
             Git.Run(directory, "config", "commit.gpgsign", "false");
             Git.Run(directory, "config", "core.autocrlf", "false");
+            return directory;
+        }
+
+        private static string Init(string directory)
+        {
+            InitEmpty(directory);
             File.WriteAllText(Path.Combine(directory, "readme.txt"), "readme\n");
             Git.Run(directory, "add", "readme.txt");
             Git.Run(directory, "commit", "-q", "-m", "Base");

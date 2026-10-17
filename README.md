@@ -210,7 +210,12 @@ a `WorkspaceActor`, the acting owner and the trigger, which each log line names.
   remote-tracking branch, creates the worktree at `<folder>/<name>` on the new branch and locks it; then it creates
   `tmp/home`. With `SkipFailures` a repository whose fetch or worktree fails is skipped and reported with its reason;
   otherwise, and on cancellation, the first failure undoes everything and is thrown. A creation that makes no
-  worktree deletes the folder. It changes nothing outside the folder and the repositories.
+  worktree deletes the folder. It changes nothing outside the folder and the repositories. A repository with no
+  commits is not fetched, and its worktree's new branch starts with no commits (`git worktree add --orphan`), whatever
+  its base names; the repository itself still has no commits
+  ([DSA-1088](https://darkspyre.atlassian.net/browse/DSA-1088)). The same rule holds for every worktree
+  `Darkspyre.Common.Git` creates: a prepared worktree in a repository with no commits has a null `BaseCommit`, and its
+  branch starts with none even when the repository has gained a commit by the time it is created.
 - `InspectAsync` reports each configured repository as healthy (a worktree's own folder with the repository's common
   directory, locked or not), missing or broken; every other top-level folder that is a git worktree's own folder, such
   as one made for a single task, as another worktree; and every remaining top-level item except `tmp` as a stray, so
@@ -218,7 +223,8 @@ a `WorkspaceActor`, the acting owner and the trigger, which each log line names.
 - `RemoveAsync` takes a workspace folder or a single worktree. Every worktree must lose nothing but ignored files and
   have every commit on a remote-tracking branch, and a workspace must hold nothing but worktrees and `tmp`; otherwise
   `WorkspaceRemovalBlockedException` names the cause and nothing is removed. It unlocks and removes each worktree,
-  deletes each branch while it still names the removed head, and deletes the folder.
+  deletes each branch while it still names the removed head, and deletes the folder. A worktree on a branch with no
+  commits is removable when it holds no tracked, untracked or staged files; its branch has no ref, so none is deleted.
 - `RepairAsync` stashes each healthy worktree's uncommitted and untracked changes (`darkspyre-repair <timestamp>`);
   moves each broken repository folder into `tmp/repaired-<yyyyMMdd-HHmmss>`; unlocks each missing worktree's record and
   prunes the repositories; re-creates each missing worktree on the branch (the local branch, else a new branch at

@@ -52,7 +52,8 @@ public sealed partial class WorkspaceFolders
     /// <summary>
     /// Creates the workspace folder, then, for each repository in order, fetches its base when the base names a
     /// remote-tracking branch, creates its worktree at <c>&lt;folder&gt;/&lt;name&gt;</c> on the new branch, and locks it;
-    /// then creates <c>tmp/home</c>.
+    /// then creates <c>tmp/home</c>. A repository with no commits is not fetched, and its worktree's new branch starts
+    /// with no commits, whatever its base names.
     /// </summary>
     /// <remarks>
     /// With <see cref="WorkspaceCreateRequest.SkipFailures"/>, a repository whose fetch or worktree fails is skipped and
@@ -81,7 +82,8 @@ public sealed partial class WorkspaceFolders
                 string path = Path.Combine(folder, repository.Name);
                 try
                 {
-                    await this.FetchBaseAsync(repository, actor, cancellationToken).ConfigureAwait(false);
+                    if (await this.git.HasCommitsAsync(repository.SourceRepository, cancellationToken).ConfigureAwait(false))
+                        await this.FetchBaseAsync(repository, actor, cancellationToken).ConfigureAwait(false);
                     Log.CreatingWorktree(this.logger, path, request.BranchName, repository.BaseRef, actor.Actor, actor.Trigger);
                     GitWorktreeSnapshot worktree = await this.git.CreateWorktreeAsync(
                         new(repository.SourceRepository, path, repository.BaseRef, request.BranchName), cancellationToken).ConfigureAwait(false);
@@ -188,7 +190,9 @@ public sealed partial class WorkspaceFolders
             if (!GitPreservationCheck.LosesOnlyIgnoredFiles(check))
                 throw new WorkspaceRemovalBlockedException($"The worktree {member} cannot be removed without loss: "
                     + $"{string.Join(" ", check.Blockers.Where(blocker => blocker != GitPreservationCheck.IgnoredFilesBlocker))} Nothing was removed.");
-            IReadOnlyList<string> unpublished = await this.git.ReadUnpublishedCommitsAsync(member, check.HeadCommit!, cancellationToken)
+            // A branch with no commits has nothing to publish.
+            if (check.HeadCommit is not { } head) continue;
+            IReadOnlyList<string> unpublished = await this.git.ReadUnpublishedCommitsAsync(member, head, cancellationToken)
                 .ConfigureAwait(false);
             if (unpublished.Count > 0)
                 throw new WorkspaceRemovalBlockedException($"The worktree {member} has {unpublished.Count} commit(s) on no remote branch. "
@@ -265,12 +269,14 @@ public sealed partial class WorkspaceFolders
                 await this.git.UnlockWorktreeAsync(worktree.Path, CancellationToken.None).ConfigureAwait(false);
                 Log.RemovingWorktree(this.logger, worktree.Path, actor.Actor, actor.Trigger);
                 GitRemovalResult removed = await this.git.RemoveWorktreeAsync(worktree.Path, CancellationToken.None).ConfigureAwait(false);
-                if (removed.Status == GitRemovalStatus.Removed)
+                if (removed.Status != GitRemovalStatus.Removed)
+                    Log.UndoKept(this.logger, worktree.Path, worktree.Worktree.BranchRef, removed.Status.ToString(), removed.Diagnostic);
+                // A branch made with no commits has no ref to delete.
+                else if (worktree.Worktree.BaseCommit is not null)
                 {
                     Log.DeletingBranch(this.logger, worktree.Worktree.BranchRef, worktree.Path, actor.Actor, actor.Trigger);
                     await this.git.DeleteCreatedBranchAsync(worktree.Worktree, CancellationToken.None).ConfigureAwait(false);
                 }
-                else Log.UndoKept(this.logger, worktree.Path, worktree.Worktree.BranchRef, removed.Status.ToString(), removed.Diagnostic);
             }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
             {

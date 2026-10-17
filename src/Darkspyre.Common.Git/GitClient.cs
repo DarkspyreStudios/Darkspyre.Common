@@ -256,10 +256,15 @@ public sealed class GitClient
     /// Resolves <paramref name="sourceRef"/> to a commit under the repository's operation gate and checks that the new
     /// branch does not exist yet. It reserves nothing and changes nothing.
     /// </summary>
+    /// <gotcha>In a repository with no commits the prepared <see cref="PreparedGitWorktree.BaseCommit"/> is null, whatever
+    /// <paramref name="sourceRef"/> names, and the worktree's branch starts with no commits.</gotcha>
     public Task<PreparedGitWorktree> PrepareWorktreeAsync(string repositoryPath, string sourceRef, string branchName, CancellationToken cancellationToken = default) =>
         this.worktrees.PrepareAsync(repositoryPath, sourceRef, branchName, cancellationToken);
 
-    /// <summary>Creates a linked worktree on the prepared new branch at the prepared commit.</summary>
+    /// <summary>
+    /// Creates a linked worktree on the prepared new branch at the prepared commit, or, when the prepared commit is null,
+    /// on a new branch with no commits (<c>git worktree add --orphan</c>), whatever the repository holds now.
+    /// </summary>
     public Task<GitWorktreeSnapshot> CreatePreparedWorktreeAsync(PreparedGitWorktree prepared, string worktreePath, CancellationToken cancellationToken = default) =>
         this.worktrees.CreatePreparedAsync(prepared, worktreePath, cancellationToken);
 
@@ -310,6 +315,8 @@ public sealed class GitClient
         this.worktrees.PruneAsync(repositoryPath, cancellationToken);
 
     /// <summary>Deletes the branch <paramref name="created"/> made, only while it still names the commit it was created at.</summary>
+    /// <gotcha>A branch created with no commits has no ref to delete; a snapshot with a null
+    /// <see cref="GitWorktreeSnapshot.BaseCommit"/> throws <see cref="ArgumentException"/>.</gotcha>
     public Task DeleteCreatedBranchAsync(GitWorktreeSnapshot created, CancellationToken cancellationToken = default) =>
         this.worktrees.DeleteCreatedBranchAsync(created, cancellationToken);
 
@@ -320,6 +327,10 @@ public sealed class GitClient
     /// <summary>The names of the repository's configured remotes, read with a plain <c>git remote</c>.</summary>
     public Task<IReadOnlyList<string>> ReadRemoteNamesAsync(string repository, CancellationToken cancellationToken = default) =>
         this.reader.ReadRemotesAsync(repository, cancellationToken);
+
+    /// <summary>Whether any commit exists in the repository that holds <paramref name="repositoryPath"/>.</summary>
+    public Task<bool> HasCommitsAsync(string repositoryPath, CancellationToken cancellationToken = default) =>
+        this.reader.HasCommitsAsync(repositoryPath, cancellationToken);
 
 
     /// <summary>Checks <paramref name="directory"/> through the path policy and starts one blob reader in its worktree. The caller disposes it.</summary>
