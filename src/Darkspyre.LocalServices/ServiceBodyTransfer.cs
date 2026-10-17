@@ -32,7 +32,7 @@ internal sealed class ServiceBodyTransfer : IDisposable
         this.received += chunk.Data.LongLength;
         this.sequence = checked(this.sequence + 1);
         if (chunk.FinalSha256 is null) return;
-        if (this.received != this.total || !string.Equals(chunk.FinalSha256, Convert.ToHexStringLower(this.hash.GetHashAndReset()), StringComparison.OrdinalIgnoreCase))
+        if (this.received != this.total || !chunk.FinalSha256.AsSpan().SequenceEqual(this.hash.GetHashAndReset()))
             throw new ServiceProtocolException(ServiceErrorCode.InvalidFrame);
         this.stream.Position = 0;
         this.Complete = true;
@@ -70,7 +70,7 @@ internal sealed class ServiceBodyTransfer : IDisposable
                 await input.ReadExactlyAsync(buffer.AsMemory(0, count), token).ConfigureAwait(false);
                 digest.AppendData(buffer.AsSpan(0, count));
                 sent += count;
-                string? final = sent == total ? Convert.ToHexStringLower(digest.GetHashAndReset()) : null;
+                byte[]? final = sent == total ? digest.GetHashAndReset() : null;
                 await send(new BlobChunkMessage(epoch, requestId, transferId, sequence++, total, buffer[..count], final), token).ConfigureAwait(false);
             } while (sent < total);
         }

@@ -2,7 +2,7 @@
 
 `Darkspyre.LocalServices.Contracts` defines independent installation and subscriber interfaces, shared result/launch types,
 service identities and typed control/business messages,
-wire limits and lifecycle deadlines. It depends on the .NET libraries only. Protocol version 1 is
+wire limits and lifecycle deadlines. It depends on the .NET libraries only. Protocol version 2 is
 independent of the SDK/plugin version. `Darkspyre.LocalServices` contains the frame codec and the
 subscriber registry, portable connector, handshake and immutable package-cache policy. The build-selected
 platform assemblies own native files, transport and detached launch. Neither library
@@ -10,13 +10,21 @@ opens databases.
 
 ## Frames
 
-A frame contains a four-byte unsigned little-endian length and a UTF-8 JSON message. The length is
-between 1 and 1,048,576 bytes. The codec validates it before allocating the body. A clean EOF before a
-header returns null. A truncated header/body throws. Unknown message kinds, unknown fields, missing
-constructor fields and duplicate properties fail decoding. Enum values use camel-case strings.
+A frame contains a four-byte unsigned little-endian length, a one-byte kind and a payload. The length counts
+the kind byte and the payload, and is between 2 and 1,048,577 bytes, so a payload holds at most 1,048,576 bytes.
+The codec validates it before allocating the payload. A clean EOF before a header returns null. A truncated
+header or payload throws, and so does an unknown kind.
 
-`ServiceFrameCodec.WriteAsync` bounds serialization before sending the header. Blob chunk data is
-limited to 262,144 decoded bytes in either direction. The connection owner must serialize writes and
+Kind 0 carries a UTF-8 JSON message. Unknown message kinds, unknown fields, missing constructor fields and
+duplicate properties fail decoding. Enum values use camel-case strings.
+
+Kind 1 carries one `BlobChunkMessage`. Its little-endian header is Epoch (16 bytes), RequestId (16),
+TransferId (16), Sequence as a 32-bit integer, TotalBytes as a 64-bit integer, Final as one byte (0 or 1)
+and, when Final is 1, the 32 raw SHA-256 bytes of the whole body. The header is 61 or 93 bytes. The raw chunk
+bytes follow it. A chunk has no JSON form. Chunk data is limited to 1,048,483 bytes in either direction, so
+one chunk fills one frame. Raw bytes avoid the base64 growth and parse of a JSON chunk.
+
+`ServiceFrameCodec.WriteAsync` bounds serialization before sending the header. The connection owner must serialize writes and
 must discard the connection after any failed or cancelled frame read/write. It must not retry a
 partial frame. Chunk order, total transfer size, digest, epoch, context and message-state validation
 belong to the connection/operation owner; decoding a frame does not grant admission or authority.

@@ -3,7 +3,10 @@ using System.Text.Json.Serialization;
 
 namespace Darkspyre.LocalServices.Contracts;
 
-/// <summary>Typed envelopes for an authenticated service connection. Capabilities are not serialized here.</summary>
+/// <summary>
+/// Typed envelopes for an authenticated service connection. Capabilities are not serialized here. Every message except
+/// <see cref="BlobChunkMessage"/> travels as JSON; a chunk travels as a binary frame and has no JSON form.
+/// </summary>
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]
 [JsonDerivedType(typeof(HelloMessage), "hello")]
 [JsonDerivedType(typeof(WelcomeMessage), "welcome")]
@@ -22,7 +25,6 @@ namespace Darkspyre.LocalServices.Contracts;
 [JsonDerivedType(typeof(EventMessage), "event")]
 [JsonDerivedType(typeof(CapabilityRequestMessage), "capability-request")]
 [JsonDerivedType(typeof(CapabilityResultMessage), "capability-result")]
-[JsonDerivedType(typeof(BlobChunkMessage), "blob-chunk")]
 public abstract record ServiceMessage;
 
 /// <summary>Requests a handshake with the expected service family and store.</summary>
@@ -123,16 +125,19 @@ public sealed record CapabilityRequestMessage(Guid Epoch, Guid CallbackId, Guid?
 public sealed record CapabilityResultMessage(Guid Epoch, Guid CallbackId, ServiceResultStatus Status,
     JsonElement? Payload, ServiceError? Error) : ServiceMessage;
 
-/// <summary>Transfer IDs belong to one connection and request. FinalSha256 is set only on the final chunk.</summary>
+/// <summary>
+/// One body chunk, carried in a binary frame with the raw bytes after its header. Transfer IDs belong to one
+/// connection and request. FinalSha256 is set only on the final chunk.
+/// </summary>
 /// <param name="Epoch">The service process epoch that owns this exchange.</param>
 /// <param name="RequestId">The originating request identity.</param>
 /// <param name="TransferId">The connection-local body transfer identity.</param>
 /// <param name="Sequence">The ordered chunk sequence number.</param>
 /// <param name="TotalBytes">The complete transfer length in bytes.</param>
 /// <param name="Data">The chunk bytes.</param>
-/// <param name="FinalSha256">The complete body digest on the final chunk only.</param>
+/// <param name="FinalSha256">The 32 raw SHA-256 bytes of the complete body on the final chunk, and null otherwise.</param>
 public sealed record BlobChunkMessage(Guid Epoch, Guid RequestId, Guid TransferId, int Sequence, long TotalBytes,
-    byte[] Data, string? FinalSha256) : ServiceMessage;
+    byte[] Data, byte[]? FinalSha256) : ServiceMessage;
 
 /// <summary>Safe diagnostic identity. The wire error contains neither an exception dump nor provider contents.</summary>
 /// <param name="Code">The safe error classification.</param>
