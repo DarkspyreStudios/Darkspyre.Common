@@ -71,6 +71,12 @@ public sealed partial class ServiceSubscription : IServiceSubscription
                     case AcceptedMessage or ResultMessage or BlobChunkMessage or EventMessage:
                         await ReceiveBusinessAsync(message).ConfigureAwait(false);
                         break;
+                    case CapabilityRequestMessage callback:
+                        StartCallback(callback);
+                        break;
+                    case CancelMessage cancel:
+                        CancelCallback(cancel);
+                        break;
                     case null:
                         Finish(ServiceErrorCode.Unavailable);
                         return;
@@ -147,7 +153,7 @@ public sealed partial class ServiceSubscription : IServiceSubscription
             Finish(null);
             await Task.WhenAll(this.receiver, this.heartbeat).ConfigureAwait(false);
             Task[] calls;
-            lock (this.gate) calls = [.. this.pending.Values.Select(call => call.Finished.Task)];
+            lock (this.gate) calls = [.. this.pending.Values.Select(call => call.Finished.Task), .. this.callbacks.Values.Select(callback => callback.Completion)];
             await Task.WhenAll(calls).ConfigureAwait(false);
             await this.peer.DisposeAsync().ConfigureAwait(false);
             // Other disposal callers share this task; no frame operation remains when these are released.

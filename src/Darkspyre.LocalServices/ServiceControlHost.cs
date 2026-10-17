@@ -93,6 +93,9 @@ public sealed partial class ServiceControlHost : IAsyncDisposable
                         CheckEpoch(cancel.Epoch);
                         this.Operations.Cancel(peer.Welcome.ConnectionId, cancel.RequestId);
                         break;
+                    case CapabilityResultMessage callback:
+                        ReceiveCallbackResult(connection, callback);
+                        break;
                     default: throw new ServiceProtocolException(ServiceErrorCode.InvalidState);
                 }
             }
@@ -109,6 +112,7 @@ public sealed partial class ServiceControlHost : IAsyncDisposable
             {
                 connection.Finalizing = true;
                 if (registered) Apply(this.subscribers.Unsubscribe(peer.Welcome.ConnectionId));
+                foreach (TaskCompletionSource<ServiceCallbackResult> answer in connection.Callbacks.Values) answer.TrySetResult(Unavailable());
             }
             try
             {
@@ -219,6 +223,7 @@ public sealed partial class ServiceControlHost : IAsyncDisposable
         private int broken;
         public bool Subscribed { get; set; }
         public Dictionary<Guid, IncomingRequest> Requests { get; } = [];
+        public Dictionary<Guid, TaskCompletionSource<ServiceCallbackResult>> Callbacks { get; } = [];
         public HashSet<Task> Work { get; } = [];
         public CancellationTokenSource Stop { get; } = CancellationTokenSource.CreateLinkedTokenSource(token);
         public TaskCompletionSource Completed { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);

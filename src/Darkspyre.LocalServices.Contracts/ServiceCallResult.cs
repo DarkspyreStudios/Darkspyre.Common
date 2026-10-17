@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Darkspyre.LocalServices.Contracts;
 
 namespace Darkspyre.LocalServices;
@@ -9,3 +10,13 @@ namespace Darkspyre.LocalServices;
 /// <param name="Error">The reported failure, when present.</param>
 public sealed record ServiceCallResult(ServiceResultStatus Status, long? Revision, byte[]? Body, ServiceError? Error);
 
+
+/// <summary>A subscriber's answer to a service callback.</summary>
+/// <param name="Status">The callback outcome.</param>
+/// <param name="Payload">The operation-specific result, when present.</param>
+/// <param name="Error">The reported failure, when present.</param>
+public sealed record ServiceCallbackResult(ServiceResultStatus Status, JsonElement? Payload = null, ServiceError? Error = null);
+
+/// <summary>Runs a service callback on a subscriber. The token is cancelled by the service's Cancel, the callback's
+/// deadline or the subscription closing.</summary>
+public delegate ValueTask<ServiceCallbackResult> ServiceCallbackHandler(CapabilityRequestMessage request, CancellationToken cancellationToken);

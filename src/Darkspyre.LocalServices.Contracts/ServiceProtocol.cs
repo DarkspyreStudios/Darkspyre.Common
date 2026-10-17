@@ -38,6 +38,8 @@ public enum ServiceFamily
     Memory,
     /// <summary>The ticket service family.</summary>
     Tickets,
+    /// <summary>The host-tools service family, which routes MCP tool calls from agent CLIs to the host session that owns them.</summary>
+    HostTools,
 }
 
 /// <summary>The service process lifecycle.</summary>

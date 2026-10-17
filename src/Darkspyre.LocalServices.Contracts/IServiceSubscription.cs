@@ -15,6 +15,10 @@ public interface IServiceSubscription : IAsyncDisposable
     /// <summary>Receives invalidations from the subscription's receive loop.</summary>
     event Action<EventMessage>? EventReceived;
 
+    /// <summary>Answers callbacks the service sends to this subscriber. Without a handler a callback fails with InvalidState.</summary>
+    /// <gotcha>Set it before the subscriber does anything that lets the service call back, such as registering a route.</gotcha>
+    ServiceCallbackHandler? CallbackHandler { get; set; }
+
     /// <summary>Submits one operation within its deadline and returns its complete terminal reply.</summary>
     /// <gotcha>The caller retains the input stream. Cancellation requests cancellation without replaying the operation.</gotcha>
     Task<ServiceCallResult> InvokeAsync(string operation, Stream body,

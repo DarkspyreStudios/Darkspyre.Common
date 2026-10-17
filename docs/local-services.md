@@ -151,8 +151,7 @@ reads control responses concurrently, and closes if responses stop for twenty se
 Unsubscribe within a bounded write, then closes and joins its receive/heartbeat loops. Its `Closed` task
 reports the safe disconnect reason. It has no reconnect, process-kill or business-replay operation.
 
-Connections carry control messages, business requests, results, chunks and invalidations. Callback messages
-remain unsupported. `ServiceControlHost`
+Connections carry control messages, business requests, results, chunks, invalidations and callbacks. `ServiceControlHost`
 does not open stores, release the family owner, dispose the listener, or mark domain cleanup complete.
 Its `Draining` task lets the backend begin its own cleanup while ownership remains held. Database cleanup
 is not implemented by these control components.
@@ -260,6 +259,21 @@ exit and releases ownership. Failed-start disposal never records normal exit.
 selection, collection and launch-budget state each have one implementation in the neutral framework.
 Native permission checks, permanent leases, atomic directory publication and inherited pin adoption
 belong to the selected platform assembly.
+
+## Service callbacks
+
+`ServiceControlHost.CallbackAsync` asks one subscriber connection to run a named operation and returns its answer. The
+backend names the connection and the active request the callback serves. A callback is one `CapabilityRequestMessage`
+with a JSON payload and a deadline, answered by one `CapabilityResultMessage`; it carries no body transfer, so its
+payload and answer must each fit in one frame. A subscriber answer over the frame bound is replaced by Failed with
+InvalidFrame before it is sent.
+
+The subscriber runs `IServiceSubscription.CallbackHandler` on its own task, so the receive loop keeps reading. Without a
+handler the callback fails with InvalidState; a handler exception fails it with Unavailable. A deadline or the caller's
+cancellation makes the service send a `CancelMessage` whose request ID is the callback ID and return Cancelled at once.
+The subscriber then cancels the handler's token. A result that crosses that Cancel on the wire is ignored. A connection
+that is gone, or closes before it answers, fails the callback with Unavailable. Subscription disposal cancels running
+handlers and joins them.
 
 ## Business bodies and invalidations
 
