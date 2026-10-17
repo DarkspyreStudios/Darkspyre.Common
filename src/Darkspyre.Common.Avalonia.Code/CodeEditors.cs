@@ -22,7 +22,6 @@ internal static class CodeEditors
             Document = new TextDocument(),
             HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
             VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
-            FontFamily = new FontFamily("ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"),
         };
         editor.Options.EnableHyperlinks = false;
         editor.Options.EnableEmailHyperlinks = false;

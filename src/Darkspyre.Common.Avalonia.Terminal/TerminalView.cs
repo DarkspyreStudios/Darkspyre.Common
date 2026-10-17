@@ -47,8 +47,6 @@ public sealed class TerminalView : TemplatedControl, IDisposable
             Columns = 80,
             Rows = 24,
             ScrollbackLimit = Scrollback,
-            TerminalFontSize = 13,
-            FontFamilyName = "Menlo",
         };
         _ = this.terminal.StartSessionAsync(new HostTransport.Options(new TerminalSessionDimensions(80, 24, 640, 384))).AsTask();
         global::Avalonia.Automation.AutomationProperties.SetName(this.terminal, "Terminal");
@@ -61,7 +59,7 @@ public sealed class TerminalView : TemplatedControl, IDisposable
             string name => name,
             _ => "Menlo",
         }));
-        this.terminal.Bind(TerminalControl.TerminalFontSizeProperty, this.GetResourceObservable("font-size-code-13", value => value is double size ? size : 13d));
+        this.terminal.Bind(TerminalControl.TerminalFontSizeProperty, this.GetResourceObservable("font-size-code", value => value is double size ? size : 13d));
     }
 
     /// <summary>Raised with the bytes the person typed or pasted, ready for the process's input.</summary>

@@ -148,8 +148,15 @@ Each is a `TemplatedControl` with its own API; the third-party library behind it
 replacing one changes one project and no caller. None references agent-ds. Each viewer carries its own styles, so a
 host adds nothing to its application. Colours and fonts come from these resource keys when the host supplies them, and
 fall back to light or dark defaults when it does not: `panel`, `text`, `accent` and `line` as `Color`; `x.brush` and
-the translucent `x.brush.NN` variants as brushes; `font-ui` and `font-code` as `FontFamily`; `font-size-code-13` as
-a size. agent-ds supplies all of them from the theme.
+the translucent `x.brush.NN` variants as brushes; the text entry fonts `font-body`, `font-code` and `font-heading-1` to
+`font-heading-6` as `FontFamily`; and their sizes `font-size-body`, `font-size-code` and `font-size-heading-1` to
+`font-size-heading-6` as `double` layout units. agent-ds supplies all of them from the theme.
+
+`MarkdownViewer` sets every text block's font from these keys after LiveMarkdown's own styles, which otherwise fix
+Arial at 14 (headings 24 to 16) whatever the parent's font: paragraphs, quotes, list items, table cells and list
+markers take `font-body` at `font-size-body`, a heading of level N takes `font-heading-N` at `font-size-heading-N`,
+and inline code and code blocks take `font-code` at `font-size-code`. LiveMarkdown classes heading text
+`Heading1` to `Heading6`, the other text `ParagraphBlock`, and list markers `ListBlockBullet` and `ListBlockNumber`.
 
 - **`MarkdownViewer`** renders Markdown through LiveMarkdown. Raw HTML is shown as text; generic attributes and media
   embeds are off. A link or image target that is not an absolute http or https address with a host, a mailto address

@@ -39,8 +39,10 @@ public sealed class MarkdownLinkEventArgs(string target) : EventArgs
 /// rules and thematic breaks are <c>line</c>, tables sit on <c>panel</c>, links and the quote rule are <c>accent</c>, selected
 /// text is highlighted in <c>color-primary.brush.40</c> as the app's text controls are, and diagrams are drawn again in
 /// <c>panel</c>, <c>text</c>, <c>accent</c> and <c>line</c>. A colour token the resources lack keeps LiveMarkdown's default
-/// colour. Inline code and code blocks are set in the theme's code font, <c>font-code</c>; their size is the body text's,
-/// as LiveMarkdown has no code size.
+/// colour. Fonts come from the text entry resources and follow them when they change: paragraphs, quotes, list items,
+/// table cells and list markers are <c>font-body</c> at <c>font-size-body</c>, a heading of level N is
+/// <c>font-heading-N</c> at <c>font-size-heading-N</c>, and inline code and code blocks are <c>font-code</c> at
+/// <c>font-size-code</c>. These replace the fixed fonts LiveMarkdown's own styles set.
 /// </remarks>
 public sealed class MarkdownViewer : TemplatedControl
 {
@@ -81,15 +83,51 @@ public sealed class MarkdownViewer : TemplatedControl
         this.Resources.MergedDictionaries.Add(new ResourceInclude(new Uri("avares://LiveMarkdown.Avalonia/")) { Source = new Uri("avares://LiveMarkdown.Avalonia/Defaults.axaml") });
         this.Styles.Add(new Style(selector => selector.OfType<CodeBlock>())
         {
-            Setters = { new Setter(CodeBlock.AutoSyntaxHighlightProperty, false), new Setter(CodeBlock.FontFamilyProperty, new DynamicResourceExtension("font-code")) },
+            Setters =
+            {
+                new Setter(CodeBlock.AutoSyntaxHighlightProperty, false), new Setter(CodeBlock.FontFamilyProperty, new DynamicResourceExtension("font-code")),
+                new Setter(CodeBlock.FontSizeProperty, new DynamicResourceExtension("font-size-code")),
+            },
         });
         this.Styles.Add(new Style(selector => selector.OfType<MarkdownRenderer>().Descendant().OfType<CodeInline>())
         {
-            Setters = { new Setter(CodeInline.FontFamilyProperty, new DynamicResourceExtension("font-code")), new Setter(CodeInline.BackgroundProperty, Brushes.Transparent) },
+            Setters =
+            {
+                new Setter(CodeInline.FontFamilyProperty, new DynamicResourceExtension("font-code")),
+                new Setter(CodeInline.FontSizeProperty, new DynamicResourceExtension("font-size-code")), new Setter(CodeInline.BackgroundProperty, Brushes.Transparent),
+            },
         });
         this.Styles.Add(new Style(selector => selector.OfType<MarkdownTextBlock>())
         {
-            Setters = { new Setter(SelectableTextBlock.SelectionBrushProperty, new DynamicResourceExtension("color-primary.brush.40")) },
+            Setters =
+            {
+                new Setter(SelectableTextBlock.SelectionBrushProperty, new DynamicResourceExtension("color-primary.brush.40")),
+                new Setter(TextBlock.FontFamilyProperty, new DynamicResourceExtension("font-body")),
+                new Setter(TextBlock.FontSizeProperty, new DynamicResourceExtension("font-size-body")),
+            },
+        });
+        // LiveMarkdown classes each heading's text block Heading1 to Heading6, and its list markers ListBlockBullet and
+        // ListBlockNumber; these follow the shared text block style so they win over it.
+        for (int level = 1; level <= 6; level++)
+        {
+            string heading = "Heading" + level.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            string entry = "heading-" + level.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            this.Styles.Add(new Style(selector => selector.OfType<MarkdownTextBlock>().Class(heading))
+            {
+                Setters =
+                {
+                    new Setter(TextBlock.FontFamilyProperty, new DynamicResourceExtension("font-" + entry)),
+                    new Setter(TextBlock.FontSizeProperty, new DynamicResourceExtension("font-size-" + entry)),
+                },
+            });
+        }
+        this.Styles.Add(new Style(selector => Selectors.Or(selector.OfType<TextBlock>().Class("ListBlockBullet"), selector.OfType<TextBlock>().Class("ListBlockNumber")))
+        {
+            Setters =
+            {
+                new Setter(TextBlock.FontFamilyProperty, new DynamicResourceExtension("font-body")),
+                new Setter(TextBlock.FontSizeProperty, new DynamicResourceExtension("font-size-body")),
+            },
         });
         this.Styles.Add(new Style(selector => selector.OfType<MarkdownRenderer>().Descendant().OfType<Link>())
         {
@@ -161,7 +199,7 @@ public sealed class MarkdownViewer : TemplatedControl
     {
         bool dark = this.ActualThemeVariant == ThemeVariant.Dark;
         Color Find(string key, Color fallback) => this.TryFindResource(key, this.ActualThemeVariant, out object? found) && found is Color colour ? colour : fallback;
-        string font = this.TryFindResource("font-ui", this.ActualThemeVariant, out object? family) && family is FontFamily named && named.FamilyNames.Count > 0
+        string font = this.TryFindResource("font-body", this.ActualThemeVariant, out object? family) && family is FontFamily named && named.FamilyNames.Count > 0
             ? named.FamilyNames[0] : FontFamily.Default.Name;
         return new(Find("panel", dark ? Color.Parse("#1e1e1e") : Colors.White), Find("text", dark ? Color.Parse("#e4e4e7") : Color.Parse("#27272a")),
             Find("accent", Color.Parse("#3b82f6")), Find("line", dark ? Color.Parse("#3f3f46") : Color.Parse("#d4d4d8")), font);
