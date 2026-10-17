@@ -22,7 +22,11 @@ internal sealed partial class GitRepositoryReader
                 string ownGitDirectory = this.paths.Resolve(Line(await this.ReadAsync(observed.WorktreePath,
                     ["rev-parse", "--path-format=absolute", "--git-dir"], cancellationToken).ConfigureAwait(false)));
                 if (SamePath(ownGitDirectory, observed.CommonDirectory)) blockers.Add("The primary repository is not a removable linked worktree.");
-                if (observed.HeadCommit is null) blockers.Add("The worktree has no established HEAD commit.");
+                // A branch with no commits yet (unborn) has nothing to lose but its files, which the status check covers.
+                if (observed.HeadCommit is null)
+                {
+                    if (observed.BranchRef is null) blockers.Add("The worktree has no established HEAD commit.");
+                }
                 else
                 {
                     // --all also includes HEAD, making a detached, unreferenced commit look safe.

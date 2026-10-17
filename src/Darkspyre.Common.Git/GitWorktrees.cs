@@ -29,8 +29,8 @@ internal sealed partial class GitWorktrees(GitCommands git, GitRepositoryReader 
         ArgumentNullException.ThrowIfNull(prepared);
         ArgumentException.ThrowIfNullOrWhiteSpace(worktreePath);
         if (!Path.IsPathFullyQualified(worktreePath)) throw new ArgumentException("A worktree needs an exact absolute path.", nameof(worktreePath));
-        if (string.IsNullOrWhiteSpace(prepared.BaseCommit) || prepared.BaseCommit.Length is not (40 or 64)
-            || prepared.BaseCommit.Any(character => !char.IsAsciiHexDigit(character)))
+        if (prepared.BaseCommit is not null && (prepared.BaseCommit.Length is not (40 or 64)
+            || prepared.BaseCommit.Any(character => !char.IsAsciiHexDigit(character))))
             throw new ArgumentException("Prepared worktree creation requires a resolved commit, never a moving ref.", nameof(prepared));
         GitRepositoryReader.GitLayout repository = await this.reader.LocateAsync(prepared.RepositoryPath, cancellationToken).ConfigureAwait(false)
             ?? throw new DirectoryNotFoundException("The source repository is unavailable.");
@@ -41,16 +41,23 @@ internal sealed partial class GitWorktrees(GitCommands git, GitRepositoryReader 
         if (NamedPathExists(worktreePath))
             throw new IOException("The requested worktree destination already exists.");
         ValidateBranchName(prepared.BranchName);
-        PreparedGitWorktree current = await this.PrepareUnderLockAsync(repository, prepared.BaseCommit,
-            prepared.BranchName, cancellationToken).ConfigureAwait(false);
-        string branchRef = "refs/heads/" + current.BranchName;
-        Check(await this.git.RunAsync(current.RepositoryPath,
-            ["worktree", "add", "--no-track", "-b", current.BranchName, "--", destination, current.BaseCommit], cancellationToken).ConfigureAwait(false), "create worktree");
+        // A null commit pins "no commits": the branch starts with none even when the repository has gained a commit since.
+        string? baseCommit = null;
+        if (prepared.BaseCommit is null)
+            await this.CheckNewBranchAsync(repository, prepared.BranchName, cancellationToken).ConfigureAwait(false);
+        else
+            baseCommit = (await this.PrepareUnderLockAsync(repository, prepared.BaseCommit, prepared.BranchName,
+                cancellationToken).ConfigureAwait(false)).BaseCommit;
+        string branchRef = "refs/heads/" + prepared.BranchName;
+        string[] add = baseCommit is null
+            ? ["worktree", "add", "--orphan", "-b", prepared.BranchName, "--", destination]
+            : ["worktree", "add", "--no-track", "-b", prepared.BranchName, "--", destination, baseCommit];
+        Check(await this.git.RunAsync(repository.WorktreePath, add, cancellationToken).ConfigureAwait(false), "create worktree");
         GitRepositorySnapshot created = await this.reader.InspectAsync(destination, cancellationToken).ConfigureAwait(false)
             ?? throw new IOException("Git did not leave a readable worktree; no automatic cleanup was attempted.");
-        if (created.CommonDirectory != current.CommonDirectory || created.BranchRef != branchRef)
+        if (created.CommonDirectory != repository.CommonDirectory || created.BranchRef != branchRef)
             throw new IOException("The created worktree identity changed; no automatic cleanup was attempted.");
-        return new(created.CommonDirectory, created.WorktreePath, branchRef, current.BaseCommit);
+        return new(created.CommonDirectory, created.WorktreePath, branchRef, baseCommit);
     }
 
     /// <summary>Reattaches a safely removed worktree to its retained branch without creating or moving any ref.</summary>
@@ -93,8 +100,10 @@ internal sealed partial class GitWorktrees(GitCommands git, GitRepositoryReader 
     internal async Task DeleteCreatedBranchAsync(GitWorktreeSnapshot created, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(created);
+        string baseCommit = created.BaseCommit
+            ?? throw new ArgumentException("A branch created with no commits has no ref to delete.", nameof(created));
         using IDisposable operation = await this.locks.EnterAsync(created.CommonDirectory, cancellationToken).ConfigureAwait(false);
-        Check(await this.git.RunAsync(created.CommonDirectory, ["update-ref", "-d", created.BranchRef, created.BaseCommit],
+        Check(await this.git.RunAsync(created.CommonDirectory, ["update-ref", "-d", created.BranchRef, baseCommit],
             cancellationToken).ConfigureAwait(false), "delete the created branch");
     }
 

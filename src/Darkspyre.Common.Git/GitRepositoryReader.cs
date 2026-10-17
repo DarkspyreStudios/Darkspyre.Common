@@ -201,6 +201,10 @@ internal sealed partial class GitRepositoryReader(GitCommands git, IGitPathPolic
         return ParseDiff(comparison, output);
     }
 
+    /// <summary>Whether any commit exists in the repository that holds <paramref name="worktreePath"/>.</summary>
+    internal async Task<bool> HasCommitsAsync(string worktreePath, CancellationToken cancellationToken) =>
+        (await this.ReadAsync(worktreePath, ["rev-list", "-n", "1", "--all"], cancellationToken).ConfigureAwait(false)).Length != 0;
+
     /// <summary>The names of the repository's configured remotes.</summary>
     internal async Task<IReadOnlyList<string>> ReadRemotesAsync(string repository, CancellationToken cancellationToken) =>
         Utf8.GetString(await this.ReadAsync(repository, ["remote"], cancellationToken).ConfigureAwait(false))
