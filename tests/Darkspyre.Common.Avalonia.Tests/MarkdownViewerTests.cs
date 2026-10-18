@@ -92,6 +92,33 @@ public sealed class MarkdownViewerTests
     });
 
     /// <summary>
+    /// A new viewer, and a replaced text, take their height in the layout that first places them, before any queued job
+    /// runs. A height that arrived a frame later made the transcript jump and come back while a turn ran.
+    /// </summary>
+    [Fact]
+    public Task ANewViewerTakesItsHeightInTheLayoutThatFirstPlacesIt() => ViewSession.RunAsync(() =>
+    {
+        StackPanel host = new();
+        Window window = ViewSession.Show(host);
+        const string First = "A first paragraph.\n\nA second paragraph.\n\nA third paragraph.";
+        MarkdownViewer viewer = new() { Text = First };
+        host.Children.Add(viewer);
+        window.UpdateLayout();
+        double placed = viewer.Bounds.Height;
+        ViewSession.Settle();
+        Assert.True(placed > 0, "The new viewer was laid out with no height.");
+        Assert.Equal(viewer.Bounds.Height, placed, 1);
+
+        viewer.Text = First + "\n\nA fourth paragraph.\n\nA fifth paragraph.";
+        window.UpdateLayout();
+        double replaced = viewer.Bounds.Height;
+        ViewSession.Settle();
+        Assert.True(replaced > placed, "The replaced text kept its old height.");
+        Assert.Equal(viewer.Bounds.Height, replaced, 1);
+        return Task.CompletedTask;
+    });
+
+    /// <summary>
     /// LiveMarkdown's own styles set Arial at 14 (headings 24 to 16) on every text block, whatever the parent's font.
     /// Paragraphs, quotes, list items, table cells and list markers take the body entry, each heading level its own
     /// entry, and code the code entry; a change to one entry restyles only that entry's text.

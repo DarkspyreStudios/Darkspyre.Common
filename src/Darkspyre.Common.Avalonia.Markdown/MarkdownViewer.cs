@@ -205,7 +205,9 @@ public sealed class MarkdownViewer : TemplatedControl
             Find("accent", Color.Parse("#3b82f6")), Find("line", dark ? Color.Parse("#3f3f46") : Color.Parse("#d4d4d8")), font);
     }
 
-    // A streamed reply only grows, so its new tail is appended; any other change replaces the text.
+    // A streamed reply only grows, so its new tail is appended; any other change replaces the text. The producer applies
+    // a replacement in a later dispatcher job, so a new or replaced viewer would be laid out at its old height for one
+    // frame and the transcript would jump; a replacement is therefore also parsed and given to the renderer at once.
     private void Show(string text)
     {
         if (text == this.shown) return;
@@ -214,6 +216,7 @@ public sealed class MarkdownViewer : TemplatedControl
         {
             this.builder.Clear();
             this.builder.Append(text);
+            this.renderer.DocumentUpdate = new MarkdownDocumentUpdate.Full(Markdig.Markdown.Parse(text, Pipeline), this.builder.Version);
         }
         this.shown = text;
     }
