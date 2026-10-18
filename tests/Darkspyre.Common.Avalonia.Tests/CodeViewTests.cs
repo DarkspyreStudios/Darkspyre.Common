@@ -90,4 +90,23 @@ public sealed class CodeViewTests
         Assert.Equal(150, Assert.Single(ViewSession.All<TextEditor>(view)).TextArea.Caret.Line);
         return Task.CompletedTask;
     });
+
+    /// <summary>A new text, such as a refreshed file, keeps the place the person scrolled to instead of returning to the target line.</summary>
+    [Fact]
+    public Task SourceViewKeepsItsScrollPositionWhenTheTextChanges() => ViewSession.RunAsync(() =>
+    {
+        SourceView view = new() { Text = string.Join("\n", Enumerable.Range(1, 200).Select(number => $"line {number}")) };
+        ViewSession.Show(view);
+        view.GoToLine(150);
+        TextEditor editor = Assert.Single(ViewSession.All<TextEditor>(view));
+        editor.ScrollToLine(40);
+        ViewSession.Settle();
+        double offset = editor.VerticalOffset;
+
+        view.Text = string.Join("\n", Enumerable.Range(1, 200).Select(number => $"line {number} changed"));
+        ViewSession.Settle();
+
+        Assert.Equal(offset, editor.VerticalOffset);
+        return Task.CompletedTask;
+    });
 }

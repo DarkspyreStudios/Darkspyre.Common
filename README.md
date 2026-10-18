@@ -165,10 +165,14 @@ and inline code and code blocks take `font-code` at `font-size-code`. LiveMarkdo
   and the new text extends the old, only the tail is appended. A `mermaid` fence becomes a diagram drawn by
   `IMermaidRenderer` (default `MermaiderRenderer`: Mermaider, then `SvgCssFlattener`, which resolves the CSS custom
   properties and colour mixes Svg.Skia cannot draw). A fence the renderer cannot draw stays a code block. Diagrams are
-  drawn again when the theme changes.
+  drawn again when the theme changes their colours or font, and not for a resource change that leaves them as they
+  were. The colour tokens are read whole on each resource or theme change and handed to LiveMarkdown as one resource
+  dictionary, only when a colour differs, so a change restyles the rendered text once and an unrelated one not at all
+  ([DSA-1102](https://darkspyre.atlassian.net/browse/DSA-1102)).
 - **`SourceView`** shows read-only text in AvaloniaEdit with line numbers and TextMate highlighting chosen by file
   extension or language id. `Find` marks every case-insensitive match; `FindNext` and `FindPrevious` wrap. `GoToLine`
-  scrolls to a line. The highlighter exists only while the view is in a window.
+  scrolls to a line; asked for before the text is set, it applies when the text arrives. A new `Text` keeps the
+  scroll position. The highlighter exists only while the view is in a window.
 - **`DiffView`** compares `OldText` and `NewText` with `TextDiff` off the UI thread and shows a unified diff: a header
   per hunk, old and new line numbers, plus and minus marks, added and removed rows shaded, and a "No final newline"
   note. Line endings take part in the comparison. Equal texts show "No text differences."; a comparison over the work
@@ -183,7 +187,8 @@ and inline code and code blocks take `font-code` at `font-size-code`. LiveMarkdo
 - **`TerminalView`** is a VT screen over RoyalTerminal with no process of its own. `Write` feeds the process's output
   in; the person's keystrokes come out of `InputReceived` already encoded, and `ScreenSizeChanged` reports the cell
   size when the view is resized. Both run through a transport the view owns, so RoyalTerminal starts no shell. The
-  owner disposes the view when its panel closes.
+  screen's background and text colours follow `panel` and `text`, and a resource pass that leaves a colour as it was
+  sets nothing. The owner disposes the view when its panel closes.
 
 ## Darkspyre.Common.Workspaces
 

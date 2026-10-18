@@ -171,5 +171,72 @@ public sealed class MarkdownViewerTests
         Assert.All(paragraphs, block => Assert.Equal(21d, block.FontSize));
     });
 
+    /// <summary>
+    /// The renderer's palette is written as one dictionary, and only when a colour differs: an equal colour or an unrelated
+    /// resource leaves the dictionary the renderer shows as it was.
+    /// </summary>
+    [Fact]
+    public Task ThePaletteIsSwappedWholeAndOnlyWhenAColourChanges() => ViewSession.RunAsync(() =>
+    {
+        MarkdownViewer viewer = new() { Text = "Text" };
+        Border host = new() { Child = viewer };
+        host.Resources["text"] = Colors.Red;
+        host.Resources["panel"] = Colors.White;
+        ViewSession.Show(host);
+        MarkdownRenderer renderer = Assert.Single(ViewSession.All<MarkdownRenderer>(viewer));
+        IResourceDictionary before = renderer.Resources;
+        Assert.Equal(Colors.Red, before["ForegroundColor"]);
+
+        host.Resources["text"] = Color.FromRgb(255, 0, 0);
+        host.Resources["unrelated"] = 1d;
+        ViewSession.Settle();
+        Assert.Same(before, renderer.Resources);
+
+        host.Resources["text"] = Colors.Blue;
+        ViewSession.Settle();
+        Assert.NotSame(before, renderer.Resources);
+        Assert.Equal(Colors.Blue, renderer.Resources["ForegroundColor"]);
+        Assert.Equal(Colors.White, renderer.Resources["CardBackgroundColor"]);
+        return Task.CompletedTask;
+    });
+
+    /// <summary>A diagram is drawn again for a change to its colours, not for a resource that does not touch them.</summary>
+    [Fact]
+    public Task AMermaidDiagramIsNotDrawnAgainForAnUnrelatedResourceChange() => ViewSession.RunAsync(async () =>
+    {
+        CountingRenderer counting = new();
+        MarkdownViewer viewer = new() { MermaidRenderer = counting, Text = "```mermaid\ngraph TD\n  A --> B\n```" };
+        Border host = new() { Child = viewer };
+        host.Resources["text"] = Colors.Red;
+        ViewSession.Show(host);
+        await ViewSession.WaitForAsync(() => counting.Calls > 0);
+        await Task.Delay(100);
+        ViewSession.Settle();
+        int drawn = counting.Calls;
+
+        host.Resources["unrelated"] = 1d;
+        ViewSession.Settle();
+        await Task.Delay(100);
+        ViewSession.Settle();
+        Assert.Equal(drawn, counting.Calls);
+
+        host.Resources["text"] = Colors.Blue;
+        await ViewSession.WaitForAsync(() => counting.Calls == drawn + 1);
+    });
+
+    /// <summary>Counts the diagrams asked for and draws none, so each fence stays code.</summary>
+    private sealed class CountingRenderer : IMermaidRenderer
+    {
+        private int calls;
+
+        public int Calls => Volatile.Read(ref this.calls);
+
+        public ValueTask<string?> RenderSvgAsync(string source, MermaidTheme theme, CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref this.calls);
+            return ValueTask.FromResult<string?>(null);
+        }
+    }
+
     private static string Text(MarkdownViewer viewer) => string.Join("\n", ViewSession.All<MarkdownTextBlock>(viewer).Select(block => block.ActualText));
 }

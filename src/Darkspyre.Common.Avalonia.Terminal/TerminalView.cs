@@ -91,11 +91,17 @@ public sealed class TerminalView : TemplatedControl, IDisposable
         (this.terminal.TerminalSessionService as IDisposable)?.Dispose();
     }
 
-    private void Follow(string token, Action<Color> apply) =>
+    // A resource pass that leaves the colour as it was changes nothing on the screen.
+    private void Follow(string token, Action<Color> apply)
+    {
+        Color? applied = null;
         this.GetResourceObservable(token).Subscribe(new Observer(value =>
         {
-            if (value is Color colour) apply(colour);
+            if (value is not Color colour || colour == applied) return;
+            applied = colour;
+            apply(colour);
         }));
+    }
 
     private sealed class Observer(Action<object?> next) : IObserver<object?>
     {

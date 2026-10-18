@@ -73,6 +73,7 @@ public sealed class MarkdownViewer : TemplatedControl
     private readonly MarkdownRenderer renderer = new();
     private readonly ObservableStringBuilder builder = new();
     private string shown = string.Empty;
+    private (string Key, Color Colour)[] palette = [];
 
     static MarkdownViewer() => MarkdownNode.Register<MermaidNode>();
 
@@ -134,18 +135,20 @@ public sealed class MarkdownViewer : TemplatedControl
             Setters = { new Setter(Link.ForegroundProperty, new DynamicResourceExtension("accent.brush")) },
             Children = { new Style(selector => selector.Nesting().Class(":clicked")) { Setters = { new Setter(Link.ForegroundProperty, new DynamicResourceExtension("accent.brush")) } } },
         });
-        // The renderer's own resources shadow the defaults merged above, so a token the theme lacks keeps the default.
-        foreach ((string key, string token) in Palette)
-            this.GetResourceObservable(token).Subscribe(new Observer(value =>
-            {
-                if (value is Color colour) this.renderer.Resources[key] = colour;
-                else this.renderer.Resources.Remove(key);
-            }));
         this.renderer.UpdateProducer = new MarkdownUpdateProducer { Pipeline = Pipeline, MarkdownBuilder = this.builder };
         this.renderer.LinkCommand = new LinkActivation(this.Activate);
         this.Template = new FuncControlTemplate<MarkdownViewer>((viewer, _) => viewer.renderer);
-        this.ActualThemeVariantChanged += (_, _) => this.ThemeChanged?.Invoke(this, EventArgs.Empty);
-        this.ResourcesChanged += (_, _) => this.ThemeChanged?.Invoke(this, EventArgs.Empty);
+        this.ActualThemeVariantChanged += (_, _) =>
+        {
+            this.ApplyPalette();
+            this.ThemeChanged?.Invoke(this, EventArgs.Empty);
+        };
+        this.ResourcesChanged += (_, _) =>
+        {
+            this.ApplyPalette();
+            this.ThemeChanged?.Invoke(this, EventArgs.Empty);
+        };
+        this.ApplyPalette();
     }
 
     /// <summary>The Markdown shown, or null for none.</summary>
@@ -205,6 +208,21 @@ public sealed class MarkdownViewer : TemplatedControl
             Find("accent", Color.Parse("#3b82f6")), Find("line", dark ? Color.Parse("#3f3f46") : Color.Parse("#d4d4d8")), font);
     }
 
+    // The renderer's own resources shadow the defaults merged above, so a token the theme lacks keeps the default. The
+    // palette is read whole and given to the renderer as one dictionary only when a colour differs: each write to the
+    // renderer's resources restyles everything it shows, and a resource change elsewhere in the window changes none.
+    private void ApplyPalette()
+    {
+        List<(string Key, Color Colour)> next = [];
+        foreach ((string key, string token) in Palette)
+            if (this.TryFindResource(token, this.ActualThemeVariant, out object? value) && value is Color colour) next.Add((key, colour));
+        if (next.SequenceEqual(this.palette)) return;
+        this.palette = [.. next];
+        ResourceDictionary resources = [];
+        foreach ((string key, Color colour) in next) resources[key] = colour;
+        this.renderer.Resources = resources;
+    }
+
     // A streamed reply only grows, so its new tail is appended; any other change replaces the text. The producer applies
     // a replacement in a later dispatcher job, so a new or replaced viewer would be laid out at its old height for one
     // frame and the transcript would jump; a replacement is therefore also parsed and given to the renderer at once.
@@ -242,19 +260,6 @@ public sealed class MarkdownViewer : TemplatedControl
         pipeline.Extensions.AddIfNotAlready<MermaidFences>();
         pipeline.Extensions.AddIfNotAlready<InertLinks>();
         return pipeline.DisableHtml().UseCodeBlockSpanFixer().Build();
-    }
-
-    private sealed class Observer(Action<object?> next) : IObserver<object?>
-    {
-        public void OnCompleted()
-        {
-        }
-
-        public void OnError(Exception error)
-        {
-        }
-
-        public void OnNext(object? value) => next(value);
     }
 
     /// <summary>Runs the viewer's link check for the link the renderer reports.</summary>

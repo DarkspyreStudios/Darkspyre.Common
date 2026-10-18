@@ -68,7 +68,8 @@ internal sealed class MermaidNode : BlockNode<MermaidBlock>
 
 /// <summary>
 /// A Mermaid diagram drawn by the nearest <see cref="MarkdownViewer"/>'s renderer in the current theme's colours. Until
-/// the diagram is drawn, and when it cannot be, the source shows as a code block.
+/// the diagram is drawn, and when it cannot be, the source shows as a code block. A resource or theme change that leaves
+/// the diagram's colours and font as they were draws nothing.
 /// </summary>
 internal sealed class MermaidView : ContentControl
 {
@@ -78,6 +79,8 @@ internal sealed class MermaidView : ContentControl
     private string source = string.Empty;
     private CancellationTokenSource? drawing;
     private MarkdownViewer? owner;
+    // What the last draw that was started, and not cancelled, drew.
+    private (string Source, MermaidTheme Theme, IMermaidRenderer Renderer)? drawn;
 
     public MermaidView()
     {
@@ -106,7 +109,13 @@ internal sealed class MermaidView : ContentControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        this.drawing?.Cancel();
+        // A draw still running is cancelled, so it no longer counts as drawn.
+        if (this.drawing is not null)
+        {
+            this.drawing.Cancel();
+            this.drawing = null;
+            this.drawn = null;
+        }
         if (this.owner is not null) this.owner.ThemeChanged -= this.OnThemeChanged;
         this.owner = null;
         base.OnDetachedFromVisualTree(e);
@@ -116,17 +125,22 @@ internal sealed class MermaidView : ContentControl
 
     private void Draw()
     {
-        this.drawing?.Cancel();
         if (this.owner is not { } viewer || viewer.MermaidRenderer is not { } renderer || this.source.Length == 0)
         {
+            this.drawing?.Cancel();
+            this.drawing = null;
+            this.drawn = null;
             this.ShowCode();
             return;
         }
+        MermaidTheme theme = viewer.CurrentMermaidTheme();
+        string text = this.source;
+        if (this.drawn == (text, theme, renderer)) return;
+        this.drawing?.Cancel();
+        this.drawn = (text, theme, renderer);
         if (this.Content is not Image) this.ShowCode();
         CancellationTokenSource run = new();
         this.drawing = run;
-        MermaidTheme theme = viewer.CurrentMermaidTheme();
-        string text = this.source;
         _ = Task.Run(async () =>
         {
             string? svg = await renderer.RenderSvgAsync(text, theme, run.Token).ConfigureAwait(false);
@@ -138,6 +152,7 @@ internal sealed class MermaidView : ContentControl
             Dispatcher.UIThread.Post(() =>
             {
                 if (!ReferenceEquals(this.drawing, run)) return;
+                this.drawing = null;
                 if (picture is not { } shown)
                 {
                     this.ShowCode();
