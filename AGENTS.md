@@ -20,13 +20,6 @@ every caller in the same change (L1).
 
 This repository records no law exception.
 
-## Operating-system boundaries
-
-All OS-specific code must live behind an OS-agnostic capability contract, as agent-ds `AGENTS.md`
-"Operating-system boundaries" states. Portable consumers call that contract. Platform implementations own OS detection,
-native bindings and ABI layouts, native-library names and loading, system commands, platform paths, filesystem
-semantics, and platform-specific process behaviour.
-
 ## Versions
 
 Each library's version is `<net>.<major>.<minor>.<build>`, set by its property in `Directory.Build.props`
