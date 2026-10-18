@@ -180,7 +180,9 @@ and inline code and code blocks take `font-code` at `font-size-code`. LiveMarkdo
   and its line types are public for callers that compare without a view.
 - **`PdfViewer`** shows an `IPdfDocument` the caller opened (password included) and disposes after the viewer. It has a
   toolbar (side panel, zoom out, zoom list, zoom in, page status) and a side panel with thumbnails and bookmarks.
-  Pages are drawn in tiles of up to 1024 device pixels, two at a time, only near the visible area. Each page's text is
+  Pages are drawn in tiles of up to 1024 device pixels, two at a time, only near the visible area. A zoom change
+  redraws the tiles; a resize that leaves the scale as it was keeps them. Find highlights are redrawn only when the
+  matches, the shown match or a page's text layer change. Each page's text is
   read once in the background into transparent, selectable lines over the page; internal links scroll to their
   target. `Find`, `FindNext` and `FindPrevious` search the text read so far; `CurrentMatch` is the shown match. `Zoom` is a percentage from 50 to 400,
   fit width or fit page.

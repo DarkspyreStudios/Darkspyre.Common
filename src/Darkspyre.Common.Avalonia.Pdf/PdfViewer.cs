@@ -8,6 +8,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Media.Immutable;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using Darkspyre.Common.Pdf;
@@ -20,7 +21,8 @@ namespace Darkspyre.Common.Avalonia.Pdf;
 /// Pages are laid out at their displayed size; only pages near the visible area hold drawn tiles, text and links, so a
 /// long document costs little more than a short one. Each page is drawn in tiles of at most 1024 by 1024 device
 /// pixels through <see cref="IPdfDocument.RenderAsync"/>, at most two at a time, nearest pages first. A zoom change
-/// drops the tiles drawn at the old size.
+/// drops the tiles drawn at the old size; a resize that leaves the scale as it was keeps them. Find highlights are
+/// redrawn only when the matches, the shown match or a page's text layer change, not on every scroll step.
 /// </para>
 /// <para>
 /// The viewer reads every page's text once, in the background, for selection and find. A page whose text cannot be
@@ -46,6 +48,9 @@ public sealed class PdfViewer : TemplatedControl, IDisposable
     private const double FitMargin = 32;
     private const double PageGap = 12;
     private const double ThumbnailWidth = 120;
+    // Highlight colours when the theme has none. Shared, so an unchanged highlight compares equal and is not redrawn.
+    private static readonly IBrush FoundFallback = new ImmutableSolidColorBrush(Colors.Gold, 0.4);
+    private static readonly IBrush SelectedFallback = new ImmutableSolidColorBrush(Colors.Orange, 0.7);
 
     private readonly ScrollViewer scroller = new() { HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
     private readonly StackPanel pageStack = new() { Spacing = PageGap, Margin = new Thickness(FitMargin / 2), HorizontalAlignment = HorizontalAlignment.Center };
@@ -70,6 +75,8 @@ public sealed class PdfViewer : TemplatedControl, IDisposable
     private int generation;
     private int inFlight;
     private int currentMatch = -1;
+    // Counts Find calls, so a page knows whether the matches it highlighted are still the current ones.
+    private int findRevision;
     private bool layoutQueued;
     private bool syncingZoom;
     private bool disposed;
@@ -125,7 +132,9 @@ public sealed class PdfViewer : TemplatedControl, IDisposable
         this.scroller.ScrollChanged += (_, _) => this.QueueLayout();
         this.scroller.SizeChanged += (_, args) =>
         {
-            if (this.Zoom is not PdfZoom.Percent && args.PreviousSize != args.NewSize) this.ApplyZoom(keepPage: true);
+            // A fitted zoom refits on a resize; a resize that leaves the fitted scale as it was keeps every drawn tile.
+            if (this.Zoom is not PdfZoom.Percent && args.PreviousSize != args.NewSize && this.pages.Length > 0
+                && this.TargetScale(this.CurrentPage) != this.scale) this.ApplyZoom(keepPage: true);
         };
         global::Avalonia.Automation.AutomationProperties.SetName(this.scroller, "PDF pages");
 
@@ -180,6 +189,7 @@ public sealed class PdfViewer : TemplatedControl, IDisposable
     {
         this.matches.Clear();
         this.currentMatch = -1;
+        this.findRevision++;
         if (!string.IsNullOrEmpty(query))
         {
             for (int page = 0; page < this.texts.Length; page++)
@@ -350,21 +360,27 @@ public sealed class PdfViewer : TemplatedControl, IDisposable
             return;
         }
         int anchor = keepPage ? this.CurrentPage : 0;
-        Size view = this.scroller.Bounds.Size;
-        double width = Math.Max(1, view.Width - FitMargin), height = Math.Max(1, view.Height - FitMargin);
-        this.scale = this.Zoom switch
-        {
-            PdfZoom.Percent percent => Math.Clamp(percent.Value, PdfZoom.Percents[0], PdfZoom.Percents[^1]) / 100d * PixelsPerPoint,
-            PdfZoom.FitPage when this.Document is { } document => Math.Min(width / document.Pages[anchor].Width, height / document.Pages[anchor].Height),
-            _ when this.Document is { } document && view.Width > 0 => width / document.Pages.Max(page => page.Width),
-            _ => PixelsPerPoint,
-        };
+        this.scale = this.TargetScale(anchor);
         this.generation++;
         this.queue.Clear();
         foreach (PageState page in this.pages) page.Resize(this.scale);
         this.zoomOut.IsEnabled = this.EffectivePercent > PdfZoom.Percents[0];
         this.zoomIn.IsEnabled = this.EffectivePercent < PdfZoom.Percents[^1];
         Dispatcher.UIThread.Post(() => this.GoToPage(anchor), DispatcherPriority.Loaded);
+    }
+
+    // The scale the zoom asks for at the scroller's current size. Fit page fits page anchor; fit width fits the widest page.
+    private double TargetScale(int anchor)
+    {
+        Size view = this.scroller.Bounds.Size;
+        double width = Math.Max(1, view.Width - FitMargin), height = Math.Max(1, view.Height - FitMargin);
+        return this.Zoom switch
+        {
+            PdfZoom.Percent percent => Math.Clamp(percent.Value, PdfZoom.Percents[0], PdfZoom.Percents[^1]) / 100d * PixelsPerPoint,
+            PdfZoom.FitPage when this.Document is { } document => Math.Min(width / document.Pages[anchor].Width, height / document.Pages[anchor].Height),
+            _ when this.Document is { } document && view.Width > 0 => width / document.Pages.Max(page => page.Width),
+            _ => PixelsPerPoint,
+        };
     }
 
     private double PageTop(int index)
@@ -519,13 +535,15 @@ public sealed class PdfViewer : TemplatedControl, IDisposable
         this.DrawHighlights();
     }
 
+    // Draws the highlights of each page with a text layer whose highlights are not already those of the current find.
     private void DrawHighlights()
     {
-        IBrush found = this.Brush("accent.brush.30", new SolidColorBrush(Colors.Gold, 0.4));
-        IBrush selected = this.Brush("accent.brush.60", new SolidColorBrush(Colors.Orange, 0.7));
+        IBrush found = this.Brush("accent.brush.30", FoundFallback);
+        IBrush selected = this.Brush("accent.brush.60", SelectedFallback);
+        HighlightKey key = new(this.findRevision, this.currentMatch, found, selected);
         foreach (PageState page in this.pages)
         {
-            if (!page.HasLayers) continue;
+            if (!page.HasLayers || page.Highlighted == key) continue;
             List<(PdfRect Box, IBrush Brush)> boxes = [];
             for (int i = 0; i < this.matches.Count; i++)
             {
@@ -536,7 +554,7 @@ public sealed class PdfViewer : TemplatedControl, IDisposable
                 boxes.Add((new PdfRect(line.Box.Left + (float)(share * match.Start), line.Box.Top, (float)(share * match.Length), line.Box.Height),
                     i == this.currentMatch ? selected : found));
             }
-            page.ShowHighlights(boxes, this.scale);
+            page.ShowHighlights(key, boxes, this.scale);
         }
     }
 
@@ -546,6 +564,9 @@ public sealed class PdfViewer : TemplatedControl, IDisposable
     private sealed record TileRequest(PageState Page, int Generation, double Scale, double Ratio, PdfPixelArea Area);
 
     private sealed record FindMatch(int Page, int Line, int Start, int Length);
+
+    // What a page's highlights show: the find they came from, the shown match and the two colours.
+    private sealed record HighlightKey(int Find, int Current, IBrush Found, IBrush Selected);
 
     /// <summary>One page's box and its drawn tiles, text, links and highlights.</summary>
     private sealed class PageState
@@ -581,6 +602,9 @@ public sealed class PdfViewer : TemplatedControl, IDisposable
 
         public bool HasLayers => this.textScale > 0;
 
+        /// <summary>What the page's highlights show now, or null when it shows none drawn for its current text layer.</summary>
+        public HighlightKey? Highlighted { get; private set; }
+
         public void Resize(double scale)
         {
             this.View.Width = this.page.Width * scale;
@@ -588,6 +612,7 @@ public sealed class PdfViewer : TemplatedControl, IDisposable
             this.DropTiles();
             this.text.Children.Clear();
             this.highlights.Children.Clear();
+            this.Highlighted = null;
             this.links.Children.Clear();
             this.textScale = -1;
             this.linksLoaded = false;
@@ -654,8 +679,9 @@ public sealed class PdfViewer : TemplatedControl, IDisposable
             }
         }
 
-        public void ShowHighlights(List<(PdfRect Box, IBrush Brush)> boxes, double scale)
+        public void ShowHighlights(HighlightKey key, List<(PdfRect Box, IBrush Brush)> boxes, double scale)
         {
+            this.Highlighted = key;
             this.highlights.Children.Clear();
             foreach ((PdfRect box, IBrush brush) in boxes)
             {
