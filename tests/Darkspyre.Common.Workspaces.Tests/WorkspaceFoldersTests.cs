@@ -151,31 +151,8 @@ public sealed class WorkspaceFoldersTests
     }
 
     /// <summary>
-    /// DSA-1088: in a repository with no commits, a creation makes a locked worktree on a new branch with no commits, and
-    /// the source repository still has none.
-    /// </summary>
-    [Fact]
-    public async Task CreateMakesAnOrphanWorktreeInARepositoryWithNoCommits()
-    {
-        Fixture fixture = Fixture.Create();
-        string empty = fixture.Empty("empty");
-
-        WorkspaceCreateResult created = await fixture.Folders.CreateAsync(
-            new(fixture.Folder, "dsa-1088/empty", [new("empty", empty, "HEAD")], false), Actor);
-
-        Assert.Empty(created.Skipped);
-        WorkspaceWorktree worktree = Assert.Single(created.Worktrees);
-        Assert.Null(worktree.Worktree.BaseCommit);
-        Assert.Equal("refs/heads/dsa-1088/empty", worktree.Worktree.BranchRef);
-        Assert.Equal("dsa-1088/empty", Git.Run(worktree.Path, "branch", "--show-current").Trim());
-        Assert.True(Locked(worktree.Path));
-        Assert.Empty(Git.Run(empty, "rev-list", "--all").Trim());
-        Assert.Empty(Git.Run(empty, "status", "--porcelain").Trim());
-    }
-
-    /// <summary>
     /// DSA-1088: an entry whose base names a remote-tracking branch, in a repository with no commits, is not fetched and
-    /// still gets its worktree on a new branch with no commits.
+    /// gets a locked worktree on a new branch with no commits; the source repository still has none.
     /// </summary>
     [Fact]
     public async Task AnEntryWithARemoteBaseInARepositoryWithNoCommitsGetsAnOrphanWorktree()
@@ -193,6 +170,7 @@ public sealed class WorkspaceFoldersTests
         WorkspaceWorktree worktree = Assert.Single(created.Worktrees);
         Assert.Null(worktree.Worktree.BaseCommit);
         Assert.Equal("remote-base", Git.Run(worktree.Path, "branch", "--show-current").Trim());
+        Assert.True(Locked(worktree.Path));
         Assert.Empty(Git.Run(empty, "rev-list", "--all").Trim());
     }
 

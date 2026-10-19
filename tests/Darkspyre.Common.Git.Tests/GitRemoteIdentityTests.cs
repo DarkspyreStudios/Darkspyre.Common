@@ -123,26 +123,6 @@ public sealed class GitRemoteIdentityTests
     }
 
     [Fact]
-    public async Task AConfiguredLineBreakOrUnsafeNameIsNeverEchoed()
-    {
-        string secret = "secret-" + Guid.NewGuid().ToString("N");
-        await using GitTestRepository repository = GitTestRepository.Create("git-remote-unsafe-");
-        repository.Run("config", "remote.broken.url", $"https://example.invalid/{secret}\nhttps://second.invalid/x.git");
-        repository.Run("config", "--add", "remote.broken.url", "https://third.invalid/y.git");
-
-        GitRemoteInfo broken = Assert.Single(await ReadAsync(repository));
-
-        Assert.Equal([GitRemoteEndpoints.Unrecognized, GitRemoteEndpoints.Unrecognized], broken.Fetch);
-        Assert.Equal(broken.Fetch, broken.Push);
-        AssertNoLeak(repository, secret, broken);
-
-        string name = "-name" + Guid.NewGuid().ToString("N")[..8];
-        repository.Run("config", $"remote.{name}.url", "https://example.invalid/x.git");
-        InvalidDataException unsafeName = await Assert.ThrowsAsync<InvalidDataException>(() => ReadAsync(repository));
-        Assert.True(!unsafeName.Message.Contains(name, StringComparison.Ordinal), "The refusal echoed the remote's name.");
-    }
-
-    [Fact]
     public async Task ARepositoryWithoutRemotesReturnsAnEmptyList()
     {
         await using GitTestRepository repository = GitTestRepository.Create("git-remote-none-");

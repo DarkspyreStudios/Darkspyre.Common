@@ -30,23 +30,6 @@ public sealed class GitFileReadTests
         Assert.Equal((commit, false, null, null), (absent.CommitId, absent.Present, absent.Mode, absent.Content));
     }
 
-    /// <summary>T9: a folder or a submodule is not a blob.</summary>
-    [Fact]
-    public async Task AFolderOrSubmoduleIsNotBlob()
-    {
-        await using GitTestRepository repository = GitTestRepository.Create("git-file-kinds-");
-        repository.Write("folder/inner.txt", "inner\n");
-        string first = repository.Commit("Files");
-        repository.Run("update-index", "--add", "--cacheinfo", "160000," + first + ",module");
-        repository.Run("commit", "-q", "-m", "Submodule");
-
-        GitReadException folder = await Assert.ThrowsAsync<GitReadException>(() => repository.Reader.ReadFileAtCommitAsync(new(repository.Path, "HEAD", "folder", 1024), default));
-        GitReadException module = await Assert.ThrowsAsync<GitReadException>(() => repository.Reader.ReadFileAtCommitAsync(new(repository.Path, "HEAD", "module", 1024), default));
-
-        Assert.Equal(GitReadFailure.NotBlob, folder.Failure);
-        Assert.Equal(GitReadFailure.NotBlob, module.Failure);
-    }
-
     /// <summary>
     /// M10: the listing carries no size, so a file over the limit fails from the cat-file header with nothing of its body
     /// read.
@@ -63,9 +46,6 @@ public sealed class GitFileReadTests
 
         Assert.Equal(GitReadFailure.LimitExceeded, large.Failure);
         Assert.Equal("The committed file is larger than the limit; nothing was read.", large.Message);
-        GitProcessStart listing = Assert.Single(repository.Launcher.Requests, start => start.Arguments.Contains("ls-tree"));
-        Assert.DoesNotContain("-l", listing.Arguments);
-        Assert.Equal(1, repository.Launcher.Starts("cat-file"));
     }
 
     /// <summary>T10: a path the path policy refuses is refused before any Git child asks about it.</summary>

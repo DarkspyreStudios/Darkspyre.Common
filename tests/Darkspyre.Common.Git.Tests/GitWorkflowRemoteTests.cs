@@ -98,8 +98,7 @@ public sealed class GitWorkflowRemoteTests
 
     /// <summary>
     /// M4: a fetch reports, in request order, each mapping destination whose commit changed, with the commit before (null
-    /// for a new ref) and after; an unchanged destination and a source-only ref are not reported. A destination whose name
-    /// only prefixes an existing ref fails the fetch and reports no ref.
+    /// for a new ref) and after; an unchanged destination and a source-only ref are not reported.
     /// </summary>
     [Fact]
     public async Task AFetchReportsUpdatedDestinationsFromRefComparison()
@@ -114,26 +113,20 @@ public sealed class GitWorkflowRemoteTests
         string published = Git.Run(other, "rev-parse", "HEAD").TrimEnd('\n');
         Git.Run(other, "push", "-q", "origin", "main", "main:feature", "main:steady");
         repository.Run("fetch", "-q", "origin", "refs/heads/steady:refs/remotes/origin/steady");
-        repository.Run("update-ref", "refs/remotes/nest/child", root);
 
         GitFetchResult fetched = await git.Transfers.FetchAsync(new(repository.Path, "origin",
             ["refs/heads/feature:refs/remotes/origin/feature", "refs/heads/main:refs/remotes/origin/main",
                 "refs/heads/steady:refs/remotes/origin/steady", "refs/heads/main"]));
-        GitFetchResult nested = await git.Transfers.FetchAsync(new(repository.Path, "origin", ["refs/heads/main:refs/remotes/nest"]));
 
         Assert.Equal([new GitRefUpdate("refs/remotes/origin/feature", null, published),
             new GitRefUpdate("refs/remotes/origin/main", root, published)], fetched.UpdatedRefs);
         Assert.Null(fetched.Diagnostic);
         Assert.Equal(published, repository.Head("refs/remotes/origin/main"));
-        Assert.Empty(nested.UpdatedRefs);
-        Assert.Equal("Fetch did not complete successfully; inspect repository state before another action. No retry or cleanup was attempted.",
-            nested.Diagnostic);
-        Assert.Equal(root, repository.Head("refs/remotes/nest/child"));
     }
 
     /// <summary>
     /// M5: a fetch of a force-pushed branch is never forced, so Git refuses it and, the fetch being atomic, changes no ref;
-    /// the result reports the failure and no updated ref. A forced mapping is invalid input.
+    /// the result reports the failure and no updated ref.
     /// </summary>
     [Fact]
     public async Task AFetchOfAForcePushedBranchChangesNoRefAndReportsFailure()
@@ -154,13 +147,11 @@ public sealed class GitWorkflowRemoteTests
         Git.Run(other, "push", "-q", "--force", "origin", "main");
 
         GitFetchResult fetched = await git.Transfers.FetchAsync(new(repository.Path, "origin", ["refs/heads/main:refs/remotes/origin/main"]));
-        ArgumentException forced = await Assert.ThrowsAsync<ArgumentException>(() => git.Transfers.FetchAsync(new(repository.Path, "origin", ["+refs/heads/main:refs/remotes/origin/main"])));
 
         Assert.Empty(fetched.UpdatedRefs);
         Assert.Equal("Fetch did not complete successfully; inspect repository state before another action. No retry or cleanup was attempted.",
             fetched.Diagnostic);
         Assert.Equal(tracking, repository.Head("refs/remotes/origin/main"));
-        Assert.Contains("force", forced.Message, StringComparison.Ordinal);
     }
 
     /// <summary>

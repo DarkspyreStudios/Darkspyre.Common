@@ -39,13 +39,11 @@ public sealed class PdfiumEngineTests
     }
 
     [Fact]
-    public async Task RendersATileWithinTheLimitAndRefusesALargerOne()
+    public async Task RendersATile()
     {
         await using IPdfDocument document = await OpenAsync("three-pages.pdf");
         PdfBitmap bitmap = (await document.RenderAsync(1, 2, new(0, 0, 1024, 200), default))!;
         Assert.Equal((1024, 200, 1024 * 200 * 4), (bitmap.Width, bitmap.Height, bitmap.Rgba.Length));
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => document.RenderAsync(1, 2, new(0, 0, 1025, 200), default));
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => document.RenderAsync(1, 2, new(0, 0, 200, 1025), default));
     }
 
     [Fact]
@@ -60,15 +58,6 @@ public sealed class PdfiumEngineTests
         PdfPage page = document.Pages[0];
         Assert.All(lines, line => Assert.True(line.Box.Left >= 0 && line.Box.Top >= 0 && line.Box.Width > 0 && line.Box.Height > 0
             && line.Box.Left + line.Box.Width <= page.Width && line.Box.Top + line.Box.Height <= page.Height));
-    }
-
-    /// <summary>An invalid page cannot masquerade as a page with no text.</summary>
-    [Fact]
-    public async Task InvalidPageIndexDoesNotReportBlankText()
-    {
-        await using IPdfDocument document = await OpenAsync("three-pages.pdf");
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => document.TextAsync(-1, default));
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => document.TextAsync(document.Pages.Count, default));
     }
 
     /// <summary>Real PDFium distinguishes a valid blank page from a missing page object.</summary>

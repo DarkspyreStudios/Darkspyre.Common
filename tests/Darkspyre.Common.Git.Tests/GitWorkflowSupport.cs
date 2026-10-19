@@ -36,8 +36,6 @@ internal sealed class GitWorkflowRepository : IAsyncDisposable
     public TestPathPolicy Paths { get; } = new();
     public GitRepositoryLocks Locks { get; } = new();
     public GitConversation First { get; }
-    /// <summary>The working repository's real common directory, as the locks key it.</summary>
-    public string CommonDirectory => this.Paths.Resolve(System.IO.Path.Combine(this.Path, ".git"));
 
     public static GitWorkflowRepository Create(string prefix) => new(prefix);
 

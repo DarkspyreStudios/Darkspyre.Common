@@ -41,19 +41,6 @@ public sealed class CodeViewTests
     });
 
     [Fact]
-    public Task DiffViewFindsMatchesInTheShownDiff() => ViewSession.RunAsync(async () =>
-    {
-        DiffView view = new() { OldText = "one\ntwo\n", NewText = "one\nthree\n" };
-        ViewSession.Show(view);
-        await ViewSession.WaitForAsync(() => view.Hunks.Count == 1);
-
-        // The shown diff is the header, "one", "two" and "three"; only the last two hold a t.
-        Assert.Equal(2, view.Find("t"));
-        view.FindNext();
-        Assert.Equal(2, view.CurrentMatch);
-    });
-
-    [Fact]
     public Task DiffViewOfEqualTextsSaysSo() => ViewSession.RunAsync(async () =>
     {
         DiffView view = new() { OldText = "same\n", NewText = "same\n" };

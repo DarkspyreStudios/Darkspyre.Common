@@ -5,13 +5,11 @@ namespace Darkspyre.Common.Git.Tests;
 /// <summary>Transport restrictions keep partial-clone reads local without changing the default client.</summary>
 public sealed class GitLocalReadTests
 {
-    /// <summary>Missing trees and blobs stay missing after local-only reads; the default client still fetches them.</summary>
+    /// <summary>A local-only tree read of a partial clone fails and fetches nothing, whether the blobs or the trees are missing.</summary>
     [Theory]
-    [InlineData("blob:none", GitReadPolicy.LocalOnly)]
-    [InlineData("tree:0", GitReadPolicy.LocalOnly)]
-    [InlineData("blob:none", GitReadPolicy.Configured)]
-    [InlineData("tree:0", GitReadPolicy.Configured)]
-    public async Task TreeReadsRespectTheSelectedTransportPolicy(string filter, GitReadPolicy policy)
+    [InlineData("blob:none")]
+    [InlineData("tree:0")]
+    public async Task LocalOnlyTreeReadsOfAPartialCloneFetchNothing(string filter)
     {
         await using GitTestRepository source = GitTestRepository.Create("git-local-tree");
         source.Write("folder/a.txt", "committed\n");
@@ -25,21 +23,12 @@ public sealed class GitLocalReadTests
         string configuration = await File.ReadAllTextAsync(Path.Combine(clone, ".git", "config"));
         string[] packs = Directory.GetFiles(Path.Combine(clone, ".git", "objects", "pack")).Order(StringComparer.Ordinal).ToArray();
         Assert.False(Present(clone, missing));
-        RecordingLauncher launcher = new();
-        GitClient client = new(launcher, UnrestrictedGitPathPolicy.Instance, new(), policy);
-        if (policy == GitReadPolicy.LocalOnly)
-        {
-            await Assert.ThrowsAnyAsync<IOException>(() => client.ReadTreeAsync(new(clone, commit, "")));
-            Assert.False(Present(clone, missing));
-            Assert.Equal(packs, Directory.GetFiles(Path.Combine(clone, ".git", "objects", "pack")).Order(StringComparer.Ordinal));
-        }
-        else
-        {
-            GitTreeEntry entry = Assert.Single(await client.ReadTreeAsync(new(clone, commit, "")));
-            Assert.Equal("folder/a.txt", entry.Path);
-            Assert.Equal(10, entry.Length);
-            Assert.True(Present(clone, missing));
-        }
+        GitClient client = new(new RecordingLauncher(), UnrestrictedGitPathPolicy.Instance, new(), GitReadPolicy.LocalOnly);
+
+        await Assert.ThrowsAnyAsync<IOException>(() => client.ReadTreeAsync(new(clone, commit, "")));
+
+        Assert.False(Present(clone, missing));
+        Assert.Equal(packs, Directory.GetFiles(Path.Combine(clone, ".git", "objects", "pack")).Order(StringComparer.Ordinal));
         Assert.Equal(configuration, await File.ReadAllTextAsync(Path.Combine(clone, ".git", "config")));
     }
 

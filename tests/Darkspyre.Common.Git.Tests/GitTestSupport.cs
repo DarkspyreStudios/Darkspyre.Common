@@ -11,7 +11,7 @@ namespace Darkspyre.Common.Git.Tests;
 /// </summary>
 internal sealed class GitTestRepository : IAsyncDisposable
 {
-    private GitTestRepository(string prefix, string? objectFormat)
+    private GitTestRepository(string prefix)
     {
         this.Root = TestScratchRoot.CreateDirectory(prefix);
         this.Path = System.IO.Path.Combine(this.Root, "repository");
@@ -20,8 +20,7 @@ internal sealed class GitTestRepository : IAsyncDisposable
         this.Paths = new();
         this.Commands = new(this.Launcher);
         this.Reader = new(this.Commands, this.Paths);
-        string[] format = objectFormat is null ? [] : ["--object-format=" + objectFormat];
-        Git.Run(this.Root, ["init", "-q", "-b", "main", .. format, this.Path]);
+        Git.Run(this.Root, "init", "-q", "-b", "main", this.Path);
     }
 
     public string Root { get; }
@@ -32,7 +31,7 @@ internal sealed class GitTestRepository : IAsyncDisposable
     public GitCommands Commands { get; }
     public GitRepositoryReader Reader { get; }
 
-    public static GitTestRepository Create(string prefix, string? objectFormat = null) => new(prefix, objectFormat);
+    public static GitTestRepository Create(string prefix) => new(prefix);
 
     public string Write(string relative, string content) => this.Write(relative, Encoding.UTF8.GetBytes(content));
 
@@ -63,9 +62,7 @@ internal sealed class GitTestRepository : IAsyncDisposable
 /// <summary>Runs Git for fixture setup, with a fixed identity and no signing, outside the code under test.</summary>
 internal static class Git
 {
-    public static string Run(string directory, params string[] arguments) => Run(directory, null, arguments);
-
-    public static string Run(string directory, IReadOnlyDictionary<string, string>? environment, params string[] arguments)
+    public static string Run(string directory, params string[] arguments)
     {
         ProcessStartInfo start = new("git")
         {
@@ -78,8 +75,6 @@ internal static class Git
         foreach (string argument in (string[])["-c", "user.name=Source Test", "-c", "user.email=source@example.invalid",
             "-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false", "-c", "core.autocrlf=false", .. arguments])
             start.ArgumentList.Add(argument);
-        if (environment is not null)
-            foreach ((string key, string value) in environment) start.Environment[key] = value;
         using Process process = Process.Start(start)!;
         process.StandardInput.Close();
         Task<string> output = process.StandardOutput.ReadToEndAsync();
@@ -105,19 +100,15 @@ internal static class Git
 }
 
 /// <summary>
-/// The library's path policy over <see cref="UnrestrictedGitPathPolicy"/>. A test can refuse single paths, every read
-/// check from a given check on, or every read outside one directory; it counts every read check.
+/// The library's path policy over <see cref="UnrestrictedGitPathPolicy"/>. A test can refuse single paths or every read
+/// outside one directory.
 /// </summary>
 internal sealed class TestPathPolicy : IGitPathPolicy
 {
-    private int checks;
     private string? readableRoot;
 
     /// <summary>Refuses a path, by its absolute lexical form, when it returns true.</summary>
     public Func<string, bool>? Refuse { get; set; }
-    /// <summary>Refuses every read check from this check number on, counting from 1.</summary>
-    public int? RefuseFromCheck { get; set; }
-    public int Checks => Volatile.Read(ref this.checks);
 
     /// <summary>Permits reads beneath <paramref name="directory"/> only.</summary>
     public void ReadOnlyBeneath(string directory) => this.readableRoot = this.Resolve(directory);
@@ -126,8 +117,7 @@ internal sealed class TestPathPolicy : IGitPathPolicy
 
     public ValueTask<GitPathAccess> GetReadAccessAsync(string absolutePath, CancellationToken cancellationToken)
     {
-        int check = Interlocked.Increment(ref this.checks);
-        if (this.RefuseFromCheck is { } from && check >= from || this.Refuse?.Invoke(Path.GetFullPath(absolutePath)) == true)
+        if (this.Refuse?.Invoke(Path.GetFullPath(absolutePath)) == true)
             return ValueTask.FromResult(GitPathAccess.Refused);
         if (this.readableRoot is { } root && !Beneath(root, this.Resolve(absolutePath)))
             return ValueTask.FromResult(GitPathAccess.Refused);

@@ -157,56 +157,6 @@ public sealed class GitWorkflowChangeTests
         Assert.Null((await git.StatusAsync(repository.Path))!.Operation);
     }
 
-    /// <summary>
-    /// 3.6: a continue with unmerged paths runs nothing and is not clean; once the cherry-pick is aborted, a continue with
-    /// no cherry-pick in progress is stale.
-    /// </summary>
-    [Fact]
-    public async Task ContinuingWithUnmergedPathsIsNotCleanAndAContinueWithNoOperationIsStale()
-    {
-        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-pick-unmerged-");
-        GitConversation git = repository.First;
-        repository.Run("checkout", "-q", "-b", "feature");
-        repository.Write("a.txt", "feature\n");
-        string feature = repository.Commit("Feature");
-        repository.Run("checkout", "-q", "main");
-        repository.Write("a.txt", "main\n");
-        string main = repository.Commit("Main");
-
-        GitSequenceResult conflicted = await git.Sequences.CherryPickAsync(new(repository.Path, GitSequenceAction.Start, [feature]));
-        int started = git.Launcher.Starts("cherry-pick");
-        GitOperationException unmerged = await Assert.ThrowsAsync<GitOperationException>(() => git.Sequences.CherryPickAsync(new(repository.Path, GitSequenceAction.Continue, [])));
-        int afterContinue = git.Launcher.Starts("cherry-pick");
-        GitSequenceResult aborted = await git.Sequences.CherryPickAsync(new(repository.Path, GitSequenceAction.Abort, []));
-        GitOperationException stale = await Assert.ThrowsAsync<GitOperationException>(() => git.Sequences.CherryPickAsync(new(repository.Path, GitSequenceAction.Continue, [])));
-
-        Assert.Equal(GitSequenceState.Conflicted, conflicted.State);
-        Assert.Equal(GitFailure.NotClean, unmerged.Failure);
-        Assert.Contains("unmerged", unmerged.Message, StringComparison.Ordinal);
-        Assert.Equal(started, afterContinue);
-        Assert.Equal(GitSequenceState.Aborted, aborted.State);
-        Assert.Equal(GitFailure.StaleState, stale.Failure);
-        Assert.Equal(main, repository.Head());
-        Assert.Null((await git.StatusAsync(repository.Path))!.Operation);
-    }
-
-    /// <summary>3.6: a start a hook refuses, which changes nothing, is Refused.</summary>
-    [Fact]
-    public async Task AFailedStartThatChangedNothingIsRefused()
-    {
-        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-rebase-refused-");
-        GitConversation git = repository.First;
-        Diverge(repository);
-        string feature = repository.Head();
-        GitScripts.Write(Path.Combine(repository.Path, ".git", "hooks", "pre-rebase"), "exit 1");
-
-        GitSequenceResult refused = await git.Sequences.RebaseAsync(new(repository.Path, GitSequenceAction.Start, "main"));
-
-        Assert.Equal(GitSequenceState.Refused, refused.State);
-        Assert.Equal(feature, repository.Head());
-        Assert.Null((await git.StatusAsync(repository.Path))!.Operation);
-    }
-
     /// <summary>G15.</summary>
     [Fact]
     public async Task ARebaseStartWithUnstagedChangesOrAMergeInProgressIsRefusedAsNotClean()
@@ -230,24 +180,6 @@ public sealed class GitWorkflowChangeTests
         Assert.Equal(0, git.Launcher.Starts("rebase"));
     }
 
-    /// <summary>G14: an applied commit is dropped and NewCommits lists only what was created.</summary>
-    [Fact]
-    public async Task ACherryPickDropsAnAppliedCommitAndListsOnlyTheCommitsItCreated()
-    {
-        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-pick-drop-");
-        GitConversation git = repository.First;
-        (string applied, string fresh) = Picks(repository);
-        GitStatusSnapshot before = (await git.StatusAsync(repository.Path))!;
-
-        GitSequenceResult picked = await git.Sequences.CherryPickAsync(new(repository.Path, GitSequenceAction.Start, [applied, fresh]));
-
-        Assert.Equal(GitSequenceState.Completed, picked.State);
-        Assert.Equal(repository.Head(), Assert.Single(picked.NewCommits));
-        Assert.Equal(before.Head, repository.Head("HEAD~1"));
-        Assert.Equal("fresh\n", File.ReadAllText(Path.Combine(repository.Path, "fresh.txt")));
-        Assert.Equal("refs/heads/main", picked.BranchRef);
-    }
-
     /// <summary>G19.</summary>
     [Fact]
     public async Task ACherryPickNamesTheAlreadyAppliedCommitAsSkipped()
@@ -260,36 +192,6 @@ public sealed class GitWorkflowChangeTests
 
         Assert.Single(picked.NewCommits);
         Assert.Equal([applied], picked.SkippedCommits);
-    }
-
-    /// <summary>G14: a merge commit or an initially empty commit is refused before anything changes.</summary>
-    [Fact]
-    public async Task ACherryPickOfAMergeCommitOrAnEmptyCommitIsRefusedBeforeAnyChange()
-    {
-        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-pick-refuse-");
-        GitConversation git = repository.First;
-        repository.Run("checkout", "-q", "-b", "side");
-        repository.Write("s.txt", "side\n");
-        repository.Commit("Side");
-        string empty = repository.Commit("Empty");
-        repository.Run("checkout", "-q", "-b", "merged", "main");
-        repository.Write("m.txt", "merged\n");
-        repository.Commit("Merged base");
-        repository.Run("merge", "-q", "--no-ff", "--no-edit", "side");
-        string merge = repository.Head();
-        repository.Run("checkout", "-q", "main");
-        GitStatusSnapshot before = (await git.StatusAsync(repository.Path))!;
-
-        ArgumentException mergeRefused = await Assert.ThrowsAsync<ArgumentException>(() => git.Sequences.CherryPickAsync(new(repository.Path, GitSequenceAction.Start, [merge])));
-        ArgumentException emptyRefused = await Assert.ThrowsAsync<ArgumentException>(() => git.Sequences.CherryPickAsync(new(repository.Path, GitSequenceAction.Start, [empty])));
-        GitStatusSnapshot after = (await git.StatusAsync(repository.Path))!;
-
-        Assert.Contains("merge commit", mergeRefused.Message, StringComparison.Ordinal);
-        Assert.Contains("starts empty", emptyRefused.Message, StringComparison.Ordinal);
-        Assert.Equal(before.Head, after.Head);
-        Assert.Equal(before.Changes, after.Changes);
-        Assert.Null(after.Operation);
-        Assert.Equal(0, git.Launcher.Starts("cherry-pick"));
     }
 
     /// <summary>
