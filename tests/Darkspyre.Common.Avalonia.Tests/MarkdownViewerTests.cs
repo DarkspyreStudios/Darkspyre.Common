@@ -352,7 +352,7 @@ public sealed class MarkdownViewerTests
         Assert.False(Underlined(link));
     });
 
-    /// <summary>The host's "link" colour colours a link, and its "link-decorations" decides whether the link is underlined.</summary>
+    /// <summary>The host's "link" colour colours a link, and its "link-underline" decides whether the link is underlined.</summary>
     [Fact]
     public Task ALinkTakesTheHostsLinkColourAndDecoration() => ViewSession.RunAsync(async () =>
     {
@@ -360,13 +360,13 @@ public sealed class MarkdownViewerTests
         {
             host.Resources["accent"] = Colors.Green;
             host.Resources["link"] = Colors.Red;
-            host.Resources["link-decorations"] = TextDecorations.Underline;
+            host.Resources["link-underline"] = true;
         });
         Link plain = await ShowLinkAsync(host =>
         {
             host.Resources["accent"] = Colors.Green;
             host.Resources["link"] = Colors.Red;
-            host.Resources["link-decorations"] = new TextDecorationCollection();
+            host.Resources["link-underline"] = false;
         });
 
         Assert.Equal(Colors.Red, ((ISolidColorBrush)underlined.Foreground!).Color);

@@ -45,7 +45,7 @@ public sealed class MarkdownLinkEventArgs(string target) : EventArgs
 /// <see cref="MermaidRenderer"/>; when that draws nothing, the fence stays a code block. Colours come from the theme token resources and follow them when they change:
 /// inline code has no fill of its own and its text is <c>code-inline</c>, code blocks and quotes sit on <c>raised</c>, code
 /// block text is <c>text</c>, a code block's header and border, table
-/// rules and thematic breaks are <c>line</c>, tables sit on <c>panel</c>, the quote rule is <c>accent</c>, links are <c>link</c> (else <c>accent</c>) with the <c>link-decorations</c> text decoration (else none), selected
+/// rules and thematic breaks are <c>line</c>, tables sit on <c>panel</c>, the quote rule is <c>accent</c>, links are <c>link</c> (else <c>accent</c>), underlined when <c>link-underline</c> is true, selected
 /// text is highlighted in <c>color-primary.brush.40</c> as the app's text controls are, and diagrams are drawn again in
 /// <c>panel</c>, <c>text</c>, <c>accent</c> and <c>line</c>. A colour token the resources lack keeps LiveMarkdown's default
 /// colour. Fonts come from the text entry resources and follow them when they change: paragraphs, quotes, list items,
@@ -80,7 +80,8 @@ public sealed class MarkdownViewer : TemplatedControl
     ];
 
     // The renderer's own resources for the link look: the colour of the host's "link" (else "accent") token as a brush, and
-    // the host's "link-decorations" collection.
+    // the underline when the host's "link-underline" is true. The viewer makes the decoration itself on the UI thread, since
+    // a TextDecorationCollection belongs to the thread that made it and a host may build its resources on another.
     private const string LinkBrushKey = "darkspyre-link-brush";
     private const string LinkDecorationsKey = "darkspyre-link-decorations";
     private static readonly string[] LinkTokens = ["link", "accent"];
@@ -92,7 +93,7 @@ public sealed class MarkdownViewer : TemplatedControl
     private IMarkdownLinkSource? linkSource;
     private string shown = string.Empty;
     private (string Key, Color Colour)[] palette = [];
-    private TextDecorationCollection? linkDecorations;
+    private bool linkUnderline;
 
     // The rendered text Select All selected, while that selection lasts; null after any other selection.
     private string? selectedAll;
@@ -297,13 +298,13 @@ public sealed class MarkdownViewer : TemplatedControl
             next.Add((LinkBrushKey, colour));
             break;
         }
-        TextDecorationCollection? decorations = this.TryFindResource("link-decorations", this.ActualThemeVariant, out object? found) ? found as TextDecorationCollection : null;
-        if (next.SequenceEqual(this.palette) && ReferenceEquals(decorations, this.linkDecorations)) return;
+        bool underline = this.TryFindResource("link-underline", this.ActualThemeVariant, out object? found) && found is true;
+        if (next.SequenceEqual(this.palette) && underline == this.linkUnderline) return;
         this.palette = [.. next];
-        this.linkDecorations = decorations;
+        this.linkUnderline = underline;
         ResourceDictionary resources = [];
         foreach ((string key, Color colour) in next) resources[key] = key == LinkBrushKey ? new global::Avalonia.Media.Immutable.ImmutableSolidColorBrush(colour) : colour;
-        if (decorations is not null) resources[LinkDecorationsKey] = decorations;
+        if (underline) resources[LinkDecorationsKey] = TextDecorations.Underline;
         this.renderer.Resources = resources;
     }
 
