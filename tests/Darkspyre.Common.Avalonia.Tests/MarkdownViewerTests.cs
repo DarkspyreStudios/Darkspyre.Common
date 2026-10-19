@@ -1,4 +1,11 @@
+using System.Diagnostics;
+using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
+using Avalonia.Input;
+using Avalonia.Input.Platform;
+using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Darkspyre.Common.Avalonia.Markdown;
@@ -223,6 +230,157 @@ public sealed class MarkdownViewerTests
         host.Resources["text"] = Colors.Blue;
         await ViewSession.WaitForAsync(() => counting.Calls == drawn + 1);
     });
+
+    /// <summary>
+    /// The Select All key selects the whole message, and its copy is the Markdown source, the text the message copy
+    /// button copies; a partial selection copies the rendered text.
+    /// </summary>
+    [Fact]
+    public Task SelectAllGivesTheSourceAndAPartialSelectionTheRenderedText() => ViewSession.RunAsync(async () =>
+    {
+        const string Source = "Some **bold** text\n\nA second paragraph";
+        MarkdownViewer viewer = new() { Text = Source };
+        Window window = ViewSession.Show(viewer);
+        await ViewSession.WaitForAsync(() => Text(viewer).Contains("second", StringComparison.Ordinal));
+        KeyGesture selectAll = Application.Current!.PlatformSettings!.HotkeyConfiguration.SelectAll[0];
+
+        viewer.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = selectAll.Key, KeyModifiers = selectAll.KeyModifiers });
+
+        Assert.True(viewer.CanCopy);
+        Assert.Equal(Source, viewer.SelectedText);
+        Assert.True(await viewer.CopyAsync());
+        Assert.Equal(Source, await ClipboardExtensions.TryGetTextAsync(window.Clipboard!));
+
+        Assert.Single(ViewSession.All<MarkdownRenderer>(viewer)).ClearSelection();
+        MarkdownTextBlock first = ViewSession.All<MarkdownTextBlock>(viewer).First();
+        first.SelectionStart = 5;
+        first.SelectionEnd = 9;
+        Assert.Equal("bold", viewer.SelectedText);
+    });
+
+    /// <summary>A right-click on the text opens the viewer's menu: Copy and Select All, with Copy off until text is selected.</summary>
+    [Fact]
+    public Task TheContextMenuOffersCopyAndSelectAll() => ViewSession.RunAsync(async () =>
+    {
+        MarkdownViewer viewer = new() { Text = "One paragraph" };
+        ViewSession.Show(viewer);
+        await ViewSession.WaitForAsync(() => Text(viewer).Contains("One", StringComparison.Ordinal));
+        ContextMenu menu = Assert.IsType<ContextMenu>(viewer.ContextMenu);
+        MenuItem[] items = [.. menu.Items.Cast<MenuItem>()];
+        Assert.Equal(["Copy", "Select All"], items.Select(item => item.Header));
+
+        void RightClick()
+        {
+            ViewSession.All<MarkdownTextBlock>(viewer).First().RaiseEvent(new ContextRequestedEventArgs());
+            ViewSession.Settle();
+        }
+
+        RightClick();
+        Assert.True(menu.IsOpen);
+        Assert.False(items[0].IsEnabled);
+        menu.Close();
+
+        items[1].RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+        Assert.Equal("One paragraph", viewer.SelectedText);
+        RightClick();
+        Assert.True(menu.IsOpen);
+        Assert.True(items[0].IsEnabled);
+        menu.Close();
+    });
+
+    /// <summary>The code-block copy button writes the code, then shows a check named Copied for two seconds.</summary>
+    [Fact]
+    public Task CodeBlockCopyWritesTheCodeAndShowsACheckForTwoSeconds() => ViewSession.RunAsync(async () =>
+    {
+        MarkdownViewer viewer = new() { Text = "```\nlet x = 1;\n```" };
+        Window window = ViewSession.Show(viewer);
+        await ViewSession.WaitForAsync(() => ViewSession.All<Button>(viewer).Any(button => button.Name == "PART_CopyButton"));
+        Button copy = ViewSession.All<Button>(viewer).Single(button => button.Name == "PART_CopyButton");
+        global::Avalonia.Controls.Shapes.Path glyph = Assert.IsType<global::Avalonia.Controls.Shapes.Path>(Assert.IsType<Viewbox>(copy.Content).Child);
+        Geometry? copyGlyph = glyph.Data;
+
+        Stopwatch shown = Stopwatch.StartNew();
+        copy.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        await ViewSession.WaitForAsync(() => AutomationProperties.GetName(copy) == "Copied");
+        Assert.Equal("let x = 1;", await ClipboardExtensions.TryGetTextAsync(window.Clipboard!));
+        Assert.NotSame(copyGlyph, glyph.Data);
+
+        await ViewSession.WaitForAsync(() => AutomationProperties.GetName(copy) == "Copy");
+        Assert.True(shown.Elapsed >= TimeSpan.FromSeconds(1.9), $"The check went after {shown.Elapsed}.");
+        Assert.Same(copyGlyph, glyph.Data);
+    });
+
+    /// <summary>
+    /// With a link source, a code span and plain text the source accepts become links, also while text streams in, and
+    /// a Markdown link to a file the source refuses shows as plain text. A click activates an accepted target.
+    /// </summary>
+    [Fact]
+    public Task ALinkSourceLinksAcceptedCodeSpansAndTextAndRefusesUnknownFiles() => ViewSession.RunAsync(async () =>
+    {
+        const string First = "Changed Program.cs and `Makefile`, ";
+        const string Rest = "see [notes](missing-notes.md), [main](src/App/Main.cs), Design_DSA-1091_v_9.md and https://example.com/a.";
+        MarkdownViewer viewer = new() { Streaming = true, LinkSource = new KnownFiles("Program.cs", "Makefile", "src/App/Main.cs", "Design_DSA-1091_v_9.md") };
+        ViewSession.Show(viewer);
+        List<string> activated = [];
+        viewer.LinkActivated += (_, args) => activated.Add(args.Target);
+
+        viewer.Text = First;
+        await ViewSession.WaitForAsync(() => Links(viewer).Count == 2);
+        viewer.Text = First + Rest;
+        await ViewSession.WaitForAsync(() => Text(viewer).Contains("example.com/a.", StringComparison.Ordinal) && Links(viewer).Count == 5);
+
+        Assert.Equal(
+            [("Program.cs", "Program.cs"), ("Makefile", "Makefile"), ("main", "src/App/Main.cs"), ("Design_DSA-1091_v_9.md", "Design_DSA-1091_v_9.md"),
+                ("https://example.com/a", "https://example.com/a")],
+            Links(viewer).Select(link => (TextOf(link), link.HRef?.OriginalString)));
+        Assert.Contains("see notes, main", Text(viewer), StringComparison.Ordinal);
+
+        MarkdownRenderer renderer = Assert.Single(ViewSession.All<MarkdownRenderer>(viewer));
+        Link program = Links(viewer)[0];
+        renderer.LinkCommand!.Execute(new LinkClickedEventArgs(MarkdownTextBlock.LinkClickEvent, program, program.HRef));
+        renderer.LinkCommand.Execute(new Uri("missing-notes.md", UriKind.Relative));
+        Assert.Equal(["Program.cs"], activated);
+    });
+
+    /// <summary>A link source that knows a fixed set of file names and finds each where it appears in the text.</summary>
+    private sealed class KnownFiles(params string[] names) : IMarkdownLinkSource
+    {
+        public event EventHandler? Changed
+        {
+            add { }
+            remove { }
+        }
+
+        public IReadOnlyList<MarkdownLinkSpan> Find(string text) =>
+        [
+            .. names.SelectMany(name => Occurrences(text, name).Select(start => new MarkdownLinkSpan(start, name.Length, name)))
+                .OrderBy(span => span.Start),
+        ];
+
+        public bool Accepts(string target) => names.Contains(target);
+
+        private static IEnumerable<int> Occurrences(string text, string name)
+        {
+            for (int start = text.IndexOf(name, StringComparison.Ordinal); start >= 0; start = text.IndexOf(name, start + name.Length, StringComparison.Ordinal))
+                yield return start;
+        }
+    }
+
+    private static List<Link> Links(MarkdownViewer viewer) => [.. ViewSession.All<MarkdownTextBlock>(viewer).SelectMany(block => LinksIn(block.Inlines))];
+
+    private static IEnumerable<Link> LinksIn(InlineCollection? inlines) => inlines is null ? [] : inlines.SelectMany(inline => inline switch
+    {
+        Link link => [link, .. LinksIn(link.Inlines)],
+        Span span => LinksIn(span.Inlines),
+        _ => [],
+    });
+
+    private static string TextOf(global::Avalonia.Controls.Documents.Inline inline) => inline switch
+    {
+        Run run => run.Text ?? string.Empty,
+        Span span => string.Concat(span.Inlines.Select(TextOf)),
+        _ => string.Empty,
+    };
 
     /// <summary>Counts the diagrams asked for and draws none, so each fence stays code.</summary>
     private sealed class CountingRenderer : IMermaidRenderer

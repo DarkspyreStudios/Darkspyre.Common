@@ -2,10 +2,15 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
+using Avalonia.Input;
+using Avalonia.Input.Platform;
+using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using LiveMarkdown.Avalonia;
 using Markdig;
 using Markdig.Extensions.GenericAttributes;
@@ -22,7 +27,8 @@ namespace Darkspyre.Common.Avalonia.Markdown;
 /// <param name="target">The link's target as the Markdown wrote it.</param>
 public sealed class MarkdownLinkEventArgs(string target) : EventArgs
 {
-    /// <summary>The link's target as the Markdown wrote it: an http, https or mailto address, or a relative path.</summary>
+    /// <summary>The link's target: an http, https or mailto address, a relative path, or a target the viewer's
+    /// <see cref="MarkdownViewer.LinkSource"/> accepts.</summary>
     public string Target { get; } = target;
 }
 
@@ -30,10 +36,13 @@ public sealed class MarkdownLinkEventArgs(string target) : EventArgs
 /// Renders Markdown, including Mermaid diagrams. Raw HTML is shown as text; links outside the allow-list become inert.
 /// </summary>
 /// <remarks>
-/// The allow-list is absolute http and https addresses with a host, mailto addresses, and relative paths. Generic
+/// The allow-list is absolute http and https addresses with a host, mailto addresses, and relative paths. With a
+/// <see cref="LinkSource"/>, every target that is not an http, https or mailto address is a link only when the source
+/// accepts it, a refused link shows as its own text, and the source adds links to plain text and code spans. Generic
 /// attributes and media links are off, so Markdown cannot add attributes or embed players. Code blocks carry a copy
-/// button and no syntax colouring. A <c>mermaid</c> fence is drawn by <see cref="MermaidRenderer"/>; when that draws
-/// nothing, the fence stays a code block. Colours come from the theme token resources and follow them when they change:
+/// button that shows a check for two seconds after it copies, and no syntax colouring. The context menu offers Copy and
+/// Select All; the platform's Copy and Select All keys do the same. A <c>mermaid</c> fence is drawn by
+/// <see cref="MermaidRenderer"/>; when that draws nothing, the fence stays a code block. Colours come from the theme token resources and follow them when they change:
 /// inline code has no fill of its own and its text is <c>code-inline</c>, code blocks and quotes sit on <c>raised</c>, code
 /// block text is <c>text</c>, a code block's header and border, table
 /// rules and thematic breaks are <c>line</c>, tables sit on <c>panel</c>, links and the quote rule are <c>accent</c>, selected
@@ -56,7 +65,7 @@ public sealed class MarkdownViewer : TemplatedControl
     public static readonly StyledProperty<IMermaidRenderer?> MermaidRendererProperty =
         AvaloniaProperty.Register<MarkdownViewer, IMermaidRenderer?>(nameof(MermaidRenderer), new MermaiderRenderer());
 
-    internal static readonly MarkdownPipeline Pipeline = CreatePipeline();
+    internal static readonly MarkdownPipeline Pipeline = CreatePipeline(null);
 
     // LiveMarkdown's colour resources, and the theme token each one follows.
     private static readonly (string Key, string Token)[] Palette =
@@ -72,8 +81,14 @@ public sealed class MarkdownViewer : TemplatedControl
 
     private readonly MarkdownRenderer renderer = new();
     private readonly ObservableStringBuilder builder = new();
+    private readonly MarkdownUpdateProducer producer;
+    private MarkdownPipeline pipeline = Pipeline;
+    private IMarkdownLinkSource? linkSource;
     private string shown = string.Empty;
     private (string Key, Color Colour)[] palette = [];
+
+    // The rendered text Select All selected, while that selection lasts; null after any other selection.
+    private string? selectedAll;
 
     static MarkdownViewer() => MarkdownNode.Register<MermaidNode>();
 
@@ -135,8 +150,12 @@ public sealed class MarkdownViewer : TemplatedControl
             Setters = { new Setter(Link.ForegroundProperty, new DynamicResourceExtension("accent.brush")) },
             Children = { new Style(selector => selector.Nesting().Class(":clicked")) { Setters = { new Setter(Link.ForegroundProperty, new DynamicResourceExtension("accent.brush")) } } },
         });
-        this.renderer.UpdateProducer = new MarkdownUpdateProducer { Pipeline = Pipeline, MarkdownBuilder = this.builder };
+        this.producer = new MarkdownUpdateProducer { Pipeline = Pipeline, MarkdownBuilder = this.builder };
+        this.renderer.UpdateProducer = this.producer;
         this.renderer.LinkCommand = new LinkActivation(this.Activate);
+        this.ContextMenu = this.CreateContextMenu();
+        this.AddHandler(KeyDownEvent, this.HandleKeyDown, RoutingStrategies.Tunnel);
+        this.AddHandler(CodeBlock.CopyingToClipboardEvent, this.CopyCode);
         this.Template = new FuncControlTemplate<MarkdownViewer>((viewer, _) => viewer.renderer);
         this.ActualThemeVariantChanged += (_, _) =>
         {
@@ -172,6 +191,39 @@ public sealed class MarkdownViewer : TemplatedControl
         set => this.SetValue(MermaidRendererProperty, value);
     }
 
+    /// <summary>Finds extra links in the text; null finds none. Setting it reparses the whole text, streamed text included.</summary>
+    /// <remarks>
+    /// While a source is set, an http, https or mailto target is still checked by <see cref="IsAllowedTarget"/>, and
+    /// every other target is a link only when <see cref="IMarkdownLinkSource.Accepts"/> is true. When the source raises
+    /// <see cref="IMarkdownLinkSource.Changed"/>, the whole text is parsed again on the UI thread.
+    /// </remarks>
+    public IMarkdownLinkSource? LinkSource
+    {
+        get => this.linkSource;
+        set
+        {
+            if (ReferenceEquals(this.linkSource, value)) return;
+            if (this.linkSource is not null) this.linkSource.Changed -= this.LinkSourceChanged;
+            this.linkSource = value;
+            if (value is not null) value.Changed += this.LinkSourceChanged;
+            this.Reparse();
+        }
+    }
+
+    /// <summary>True while the viewer has a selection Copy can write.</summary>
+    public bool CanCopy => this.renderer.CanCopy;
+
+    /// <summary>The selected text. Directly after SelectAll, unchanged, it is Text, the source the message copy button
+    /// copies; otherwise the rendered selection.</summary>
+    public string SelectedText
+    {
+        get
+        {
+            string rendered = this.renderer.SelectedText;
+            return this.selectedAll is not null && rendered == this.selectedAll ? this.Text ?? string.Empty : rendered;
+        }
+    }
+
     /// <summary>Raised when the user activates an allowed link.</summary>
     public event EventHandler<MarkdownLinkEventArgs>? LinkActivated;
 
@@ -188,6 +240,17 @@ public sealed class MarkdownViewer : TemplatedControl
             return absolute.Scheme is "http" or "https" or "mailto" && (absolute.Scheme == "mailto" || !string.IsNullOrEmpty(absolute.Host));
         return Uri.TryCreate(target, UriKind.Relative, out _);
     }
+
+    /// <summary>Selects every block and remembers the rendered text of that selection.</summary>
+    public void SelectAll()
+    {
+        this.renderer.SelectAll();
+        this.selectedAll = this.renderer.SelectedText;
+    }
+
+    /// <summary>Writes SelectedText to the window's clipboard. False when nothing is selected, there is no clipboard or the
+    /// write fails.</summary>
+    public Task<bool> CopyAsync() => this.WriteAsync(this.SelectedText);
 
     /// <inheritdoc />
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -229,14 +292,79 @@ public sealed class MarkdownViewer : TemplatedControl
     private void Show(string text)
     {
         if (text == this.shown) return;
+        this.selectedAll = null;
         if (this.Streaming && text.StartsWith(this.shown, StringComparison.Ordinal)) this.builder.Append(text[this.shown.Length..]);
         else
         {
             this.builder.Clear();
             this.builder.Append(text);
-            this.renderer.DocumentUpdate = new MarkdownDocumentUpdate.Full(Markdig.Markdown.Parse(text, Pipeline), this.builder.Version);
+            this.renderer.DocumentUpdate = new MarkdownDocumentUpdate.Full(Markdig.Markdown.Parse(text, this.pipeline), this.builder.Version);
         }
         this.shown = text;
+    }
+
+    // A new pipeline makes the producer parse the whole text again, streamed text included.
+    private void Reparse()
+    {
+        this.pipeline = this.linkSource is null ? Pipeline : CreatePipeline(this.linkSource);
+        this.producer.Pipeline = this.pipeline;
+    }
+
+    private void LinkSourceChanged(object? sender, EventArgs e) => Dispatcher.UIThread.Post(() =>
+    {
+        if (ReferenceEquals(sender, this.linkSource)) this.Reparse();
+    });
+
+    private ContextMenu CreateContextMenu()
+    {
+        MenuItem copy = new() { Header = "Copy" };
+        copy.Click += (_, _) => _ = this.CopyAsync();
+        MenuItem selectAll = new() { Header = "Select All" };
+        selectAll.Click += (_, _) => this.SelectAll();
+        ContextMenu menu = new() { Items = { copy, selectAll } };
+        menu.Opening += (_, _) => copy.IsEnabled = this.CanCopy;
+        return menu;
+    }
+
+    // Handled before LiveMarkdown's own key handler, which would copy the rendered text after Select All.
+    private void HandleKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (Application.Current?.PlatformSettings?.HotkeyConfiguration is not { } keys) return;
+        if (keys.Copy.Any(gesture => gesture.Matches(e)))
+        {
+            _ = this.CopyAsync();
+            e.Handled = true;
+        }
+        else if (keys.SelectAll.Any(gesture => gesture.Matches(e)))
+        {
+            this.SelectAll();
+            e.Handled = true;
+        }
+    }
+
+    // LiveMarkdown raises this before its code-block button copies and skips its own copy when it is handled.
+    private void CopyCode(object? sender, RoutedEventArgs e)
+    {
+        if (e.Source is not CodeBlock block) return;
+        e.Handled = true;
+        _ = this.CopyCodeAsync(block);
+    }
+
+    private async Task CopyCodeAsync(CodeBlock block)
+    {
+        if (await this.WriteAsync(block.Code) && block.GetVisualDescendants().OfType<Button>().FirstOrDefault(button => button.Name == "PART_CopyButton") is { } copy)
+            CopyFeedback.Show(copy);
+    }
+
+    private async Task<bool> WriteAsync(string? text)
+    {
+        if (string.IsNullOrEmpty(text) || TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard) return false;
+        try
+        {
+            await clipboard.SetTextAsync(text);
+            return true;
+        }
+        catch (Exception error) when (error is not OutOfMemoryException) { return false; }
     }
 
     private void Activate(object? parameter)
@@ -245,20 +373,34 @@ public sealed class MarkdownViewer : TemplatedControl
         {
             Uri uri => uri.OriginalString,
             Link link => link.HRef?.OriginalString,
+            LinkClickedEventArgs clicked => clicked.HRef?.OriginalString,
             string text => text,
             _ => null,
         };
-        if (IsAllowedTarget(target)) this.LinkActivated?.Invoke(this, new MarkdownLinkEventArgs(target!));
+        if (Allows(this.linkSource, target)) this.LinkActivated?.Invoke(this, new MarkdownLinkEventArgs(target!));
     }
 
-    private static MarkdownPipeline CreatePipeline()
+    // Without a source, the allow-list decides. With one, a web or mail target is still checked by the allow-list, and
+    // any other target is a link only when the source accepts it.
+    private static bool Allows(IMarkdownLinkSource? source, string? target)
+    {
+        if (source is null) return IsAllowedTarget(target);
+        if (string.IsNullOrEmpty(target)) return false;
+        return IsWebTarget(target) ? IsAllowedTarget(target) : source.Accepts(target);
+    }
+
+    private static bool IsWebTarget(string target) => target.StartsWith("http:", StringComparison.OrdinalIgnoreCase)
+        || target.StartsWith("https:", StringComparison.OrdinalIgnoreCase) || target.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase);
+
+    private static MarkdownPipeline CreatePipeline(IMarkdownLinkSource? source)
     {
         MarkdownPipelineBuilder pipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions();
         // The advanced preset includes arbitrary attributes and unsandboxed media embeds.
         pipeline.Extensions.TryRemove<GenericAttributesExtension>();
         pipeline.Extensions.TryRemove<MediaLinkExtension>();
         pipeline.Extensions.AddIfNotAlready<MermaidFences>();
-        pipeline.Extensions.AddIfNotAlready<InertLinks>();
+        pipeline.Extensions.Add(new InertLinks(source));
+        if (source is not null) pipeline.Extensions.Add(new FileLinks(source));
         return pipeline.DisableHtml().UseCodeBlockSpanFixer().Build();
     }
 
@@ -276,29 +418,147 @@ public sealed class MarkdownViewer : TemplatedControl
         public void Execute(object? parameter) => activate(parameter);
     }
 
-    /// <summary>Empties the target of every link and image the allow-list refuses, so it cannot be followed or loaded.</summary>
-    private sealed class InertLinks : IMarkdownExtension
+    /// <summary>
+    /// Checks every link and image the Markdown wrote. Without a source, a refused target is emptied, so it cannot be
+    /// followed or loaded. With a source, a refused link is replaced by its own text and a refused image is emptied.
+    /// </summary>
+    private sealed class InertLinks(IMarkdownLinkSource? source) : IMarkdownExtension
     {
-        public void Setup(MarkdownPipelineBuilder pipeline) => pipeline.DocumentProcessed += Guard;
+        public void Setup(MarkdownPipelineBuilder pipeline) => pipeline.DocumentProcessed += this.Guard;
 
         public void Setup(MarkdownPipeline pipeline, IMarkdownRenderer renderer)
         {
         }
 
-        private static void Guard(MarkdownDocument document)
+        private void Guard(MarkdownDocument document)
         {
-            foreach (LinkInline link in document.Descendants<LinkInline>())
+            foreach (LinkInline link in document.Descendants<LinkInline>().ToList())
             {
                 string? target = link.GetDynamicUrl?.Invoke() ?? link.Url;
-                link.Url = IsAllowedTarget(target) ? target : string.Empty;
                 link.GetDynamicUrl = null;
+                if (Allows(source, target)) link.Url = target;
+                else if (source is null || link.IsImage) link.Url = string.Empty;
+                else Unwrap(link);
             }
-            foreach (AutolinkInline link in document.Descendants<AutolinkInline>())
+            foreach (AutolinkInline link in document.Descendants<AutolinkInline>().ToList())
             {
-                if (IsAllowedTarget(link.IsEmail ? "mailto:" + link.Url : link.Url)) continue;
+                if (Allows(source, link.IsEmail ? "mailto:" + link.Url : link.Url)) continue;
+                if (source is not null)
+                {
+                    link.ReplaceBy(new LiteralInline(link.Url) { Span = link.Span });
+                    continue;
+                }
                 link.Url = string.Empty;
                 link.IsEmail = false;
             }
+        }
+
+        // The link's children take its place, so its text shows as ordinary text.
+        private static void Unwrap(LinkInline link)
+        {
+            Inline? child = link.FirstChild;
+            while (child is not null)
+            {
+                Inline? next = child.NextSibling;
+                child.Remove();
+                link.InsertBefore(child);
+                child = next;
+            }
+            link.Remove();
+        }
+    }
+
+    /// <summary>
+    /// Makes links the source finds: in plain text outside links, each span <see cref="IMarkdownLinkSource.Find"/>
+    /// returns, and a code span whose whole trimmed text the source accepts. Adjacent literals are searched as one text,
+    /// because Markdig splits text at characters such as an unmatched underscore.
+    /// </summary>
+    private sealed class FileLinks(IMarkdownLinkSource source) : IMarkdownExtension
+    {
+        public void Setup(MarkdownPipelineBuilder pipeline) => pipeline.DocumentProcessed += this.Link;
+
+        public void Setup(MarkdownPipeline pipeline, IMarkdownRenderer renderer)
+        {
+        }
+
+        private void Link(MarkdownDocument document)
+        {
+            foreach (LeafBlock block in document.Descendants<LeafBlock>().ToList())
+                if (block.Inline is { } inline) this.Walk(inline);
+        }
+
+        private void Walk(ContainerInline container)
+        {
+            Inline? child = container.FirstChild;
+            while (child is not null)
+            {
+                switch (child)
+                {
+                    case LinkInline:
+                        child = child.NextSibling;
+                        break;
+                    case ContainerInline nested:
+                        this.Walk(nested);
+                        child = child.NextSibling;
+                        break;
+                    case Markdig.Syntax.Inlines.CodeInline code:
+                        child = code.NextSibling;
+                        this.LinkCode(code);
+                        break;
+                    case LiteralInline literal:
+                        List<LiteralInline> run = [literal];
+                        while (run[^1].NextSibling is LiteralInline next) run.Add(next);
+                        child = run[^1].NextSibling;
+                        this.LinkText(run);
+                        break;
+                    default:
+                        child = child.NextSibling;
+                        break;
+                }
+            }
+        }
+
+        private void LinkCode(Markdig.Syntax.Inlines.CodeInline code)
+        {
+            string target = code.Content.Trim();
+            if (target.Length == 0 || IsWebTarget(target) || !source.Accepts(target)) return;
+            LinkInline link = new(target, string.Empty) { Span = code.Span, IsClosed = true };
+            code.ReplaceBy(link);
+            link.AppendChild(code);
+        }
+
+        private void LinkText(List<LiteralInline> run)
+        {
+            string text = string.Concat(run.Select(literal => literal.Content.ToString()));
+            IReadOnlyList<MarkdownLinkSpan> spans = source.Find(text);
+            if (spans.Count == 0) return;
+            // Where each literal starts in the joined text, to give every new inline a source span.
+            int[] starts = new int[run.Count];
+            for (int index = 1; index < run.Count; index++) starts[index] = starts[index - 1] + run[index - 1].Content.Length;
+            SourceSpan SpanOf(int start, int end)
+            {
+                int Source(int offset)
+                {
+                    int index = Array.FindLastIndex(starts, begin => begin <= offset);
+                    SourceSpan span = run[index].Span;
+                    return Math.Min(span.Start + offset - starts[index], span.End);
+                }
+                return new SourceSpan(Source(start), Source(end - 1));
+            }
+            LiteralInline Literal(int start, int end) => new(text[start..end]) { Span = SpanOf(start, end) };
+
+            Inline first = run[0];
+            int position = 0;
+            foreach (MarkdownLinkSpan found in spans)
+            {
+                if (found.Start > position) first.InsertBefore(Literal(position, found.Start));
+                LinkInline link = new(found.Target, string.Empty) { Span = SpanOf(found.Start, found.Start + found.Length), IsClosed = true };
+                link.AppendChild(Literal(found.Start, found.Start + found.Length));
+                first.InsertBefore(link);
+                position = found.Start + found.Length;
+            }
+            if (position < text.Length) first.InsertBefore(Literal(position, text.Length));
+            foreach (LiteralInline literal in run) literal.Remove();
         }
     }
 }

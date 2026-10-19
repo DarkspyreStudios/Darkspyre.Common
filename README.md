@@ -161,7 +161,21 @@ and inline code and code blocks take `font-code` at `font-size-code`. LiveMarkdo
 - **`MarkdownViewer`** renders Markdown through LiveMarkdown. Raw HTML is shown as text; generic attributes and media
   embeds are off. A link or image target that is not an absolute http or https address with a host, a mailto address
   or a relative path is emptied, so it cannot be followed or loaded. Activating an allowed link raises `LinkActivated`;
-  the viewer opens nothing itself. Code blocks have a copy button and no syntax colouring. While `Streaming` is true
+  the viewer opens nothing itself. A caller that sets `LinkSource` (an `IMarkdownLinkSource`) gets its own parse
+  pipeline: an http, https or mailto target is still checked as above, every other target is a link only when the
+  source's `Accepts` is true, and a refused link shows as its own text, not as an inert link. The source also adds
+  links: each span its `Find` returns in plain text outside links, with adjacent literals searched as one text, and
+  each code span whose whole trimmed text it accepts. `Find` and `Accepts` may run off the UI thread; a click on a link
+  that is not a web or mail address activates only when `Accepts` is true for its target. Setting the source, or the
+  source raising `Changed`, parses the whole text again. Without a source, links follow the allow-list alone.
+  Selection follows LiveMarkdown's renderer, which keeps a drag inside one viewer. `SelectAll` selects every block, and
+  `SelectedText` is then the Markdown source (`Text`) for as long as that selection lasts; any other selection gives the
+  rendered text. `CopyAsync` writes `SelectedText` to the window's clipboard and returns false when nothing is
+  selected, there is no clipboard or the write fails; it shows no toast. The context menu offers Copy (enabled only
+  while `CanCopy`) and Select All, and the platform's Copy and Select All keys run the same two actions before
+  LiveMarkdown's own key handling. Code blocks have a copy button and no syntax colouring; the viewer does the button's
+  copy itself, and once the code is on the clipboard the button shows a check and is named Copied for two seconds, then
+  the copy glyph and the name Copy return. A second press restarts the two seconds. While `Streaming` is true
   and the new text extends the old, only the tail is appended. A `mermaid` fence becomes a diagram drawn by
   `IMermaidRenderer` (default `MermaiderRenderer`: Mermaider, then `SvgCssFlattener`, which resolves the CSS custom
   properties and colour mixes Svg.Skia cannot draw). A fence the renderer cannot draw stays a code block. Diagrams are
