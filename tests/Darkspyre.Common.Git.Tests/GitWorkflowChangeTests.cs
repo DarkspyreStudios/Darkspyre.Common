@@ -86,6 +86,25 @@ public sealed class GitWorkflowChangeTests
         Assert.Equal(["other.txt"], repository.Staged());
     }
 
+    /// <summary>A deletion already staged, as <c>git rm</c> or an earlier stage leaves it, is committed with the other named paths.</summary>
+    [Fact]
+    public async Task ACommitIncludesAPathWhoseDeletionIsAlreadyStaged()
+    {
+        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-commit-staged-deletion-");
+        GitConversation git = repository.First;
+        repository.Write("b.txt", "b\n");
+        repository.Commit("Second file");
+        repository.Run("rm", "-q", "a.txt");
+        repository.Write("b.txt", "b changed\n");
+
+        GitCommitResult committed = await git.Commits.CommitAsync(new(repository.Path, ["a.txt", "b.txt"], "Change"));
+
+        Assert.Equal(committed.CommitId, repository.Head());
+        Assert.Equal("D\ta.txt\nM\tb.txt",
+            repository.Run("diff-tree", "--no-commit-id", "--name-status", "-r", committed.CommitId).TrimEnd('\n'));
+        Assert.Empty(repository.Staged());
+    }
+
     /// <summary>A commit needs a checked-out branch: on a detached HEAD it is stale before anything is staged.</summary>
     [Fact]
     public async Task ACommitOnADetachedHeadIsRefusedBeforeStaging()

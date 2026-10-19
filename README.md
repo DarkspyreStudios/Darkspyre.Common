@@ -62,6 +62,9 @@ The setting is supported by [Git 2.34](https://git-scm.com/docs/git/2.34.0#Docum
   never a complete empty tree. Existing object-existence checks still apply to blobs.
 - A file read lists the entry with `ls-tree` without `-l`; the byte limit is checked from the `cat-file --batch` header
   before the body is read.
+- A commit runs `git add` on the named paths present in the worktree, so new files are known to Git, then
+  `commit --only` on every named path. A named path absent from the worktree is committed as its deletion, also when
+  that deletion is already staged. Other staged entries stay staged.
 - A fetch reads the commit of each `source:destination` destination with `for-each-ref` before and after
   `fetch --atomic`. `GitFetchResult.UpdatedRefs` lists each destination whose commit changed, in request order. A failed
   fetch returns its diagnostic.

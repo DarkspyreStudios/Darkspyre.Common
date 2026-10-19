@@ -60,10 +60,14 @@ internal sealed class GitCommits(GitCommands git, GitRepositoryReader reader, Gi
             Check(head, "read the checked-out branch");
             string branchRef = Encoding.UTF8.GetString(head.Output).TrimEnd('\n');
             string[] paths = supplied.Select(path => RelativePath(worktree, path)).Distinct(StringComparer.Ordinal).ToArray();
-            // New files must be known to Git for --only. Stage only named paths; never stage-all or
-            // reset on failure. Git's --only index excludes unrelated pre-staged data and retains it.
-            RequireCompleted(await this.git.RunAsync(worktree, ["--literal-pathspecs", "add", "--", .. paths],
-                cancellationToken).ConfigureAwait(false), "stage requested commit paths");
+            // New files must be known to Git for --only, so the named paths present in the worktree are added; never
+            // stage-all or reset on failure. A path absent from the worktree goes to --only alone, which commits its
+            // deletion; git add refuses one whose deletion is already staged. Git's --only index excludes unrelated
+            // pre-staged data and retains it.
+            string[] present = paths.Where(path => InWorktree(worktree, path)).ToArray();
+            if (present.Length > 0)
+                RequireCompleted(await this.git.RunAsync(worktree, ["--literal-pathspecs", "add", "--", .. present],
+                    cancellationToken).ConfigureAwait(false), "stage requested commit paths");
             // Git runs the repository's configured hooks in this child, under the caller's sandbox.
             RequireCompleted(await this.git.RunAsync(worktree,
                 ["--literal-pathspecs", "commit", "--only", "--no-edit", "-m", request.Message, "--", .. paths],
@@ -84,6 +88,13 @@ internal sealed class GitCommits(GitCommands git, GitRepositoryReader reader, Gi
         if (this.paths.Resolve(repository) != layout.WorktreePath) throw new ArgumentException(notRoot, nameof(repository));
         await this.paths.RequireWriteAsync([layout.CommonDirectory, layout.WorktreePath], cancellationToken).ConfigureAwait(false);
         return (layout, await this.locks.EnterAsync(layout.CommonDirectory, cancellationToken).ConfigureAwait(false));
+    }
+
+    // A symbolic link is an entry even when its target is missing.
+    private static bool InWorktree(string worktree, string relative)
+    {
+        FileInfo entry = new(Path.Combine(worktree, relative));
+        return entry.Exists || entry.LinkTarget is not null;
     }
 
     private static string[] RequirePaths(IReadOnlyList<string>? paths)
