@@ -155,6 +155,11 @@ the translucent `x.brush.NN` variants as brushes; the text entry fonts `font-bod
 `font-heading-6` as `FontFamily`; and their sizes `font-size-body`, `font-size-code` and `font-size-heading-1` to
 `font-size-heading-6` as `double` layout units. agent-ds supplies all of them from the theme.
 
+`MarkdownViewer` draws every link from two more keys: `link` as a `Color`, and `link-decorations` as a
+`TextDecorationCollection`. A link takes the `link` colour, else the `accent` colour, and takes the decorations of
+`link-decorations`, else none. A host that wants underlined links supplies `TextDecorations.Underline` under
+`link-decorations`, and an empty collection draws none. The viewer follows both keys when they change.
+
 `MarkdownViewer` sets every text block's font from these keys after LiveMarkdown's own styles, which otherwise fix
 Arial at 14 (headings 24 to 16) whatever the parent's font: paragraphs, quotes, list items, table cells and list
 markers take `font-body` at `font-size-body`, a heading of level N takes `font-heading-N` at `font-size-heading-N`,

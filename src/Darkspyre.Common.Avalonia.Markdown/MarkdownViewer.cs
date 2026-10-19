@@ -45,7 +45,7 @@ public sealed class MarkdownLinkEventArgs(string target) : EventArgs
 /// <see cref="MermaidRenderer"/>; when that draws nothing, the fence stays a code block. Colours come from the theme token resources and follow them when they change:
 /// inline code has no fill of its own and its text is <c>code-inline</c>, code blocks and quotes sit on <c>raised</c>, code
 /// block text is <c>text</c>, a code block's header and border, table
-/// rules and thematic breaks are <c>line</c>, tables sit on <c>panel</c>, links and the quote rule are <c>accent</c>, selected
+/// rules and thematic breaks are <c>line</c>, tables sit on <c>panel</c>, the quote rule is <c>accent</c>, links are <c>link</c> (else <c>accent</c>) with the <c>link-decorations</c> text decoration (else none), selected
 /// text is highlighted in <c>color-primary.brush.40</c> as the app's text controls are, and diagrams are drawn again in
 /// <c>panel</c>, <c>text</c>, <c>accent</c> and <c>line</c>. A colour token the resources lack keeps LiveMarkdown's default
 /// colour. Fonts come from the text entry resources and follow them when they change: paragraphs, quotes, list items,
@@ -79,6 +79,12 @@ public sealed class MarkdownViewer : TemplatedControl
         ("QuoteBorderColor", "accent"),
     ];
 
+    // The renderer's own resources for the link look: the colour of the host's "link" (else "accent") token as a brush, and
+    // the host's "link-decorations" collection.
+    private const string LinkBrushKey = "darkspyre-link-brush";
+    private const string LinkDecorationsKey = "darkspyre-link-decorations";
+    private static readonly string[] LinkTokens = ["link", "accent"];
+
     private readonly MarkdownRenderer renderer = new();
     private readonly ObservableStringBuilder builder = new();
     private readonly MarkdownUpdateProducer producer;
@@ -86,6 +92,7 @@ public sealed class MarkdownViewer : TemplatedControl
     private IMarkdownLinkSource? linkSource;
     private string shown = string.Empty;
     private (string Key, Color Colour)[] palette = [];
+    private TextDecorationCollection? linkDecorations;
 
     // The rendered text Select All selected, while that selection lasts; null after any other selection.
     private string? selectedAll;
@@ -145,10 +152,15 @@ public sealed class MarkdownViewer : TemplatedControl
                 new Setter(TextBlock.FontSizeProperty, new DynamicResourceExtension("font-size-body")),
             },
         });
+        // The renderer's resources carry the link look ApplyPalette read from the host.
         this.Styles.Add(new Style(selector => selector.OfType<MarkdownRenderer>().Descendant().OfType<Link>())
         {
-            Setters = { new Setter(Link.ForegroundProperty, new DynamicResourceExtension("accent.brush")) },
-            Children = { new Style(selector => selector.Nesting().Class(":clicked")) { Setters = { new Setter(Link.ForegroundProperty, new DynamicResourceExtension("accent.brush")) } } },
+            Setters =
+            {
+                new Setter(Link.ForegroundProperty, new DynamicResourceExtension(LinkBrushKey)),
+                new Setter(Link.TextDecorationsProperty, new DynamicResourceExtension(LinkDecorationsKey)),
+            },
+            Children = { new Style(selector => selector.Nesting().Class(":clicked")) { Setters = { new Setter(Link.ForegroundProperty, new DynamicResourceExtension(LinkBrushKey)) } } },
         });
         this.producer = new MarkdownUpdateProducer { Pipeline = Pipeline, MarkdownBuilder = this.builder };
         this.renderer.UpdateProducer = this.producer;
@@ -279,10 +291,19 @@ public sealed class MarkdownViewer : TemplatedControl
         List<(string Key, Color Colour)> next = [];
         foreach ((string key, string token) in Palette)
             if (this.TryFindResource(token, this.ActualThemeVariant, out object? value) && value is Color colour) next.Add((key, colour));
-        if (next.SequenceEqual(this.palette)) return;
+        foreach (string token in LinkTokens)
+        {
+            if (!this.TryFindResource(token, this.ActualThemeVariant, out object? value) || value is not Color colour) continue;
+            next.Add((LinkBrushKey, colour));
+            break;
+        }
+        TextDecorationCollection? decorations = this.TryFindResource("link-decorations", this.ActualThemeVariant, out object? found) ? found as TextDecorationCollection : null;
+        if (next.SequenceEqual(this.palette) && ReferenceEquals(decorations, this.linkDecorations)) return;
         this.palette = [.. next];
+        this.linkDecorations = decorations;
         ResourceDictionary resources = [];
-        foreach ((string key, Color colour) in next) resources[key] = colour;
+        foreach ((string key, Color colour) in next) resources[key] = key == LinkBrushKey ? new global::Avalonia.Media.Immutable.ImmutableSolidColorBrush(colour) : colour;
+        if (decorations is not null) resources[LinkDecorationsKey] = decorations;
         this.renderer.Resources = resources;
     }
 

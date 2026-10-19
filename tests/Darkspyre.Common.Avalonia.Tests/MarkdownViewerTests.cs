@@ -342,6 +342,51 @@ public sealed class MarkdownViewerTests
         Assert.Equal(["Program.cs"], activated);
     });
 
+    /// <summary>Without the host's link resources a link keeps the accent colour and no underline.</summary>
+    [Fact]
+    public Task WithoutLinkResourcesALinkIsAccentColouredAndNotUnderlined() => ViewSession.RunAsync(async () =>
+    {
+        Link link = await ShowLinkAsync(host => host.Resources["accent"] = Colors.Green);
+
+        Assert.Equal(Colors.Green, ((ISolidColorBrush)link.Foreground!).Color);
+        Assert.False(Underlined(link));
+    });
+
+    /// <summary>The host's "link" colour colours a link, and its "link-decorations" decides whether the link is underlined.</summary>
+    [Fact]
+    public Task ALinkTakesTheHostsLinkColourAndDecoration() => ViewSession.RunAsync(async () =>
+    {
+        Link underlined = await ShowLinkAsync(host =>
+        {
+            host.Resources["accent"] = Colors.Green;
+            host.Resources["link"] = Colors.Red;
+            host.Resources["link-decorations"] = TextDecorations.Underline;
+        });
+        Link plain = await ShowLinkAsync(host =>
+        {
+            host.Resources["accent"] = Colors.Green;
+            host.Resources["link"] = Colors.Red;
+            host.Resources["link-decorations"] = new TextDecorationCollection();
+        });
+
+        Assert.Equal(Colors.Red, ((ISolidColorBrush)underlined.Foreground!).Color);
+        Assert.True(Underlined(underlined));
+        Assert.Equal(Colors.Red, ((ISolidColorBrush)plain.Foreground!).Color);
+        Assert.False(Underlined(plain));
+    });
+
+    private static async Task<Link> ShowLinkAsync(Action<Border> resources)
+    {
+        MarkdownViewer viewer = new() { Text = "See [the site](https://example.com/a)." };
+        Border host = new() { Child = viewer };
+        resources(host);
+        ViewSession.Show(host);
+        await ViewSession.WaitForAsync(() => Links(viewer).Count == 1);
+        return Links(viewer)[0];
+    }
+
+    private static bool Underlined(Link link) => link.TextDecorations?.Any(decoration => decoration.Location == TextDecorationLocation.Underline) == true;
+
     /// <summary>A link source that knows a fixed set of file names and finds each where it appears in the text.</summary>
     private sealed class KnownFiles(params string[] names) : IMarkdownLinkSource
     {
