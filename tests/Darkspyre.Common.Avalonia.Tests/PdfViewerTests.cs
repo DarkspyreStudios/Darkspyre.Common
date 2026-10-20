@@ -1,7 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
-using Darkspyre.Common.Avalonia.Pdf;
+using Darkspyre.Agent.Common.UI.Pdf;
 using Darkspyre.Common.Pdf;
 using Xunit;
 

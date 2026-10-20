@@ -10,7 +10,7 @@ using RoyalTerminal.Terminal.Services;
 using RoyalTerminal.Terminal.Transport.Ssh;
 using RoyalTerminal.Terminal.Transport.Ssh.SshNet;
 
-namespace Darkspyre.Common.Avalonia.Terminal;
+namespace Darkspyre.Agent.Common.UI.Terminal;
 
 /// <summary>The size of a terminal screen in character cells.</summary>
 /// <param name="Columns">Columns of cells.</param>

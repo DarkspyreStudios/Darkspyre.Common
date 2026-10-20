@@ -5,7 +5,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Path = Avalonia.Controls.Shapes.Path;
 
-namespace Darkspyre.Common.Avalonia.Markdown;
+namespace Darkspyre.Agent.Common.UI.Markdown;
 
 /// <summary>The code-block copy button's confirmation: the check glyph and the name "Copied" for two seconds, then the
 /// copy glyph and the name "Copy" again. A second press restarts the two seconds.</summary>

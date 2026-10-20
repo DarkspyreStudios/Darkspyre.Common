@@ -13,9 +13,6 @@
     <PackageReference Include="Avalonia.Themes.Fluent" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../../src/Darkspyre.Common.Avalonia.Code/Darkspyre.Common.Avalonia.Code.csproj" />
-    <ProjectReference Include="../../src/Darkspyre.Common.Avalonia.Markdown/Darkspyre.Common.Avalonia.Markdown.csproj" />
-    <ProjectReference Include="../../src/Darkspyre.Common.Avalonia.Pdf/Darkspyre.Common.Avalonia.Pdf.csproj" />
-    <ProjectReference Include="../../src/Darkspyre.Common.Avalonia.Terminal/Darkspyre.Common.Avalonia.Terminal.csproj" />
+    <ProjectReference Include="../../src/Darkspyre.Agent.Common.UI/Darkspyre.Agent.Common.UI.csproj" />
   </ItemGroup>
 </Project>

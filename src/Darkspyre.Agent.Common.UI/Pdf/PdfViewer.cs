@@ -13,7 +13,7 @@ using Avalonia.Platform;
 using Avalonia.Threading;
 using Darkspyre.Common.Pdf;
 
-namespace Darkspyre.Common.Avalonia.Pdf;
+namespace Darkspyre.Agent.Common.UI.Pdf;
 
 /// <summary>Shows an open PDF: pages, selectable text, internal links, bookmarks, thumbnails, zoom and find.</summary>
 /// <remarks>

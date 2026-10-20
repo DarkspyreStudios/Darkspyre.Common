@@ -4,7 +4,7 @@ using Mermaider;
 using Mermaider.Models;
 using RenderOptions = Mermaider.Models.RenderOptions;
 
-namespace Darkspyre.Common.Avalonia.Markdown;
+namespace Darkspyre.Agent.Common.UI.Markdown;
 
 /// <summary>Turns Mermaid source into SVG. Returns null when the source cannot be drawn; the fence then stays a code block.</summary>
 public interface IMermaidRenderer

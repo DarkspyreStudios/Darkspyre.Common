@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Darkspyre.Agent.Common.UI</RootNamespace>
+    <Version>$(DarkspyreAgentCommonUiVersion)</Version>
+    <Description>Shared Avalonia controls, dialogs, icons, styles and document viewers.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.Controls.ColorPicker" />
+    <PackageReference Include="Avalonia.AvaloniaEdit" />
+    <PackageReference Include="AvaloniaEdit.TextMate" />
+    <PackageReference Include="LiveMarkdown.Avalonia" />
+    <PackageReference Include="Mermaider" />
+    <PackageReference Include="Svg.Skia" />
+    <PackageReference Include="RoyalApps.RoyalTerminal.Avalonia" />
+    <ProjectReference Include="../Darkspyre.Common.Pdf/Darkspyre.Common.Pdf.csproj" />
+    <InternalsVisibleTo Include="Darkspyre.Common.Avalonia.Tests" />
+  </ItemGroup>
+</Project>

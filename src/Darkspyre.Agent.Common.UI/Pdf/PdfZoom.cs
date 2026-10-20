@@ -1,4 +1,4 @@
-namespace Darkspyre.Common.Avalonia.Pdf;
+namespace Darkspyre.Agent.Common.UI.Pdf;
 
 /// <summary>How large the viewer draws pages.</summary>
 public abstract record PdfZoom

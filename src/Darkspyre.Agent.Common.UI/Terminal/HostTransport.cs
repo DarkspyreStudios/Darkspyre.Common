@@ -1,6 +1,6 @@
 using RoyalTerminal.Terminal;
 
-namespace Darkspyre.Common.Avalonia.Terminal;
+namespace Darkspyre.Agent.Common.UI.Terminal;
 
 /// <summary>
 /// The terminal's session when the host owns the process: output the host writes goes to the screen through

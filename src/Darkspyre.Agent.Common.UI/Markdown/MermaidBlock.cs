@@ -13,7 +13,7 @@ using Svg.Skia;
 using Avalonia.VisualTree;
 using CodeBlock = LiveMarkdown.Avalonia.CodeBlock;
 
-namespace Darkspyre.Common.Avalonia.Markdown;
+namespace Darkspyre.Agent.Common.UI.Markdown;
 
 /// <summary>A <c>mermaid</c> fence, which the viewer draws as a diagram.</summary>
 internal sealed class MermaidBlock : LeafBlock

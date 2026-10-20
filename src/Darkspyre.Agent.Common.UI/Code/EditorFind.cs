@@ -2,7 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using AvaloniaEdit;
 
-namespace Darkspyre.Common.Avalonia.Code;
+namespace Darkspyre.Agent.Common.UI.Code;
 
 /// <summary>Find in a read-only editor: every case-insensitive match marked, the selected one stronger, wrapping in both directions.</summary>
 internal sealed class EditorFind

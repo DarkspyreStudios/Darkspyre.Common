@@ -9,10 +9,7 @@
     <Project Path="src/Darkspyre.Common.Pdf/Darkspyre.Common.Pdf.csproj" />
     <Project Path="src/Darkspyre.Common.Pdf.Pdfium/Darkspyre.Common.Pdf.Pdfium.csproj" />
     <Project Path="src/Darkspyre.Common.Workspaces/Darkspyre.Common.Workspaces.csproj" />
-    <Project Path="src/Darkspyre.Common.Avalonia.Code/Darkspyre.Common.Avalonia.Code.csproj" />
-    <Project Path="src/Darkspyre.Common.Avalonia.Markdown/Darkspyre.Common.Avalonia.Markdown.csproj" />
-    <Project Path="src/Darkspyre.Common.Avalonia.Pdf/Darkspyre.Common.Avalonia.Pdf.csproj" />
-    <Project Path="src/Darkspyre.Common.Avalonia.Terminal/Darkspyre.Common.Avalonia.Terminal.csproj" />
+    <Project Path="src/Darkspyre.Agent.Common.UI/Darkspyre.Agent.Common.UI.csproj" />
   </Folder>
   <Folder Name="/build/">
     <Project Path="build/Darkspyre.LocalServices.Packaging/Darkspyre.LocalServices.Packaging.csproj" />

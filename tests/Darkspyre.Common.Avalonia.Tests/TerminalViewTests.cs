@@ -1,5 +1,5 @@
 using System.Text;
-using Darkspyre.Common.Avalonia.Terminal;
+using Darkspyre.Agent.Common.UI.Terminal;
 using RoyalTerminal.Avalonia.Controls;
 using RoyalTerminal.Terminal;
 using Xunit;

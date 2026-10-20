@@ -1,4 +1,4 @@
-namespace Darkspyre.Common.Avalonia.Code;
+namespace Darkspyre.Agent.Common.UI.Code;
 
 /// <summary>How a line ends.</summary>
 public enum LineEnding

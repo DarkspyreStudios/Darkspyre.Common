@@ -1,4 +1,4 @@
-using Darkspyre.Common.Avalonia.Code;
+using Darkspyre.Agent.Common.UI.Code;
 using Avalonia.Controls;
 using AvaloniaEdit;
 using Xunit;
@@ -47,6 +47,51 @@ public sealed class CodeViewTests
         ViewSession.Show(view);
 
         await ViewSession.WaitForAsync(() => ViewSession.All<TextBlock>(view).Any(block => block.IsEffectivelyVisible && block.Text == "No text differences."));
+    });
+
+    /// <summary>Side by side pairs a removed and an added run row for row with a filler, and an absent side differs from an empty file.</summary>
+    [Fact]
+    public Task SideBySideAlignsChangesAndShowsAbsentSide() => ViewSession.RunAsync(async () =>
+    {
+        DiffView view = new()
+        {
+            ViewMode = DiffViewMode.SideBySide, OldLabel = "HEAD", NewLabel = "Working tree",
+            OldText = "a\nb\nc\n", NewText = "a\nB\nB2\nc\n",
+        };
+        ViewSession.Show(view);
+
+        await ViewSession.WaitForAsync(() => view.Hunks.Count == 1);
+        TextEditor[] columns = [.. ViewSession.All<TextEditor>(view)];
+        Assert.Equal(2, columns.Length);
+        Assert.Equal("@@ -1,3 +1,4 @@\na\nb\n\nc", columns[0].Document.Text);
+        Assert.Equal("@@ -1,3 +1,4 @@\na\nB\nB2\nc", columns[1].Document.Text);
+        Assert.Contains(ViewSession.All<TextBlock>(view), block => block.IsEffectivelyVisible && block.Text == "HEAD");
+        Assert.Contains(ViewSession.All<TextBlock>(view), block => block.IsEffectivelyVisible && block.Text == "Working tree");
+
+        view.OldText = null;
+        view.NewText = "x\n";
+        await ViewSession.WaitForAsync(() => columns[1].Document.Text == "@@ -1,0 +1,1 @@\nx");
+        Assert.Contains(ViewSession.All<TextBlock>(view), block => block.IsEffectivelyVisible && block.Text == DiffView.AbsentMessage);
+
+        view.OldText = string.Empty;
+        await ViewSession.WaitForAsync(() => !ViewSession.All<TextBlock>(view).Any(block => block.IsEffectivelyVisible && block.Text == DiffView.AbsentMessage));
+        Assert.True(columns[0].IsEffectivelyVisible);
+    });
+
+    [Fact]
+    public Task SideBySideFindCountsContextOnce() => ViewSession.RunAsync(async () =>
+    {
+        DiffView view = new() { ViewMode = DiffViewMode.SideBySide, OldText = "same x\nold x\n", NewText = "same x\nnew x\n" };
+        ViewSession.Show(view);
+        await ViewSession.WaitForAsync(() => view.Hunks.Count == 1);
+
+        Assert.Equal(3, view.Find("x"));
+        Assert.Equal(1, view.CurrentMatch);
+        view.FindNext();
+        view.FindNext();
+        Assert.Equal(3, view.CurrentMatch);
+        view.FindNext();
+        Assert.Equal(1, view.CurrentMatch);
     });
 
     [Fact]

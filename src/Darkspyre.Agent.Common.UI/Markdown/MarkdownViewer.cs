@@ -21,7 +21,7 @@ using Markdig.Syntax.Inlines;
 using CodeBlock = LiveMarkdown.Avalonia.CodeBlock;
 using CodeInline = LiveMarkdown.Avalonia.CodeInline;
 
-namespace Darkspyre.Common.Avalonia.Markdown;
+namespace Darkspyre.Agent.Common.UI.Markdown;
 
 /// <summary>Raised when the person activates a link the viewer allows.</summary>
 /// <param name="target">The link's target as the Markdown wrote it.</param>

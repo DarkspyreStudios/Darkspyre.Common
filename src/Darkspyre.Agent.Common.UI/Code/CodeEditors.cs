@@ -6,7 +6,7 @@ using AvaloniaEdit;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Rendering;
 
-namespace Darkspyre.Common.Avalonia.Code;
+namespace Darkspyre.Agent.Common.UI.Code;
 
 /// <summary>The read-only editor both viewers draw text with, themed through the theme token resources.</summary>
 internal static class CodeEditors

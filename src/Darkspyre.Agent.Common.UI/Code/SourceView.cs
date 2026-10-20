@@ -8,7 +8,7 @@ using AvaloniaEdit;
 using AvaloniaEdit.TextMate;
 using TextMateSharp.Grammars;
 
-namespace Darkspyre.Common.Avalonia.Code;
+namespace Darkspyre.Agent.Common.UI.Code;
 
 /// <summary>
 /// A read-only source file: line numbers, TextMate highlighting for the file's language, find with every match marked,

@@ -8,7 +8,7 @@ using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
-using Darkspyre.Common.Avalonia.Markdown;
+using Darkspyre.Agent.Common.UI.Markdown;
 using LiveMarkdown.Avalonia;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;

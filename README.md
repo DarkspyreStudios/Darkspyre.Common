@@ -5,8 +5,8 @@ Shared libraries for Darkspyre applications. Each library is its own project and
 
 Consumers build these libraries from source. A consuming repository sets `DarkspyreCommonSourceRoot` to a
 Darkspyre.Common checkout and imports `eng/SourceReferences.targets` from its `Directory.Build.targets`; each
-`Darkspyre.Common.*` `PackageReference` then becomes a `ProjectReference` with its asset metadata kept. No package is
-published.
+`Darkspyre.Common.*` and `Darkspyre.Agent.Common.UI` `PackageReference` then becomes a `ProjectReference` with its asset
+metadata kept. No package is published.
 
 ## Darkspyre.Common.Git
 
@@ -158,12 +158,23 @@ load context of `Darkspyre.Common.Pdf.Pdfium.dll`. No portable code checks the o
 `three-pages-protected.pdf` (password `secret`). The test project references both PDFium native packages, and the
 runtime picks its own native file. The test class carries both `SupportedOSPlatform` attributes.
 
-## Avalonia viewers
+## Darkspyre.Agent.Common.UI
 
-Four libraries hold viewers another app can use: `Darkspyre.Common.Avalonia.Markdown`, `.Code`, `.Pdf` and `.Terminal`.
-Each is a `TemplatedControl` with its own API; the third-party library behind it is an implementation detail, so
-replacing one changes one project and no caller. None references agent-ds. Each viewer carries its own styles, so a
-host adds nothing to its application. Colours and fonts come from these resource keys when the host supplies them, and
+One library of shared Avalonia UI that any Darkspyre application can reference. It references no agent-ds project.
+Each folder is its own namespace, `Darkspyre.Agent.Common.UI.<folder>`:
+
+| Namespace | Holds |
+| --- | --- |
+| `.Code` | `SourceView`, `DiffView`, `DiffViewMode`, and `TextDiff` with its line types |
+| `.Markdown` | `MarkdownViewer`, `IMarkdownLinkSource`, `CopyFeedback`, the Mermaid renderer |
+| `.Pdf` | `PdfViewer`, `PdfZoom` |
+| `.Terminal` | `TerminalView` |
+
+### Document viewers
+
+Each viewer is a `TemplatedControl` with its own API; the third-party library behind it is an implementation detail,
+so replacing one changes one folder and no caller. Each viewer carries its own styles, so a host adds nothing to its
+application. Colours and fonts come from these resource keys when the host supplies them, and
 fall back to light or dark defaults when it does not: `panel`, `text`, `accent` and `line` as `Color`; `x.brush` and
 the translucent `x.brush.NN` variants as brushes; the text entry fonts `font-body`, `font-code` and `font-heading-1` to
 `font-heading-6` as `FontFamily`; and their sizes `font-size-body`, `font-size-code` and `font-size-heading-1` to
@@ -210,11 +221,20 @@ and inline code and code blocks take `font-code` at `font-size-code`. LiveMarkdo
   extension or language id. `Find` marks every case-insensitive match; `FindNext` and `FindPrevious` wrap. `GoToLine`
   scrolls to a line; asked for before the text is set, it applies when the text arrives. A new `Text` keeps the
   scroll position. The highlighter exists only while the view is in a window.
-- **`DiffView`** compares `OldText` and `NewText` with `TextDiff` off the UI thread and shows a unified diff: a header
-  per hunk, old and new line numbers, plus and minus marks, added and removed rows shaded, and a "No final newline"
-  note. Line endings take part in the comparison. Equal texts show "No text differences."; a comparison over the work
-  limit (4 million table cells) shows its error. `Find` works on the shown diff as it does in `SourceView`. `TextDiff`
-  and its line types are public for callers that compare without a view.
+- **`DiffView`** compares `OldText` and `NewText` with `TextDiff` off the UI thread, once per pair of texts, with three
+  lines of context. `ViewMode` chooses the layout. `Unified` (the default) shows a header per hunk, old and new line
+  numbers and plus and minus marks in one column. `SideBySide` shows the old text on the left and the new text on the
+  right, aligned row for row: context on both sides, the removed and added lines between two context lines paired by
+  position, and empty filler rows on the shorter side. Each column has its own line numbers, and scrolling one scrolls
+  the other to the same row. Both layouts shade added and removed rows and show a "No final newline" note. `OldLabel`
+  and `NewLabel` name the two sides: they head the two columns side by side, and form one "old → new" line above a
+  unified diff. A null text is an absent side and an empty string an empty file: side by side, an absent side shows its
+  label and "File is absent in this version." instead of rows; unified, both compare as empty. Line endings take part
+  in the comparison. Equal texts show "No text differences."; a comparison over the work limit (4 million table cells)
+  shows its error. Changing `ViewMode` redraws the last comparison without computing it again. `Find` marks every
+  case-insensitive match and `FindNext` and `FindPrevious` wrap, as in `SourceView`. Side by side, one match list runs
+  over the rows in order, the old side's matches before the new side's, and a row both columns show identically
+  counts its matches once. `TextDiff` and its line types are public for callers that compare without a view.
 - **`PdfViewer`** shows an `IPdfDocument` the caller opened (password included) and disposes after the viewer. It has a
   toolbar (side panel, zoom out, zoom list, zoom in, page status) and a side panel with thumbnails and bookmarks.
   Pages are drawn in tiles of up to 1024 device pixels, two at a time, only near the visible area. A zoom change

@@ -1,4 +1,4 @@
-namespace Darkspyre.Common.Avalonia.Markdown;
+namespace Darkspyre.Agent.Common.UI.Markdown;
 
 /// <summary>Finds links in text a MarkdownViewer shows. Called while the viewer parses, possibly off the UI thread.</summary>
 /// <remarks>
