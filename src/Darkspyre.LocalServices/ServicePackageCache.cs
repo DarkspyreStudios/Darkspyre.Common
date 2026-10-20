@@ -112,7 +112,29 @@ internal sealed partial class ServicePackageCache : IDisposable
     {
         string digest = Digest(buildDigest);
         using IServicePackageLease catalog = await AcquireCatalogAsync(cancellationToken).ConfigureAwait(false);
-        if (Preferred() == digest) return false;
+        return RemoveLocked(digest, Preferred());
+    }
+
+    /// <summary>
+    /// Removes every build except the preferred one that no launch or running service pins, and returns how many it
+    /// removed. The caller holds the catalog lease. A subscriber whose build is removed installs it again on its next
+    /// connection.
+    /// </summary>
+    internal int CollectUnpreferredLocked()
+    {
+        string? preferred = Preferred();
+        int removed = 0;
+        foreach (string directory in Directory.EnumerateDirectories(this.builds.Path))
+        {
+            string name = System.IO.Path.GetFileName(directory);
+            if (!name.StartsWith(StagingPrefix, StringComparison.Ordinal) && RemoveLocked(Digest(name), preferred)) removed++;
+        }
+        return removed;
+    }
+
+    private bool RemoveLocked(string digest, string? preferred)
+    {
+        if (preferred == digest) return false;
         using IServicePackageLease? unused = this.leases.TryAcquire(digest + ".lock");
         if (unused is null || !Exists(BuildPath(digest))) return false;
         using (var handle = this.fileSystem.Open(BuildPath(digest), directory: true))

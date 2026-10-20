@@ -298,6 +298,8 @@ The application Host does not register, install or start the service.
 The package cache copies a payload into a staging folder and syncs each file with `ServiceFileSystem.SyncFile`. It then
 flushes the device once with `ServiceFileSystem.FlushDevice` and only after that publishes the build by rename. On macOS
 the one flush is F_FULLFSYNC; on Linux and Windows the per-file sync already flushes the device.
+Every installation selects its build as preferred and then removes each other cached build that no launch or running
+service pins. A subscriber whose build was removed copies it in again when it next installs.
 
 ## Darkspyre.LocalServices.Platform.MacOS, Linux and Windows
 

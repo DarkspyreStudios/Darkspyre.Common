@@ -126,7 +126,9 @@ the DACL. A sealed owner's right to change its DACL does not grant permission to
 
 The catalog lease serializes install, selection, pin acquisition and collection. A shared permanent
 per-build lease pins a verified payload. Collection requires its exclusive counterpart and refuses
-the preferred build. Lock files remain permanent after payload collection. A pin outlives the cache
+the preferred build. `ServiceInstaller` collects under the same catalog lease right after it selects the installing
+build as preferred: every other build whose exclusive lease is free is removed, so the cache keeps the preferred build
+and the builds that launches or running services pin. Lock files remain permanent after payload collection. A pin outlives the cache
 object that created it. Preferred selection is atomic and only changes future launch selection.
 
 A pinned Unix launch duplicates its lease into child descriptor 3 before exec. The macOS spawn action

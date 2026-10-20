@@ -42,6 +42,8 @@ internal static class ServiceInstaller
                 throw new ServiceProtocolException(ServiceErrorCode.IncompatibleProtocol);
         }
         await cache.SetPreferredLockedAsync(pin.BuildDigest, cancellationToken).ConfigureAwait(false);
+        // Builds no launch can select any more leave the cache; a running service's pinned build stays.
+        cache.CollectUnpreferredLocked();
         string scratch = Path.Combine(dataRoot, "scratch");
         using (files.OpenPrivateDirectory(scratch)) { }
         return new(installation.Family, stored.RuntimePath, stored.PackageCachePath, stored.StoreId,
