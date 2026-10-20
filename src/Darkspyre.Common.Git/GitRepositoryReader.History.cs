@@ -98,16 +98,7 @@ internal sealed partial class GitRepositoryReader
         }
         if (fields.Count % 5 != 0) throw new InvalidDataException("Git returned an incomplete history record.");
         for (int index = 0; index < fields.Count; index += 5)
-        {
-            string id = fields[index];
-            string[] parents = fields[index + 1].Length == 0 ? [] : fields[index + 1].Split(' ');
-            if (!GitPaths.IsObjectId(id, format) || parents.Any(parent => !GitPaths.IsObjectId(parent, format)))
-                throw new InvalidDataException("Git returned an invalid commit identity.");
-            if (!DateTimeOffset.TryParseExact(fields[index + 3], "yyyy-MM-dd'T'HH:mm:ssK", CultureInfo.InvariantCulture,
-                DateTimeStyles.None, out DateTimeOffset authored))
-                throw new InvalidDataException("Git returned an invalid author time.");
-            commits.Add(new(id, Array.AsReadOnly(parents), fields[index + 2], authored, fields[index + 4]));
-        }
+            commits.Add(Summary([.. fields.GetRange(index, 5)], format));
         return commits;
     }
 

@@ -14,6 +14,7 @@ public sealed class GitClient
     private readonly GitWorkspaceTransitions transitions;
     private readonly GitSequences sequences;
     private readonly GitLocalChanges local;
+    private readonly GitConfiguredCommands configured;
 
     /// <summary>Creates the client over one process launcher, one path policy and the process's shared repository locks.</summary>
     /// <param name="processes">Starts every Git child.</param>
@@ -35,6 +36,7 @@ public sealed class GitClient
         this.transitions = new(git, this.reader, locks, paths);
         this.sequences = new(git, this.reader, locks, paths);
         this.local = new(git, this.reader, locks, paths);
+        this.configured = new(git, this.reader, locks, paths);
     }
 
     /// <summary>Reads the working tree containing <paramref name="directory"/>, or returns null when it is not inside a Git repository.</summary>
@@ -54,6 +56,73 @@ public sealed class GitClient
     /// </summary>
     public Task<IReadOnlyList<GitBranchEntry>> ReadLocalBranchesAsync(string directory, CancellationToken cancellationToken = default) =>
         this.reader.ReadLocalBranchesAsync(directory, cancellationToken);
+
+    /// <summary>
+    /// Lists the local branches and origin's remote-tracking branches with their commit, a local branch's upstream and
+    /// the worktree it is checked out in. It never contacts a remote and leaves out symbolic refs such as origin/HEAD.
+    /// </summary>
+    /// <gotcha>A checked-out worktree the path policy refuses is reported as null, as for a branch checked out nowhere.</gotcha>
+    public Task<IReadOnlyList<GitBranchReference>> ReadBranchesAsync(string repository, CancellationToken cancellationToken = default) =>
+        this.reader.ReadBranchesAsync(repository, cancellationToken);
+
+    /// <summary>
+    /// Switches the worktree to a local branch, or to the local branch of the same name tracking an origin branch,
+    /// creating that local branch when it does not exist. It never forces, resets or cleans.
+    /// </summary>
+    /// <gotcha>A local branch of the same name that tracks another ref throws <see cref="GitOperationException"/> with
+    /// <see cref="GitFailure.BranchExists"/>. An operation in progress throws it with <see cref="GitFailure.StaleState"/>. A
+    /// switch Git refuses because it would overwrite local changes throws it with <see cref="GitFailure.NotClean"/>; any
+    /// other refusal throws it with <see cref="GitFailure.CommandFailed"/>. Nothing changes in each case.</gotcha>
+    public Task<GitBranchResult> CheckoutAsync(GitCheckoutRequest request, CancellationToken cancellationToken = default) =>
+        this.local.CheckoutAsync(request, cancellationToken);
+
+    /// <summary>Removes the named paths from the index and keeps their working files.</summary>
+    public Task<GitUnstageResult> UnstageAsync(GitUnstageRequest request, CancellationToken cancellationToken = default) =>
+        this.commits.UnstageAsync(request, cancellationToken);
+
+    /// <summary>Commits the index as it is with the message; it stages nothing. Repository hooks run as Git runs them.</summary>
+    /// <gotcha>A detached HEAD throws <see cref="GitOperationException"/> with <see cref="GitFailure.StaleState"/>. A commit Git
+    /// refuses, such as with nothing staged or a refusing hook, throws it with <see cref="GitFailure.CommandFailed"/>.</gotcha>
+    public Task<GitCommitResult> CommitStagedAsync(GitCommitStagedRequest request, CancellationToken cancellationToken = default) =>
+        this.commits.CommitStagedAsync(request, cancellationToken);
+
+    /// <summary>Reads the stage-zero index bytes of one path, or Present false when the index has no entry for it.</summary>
+    /// <gotcha>A path with only conflict stages throws <see cref="GitOperationException"/> with <see cref="GitFailure.NotClean"/>;
+    /// a blob longer than <see cref="GitIndexFileRequest.MaximumBytes"/> throws <see cref="GitReadException"/> with
+    /// <see cref="GitReadFailure.LimitExceeded"/> before its bytes are read.</gotcha>
+    public Task<GitIndexFileContent> ReadFileAtIndexAsync(GitIndexFileRequest request, CancellationToken cancellationToken = default) =>
+        this.reader.ReadFileAtIndexAsync(request, cancellationToken);
+
+    /// <summary>
+    /// Reads one page of the commits that changed a file, newest first, following renames, with the file's path at each
+    /// commit. The revision resolves once.
+    /// </summary>
+    /// <gotcha>Read the next page with <see cref="GitFileHistoryPage.ResolvedOid"/> as the revision and the number of
+    /// versions already returned as <see cref="GitFileHistoryRequest.Skip"/>.</gotcha>
+    public Task<GitFileHistoryPage> ReadFileHistoryAsync(GitFileHistoryRequest request, CancellationToken cancellationToken = default) =>
+        this.reader.ReadFileHistoryAsync(request, cancellationToken);
+
+    /// <summary>Runs <c>git fetch</c> with the repository's configured remote and refspecs.</summary>
+    /// <gotcha>Cancellation or a lost process after Git started returns <see cref="GitCommandState.Unknown"/>; nothing is retried.</gotcha>
+    public Task<GitCommandResult> FetchConfiguredAsync(string repository, CancellationToken cancellationToken = default) =>
+        this.configured.FetchAsync(repository, cancellationToken);
+
+    /// <summary>Runs <c>git pull</c> with the branch's configured upstream and integration policy, without an editor.</summary>
+    /// <gotcha>A pull that stops on conflicts is Failed and leaves the merge or rebase in progress; read the status for it.</gotcha>
+    public Task<GitCommandResult> PullConfiguredAsync(string repository, CancellationToken cancellationToken = default) =>
+        this.configured.PullAsync(repository, cancellationToken);
+
+    /// <summary>Runs <c>git push</c> to the repository's configured destination.</summary>
+    /// <gotcha>Cancellation or a lost process after Git started returns <see cref="GitCommandState.Unknown"/>, never an
+    /// inferred rejection or a retry.</gotcha>
+    public Task<GitCommandResult> PushConfiguredAsync(string repository, CancellationToken cancellationToken = default) =>
+        this.configured.PushAsync(repository, cancellationToken);
+
+    /// <summary>Starts Git's configured merge tool on one conflicted path and returns when the tool exits.</summary>
+    /// <gotcha>No configured tool, or a path with no conflict, is Failed with <see cref="GitFailure.MergeToolUnavailable"/>
+    /// before any tool starts. There is no time limit: the tool runs as long as the person works in it.</gotcha>
+    public Task<GitCommandResult> ResolveConflictAsync(GitFileActionRequest request, CancellationToken cancellationToken = default) =>
+        this.configured.ResolveAsync(request, cancellationToken);
 
     /// <summary>Clones a remote into a new absolute destination and returns the resulting repository. A failed clone is not cleaned up.</summary>
     public Task<GitRepositorySnapshot> CloneAsync(GitCloneRequest request, CancellationToken cancellationToken = default) =>

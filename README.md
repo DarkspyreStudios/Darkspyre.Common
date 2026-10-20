@@ -43,6 +43,16 @@ and sets `GIT_TERMINAL_PROMPT=0`. Environment config supplies `core.editor=false
 still wins. Standard input is closed. A command that needs an editor or credential prompt fails without waiting.
 The command-line and client entries share `GitCommands.StartAndCaptureAsync` for start, disposal and capture.
 
+There are two kinds of entry into that one capture path:
+
+| Entry | Caller | Adds | Environment | Bound and timeout |
+| --- | --- | --- | --- | --- |
+| `GitCommands.RunAsync`, `RunReadAsync`, `RunSequenceAsync` | Every `GitClient` operation | `--no-pager -c core.fsmonitor=false`, and the read options for reads | The library environment, or its read or sequence variant | As each operation sets them; the configured commands set neither |
+| `GitCommands.RunCommandLineAsync` | `GitCommandLine.RunAsync` only | Nothing | The command-line environment | The caller's |
+
+The `GitClient` operations check paths through the path policy, take the repository gate and classify failures into
+`GitFailure` values with library-written messages; the command-line entry does none of these.
+
 ### Seams
 
 - `IGitProcessLauncher` starts every Git child. `GitProcessStart` carries the arguments, working directory, environment
@@ -79,6 +89,33 @@ The command-line and client entries share `GitCommands.StartAndCaptureAsync` for
 - A commit runs `git add` on the named paths present in the worktree, so new files are known to Git, then
   `commit --only` on every named path. A named path absent from the worktree is committed as its deletion, also when
   that deletion is already staged. Other staged entries stay staged.
+- `CommitStagedAsync` commits the index as it is with `commit --no-edit -m`; it runs no `add` and no `--only`, so a
+  working edit made after staging stays pending. A detached HEAD throws `StaleState`; a refused commit throws
+  `CommandFailed`. `UnstageAsync` runs `restore --staged --source=HEAD` on the named paths, or, on a branch with no
+  commits, `update-index --force-remove`, which keeps the working file even when its bytes differ from the staged ones.
+- `ReadFileAtIndexAsync` lists the path with `ls-files --stage -z` and reads its stage-zero blob through the blob reader,
+  with the same header byte check as a commit read. A path with only conflict stages throws `NotClean`; a path the
+  index does not hold returns `Present` false.
+- `ReadBranchesAsync` lists `refs/heads/` and `refs/remotes/origin/` with one `for-each-ref`: each branch's commit, a
+  local branch's upstream and the worktree it is checked out in. Symbolic refs such as `origin/HEAD` are left out, and
+  a worktree the path policy refuses is reported as null.
+- `CheckoutAsync` takes a full ref from that list and never forces, resets or cleans. A local branch runs
+  `switch --no-guess`. An origin branch switches to the local branch of the same name when it tracks that ref, refuses
+  with `BranchExists` when it tracks another, and otherwise runs `switch --create <name> --track <ref>`. An operation in
+  progress throws `StaleState`; Git's "would be overwritten by checkout" refusal throws `NotClean`.
+- `ReadFileHistoryAsync` resolves the revision once and runs `log --follow --find-renames --name-status -z` for
+  `Skip + Limit + 1` commits from the start, because `--follow` cannot skip and still follow renames. Each version names
+  the file's path in that commit; the history ends before the first path the path policy refuses.
+- `FetchConfiguredAsync`, `PullConfiguredAsync` (`pull --no-edit`), `PushConfiguredAsync` (`push --porcelain`) and
+  `ResolveConflictAsync` (`mergetool --gui --no-prompt`) live in the internal `GitConfiguredCommands`. They run under
+  the repository gate through `GitCommands.RunAsync` with no timeout, so Git's remotes, refspecs, upstreams, pull policy,
+  credential helpers and merge tool configuration apply. Each returns a `GitCommandResult`: `Completed` for exit 0;
+  `Failed` with a `GitFailure` for another exit; `Unknown` after a cancellation or a lost process, never retried. A
+  porcelain `!` line is `RemoteRejected`; Git's fixed English text classifies `AuthenticationFailed` ("Authentication
+  failed", "could not read Username"), `NoUpstream` ("has no upstream branch", "There is no tracking information") and
+  a merge tool that cannot start ("is not available as"); anything else is `CommandFailed` with the exit code. Resolve
+  first requires the path to be unmerged and `merge.guitool` or `merge.tool` to be set, and otherwise returns
+  `MergeToolUnavailable` without starting anything. The diagnostic is the library's sentence, never Git's output.
 - A fetch reads the commit of each `source:destination` destination with `for-each-ref` before and after
   `fetch --atomic`. `GitFetchResult.UpdatedRefs` lists each destination whose commit changed, in request order. A failed
   fetch returns its diagnostic.

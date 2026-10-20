@@ -4,9 +4,9 @@ using static Darkspyre.Common.Git.GitOperationChecks;
 namespace Darkspyre.Common.Git;
 
 /// <summary>
-/// Branch create and delete, stash save, list, apply and drop, and path restore, each under the repository's operation
-/// gate and on the worktree root. Branch create checks HEAD and branch delete checks the branch's commit. Every refusal
-/// throws <see cref="GitOperationException"/> before Git changes anything.
+/// Branch create, delete and checkout, stash save, list, apply and drop, and path restore, each under the repository's
+/// operation gate and on the worktree root. Branch create checks HEAD and branch delete checks the branch's commit. Every
+/// refusal throws <see cref="GitOperationException"/> before Git changes anything.
 /// </summary>
 internal sealed class GitLocalChanges(GitCommands git, GitRepositoryReader reader, GitRepositoryLocks locks,
     IGitPathPolicy paths)
@@ -14,6 +14,7 @@ internal sealed class GitLocalChanges(GitCommands git, GitRepositoryReader reade
     // A restore names at most 64 paths, the batch limit every tool shares.
     private const int PathLimit = 64;
     private const string BranchPrefix = "refs/heads/";
+    private const string OriginPrefix = "refs/remotes/origin/";
     private readonly GitCommands git = git;
     private readonly GitRepositoryReader reader = reader;
     private readonly GitRepositoryLocks locks = locks;
@@ -58,6 +59,41 @@ internal sealed class GitLocalChanges(GitCommands git, GitRepositoryReader reade
         RequireCompleted(await this.git.RunAsync(gate.State.Worktree, ["branch", "-D", request.Name], cancellationToken)
             .ConfigureAwait(false), "delete the branch");
         return new(branchRef, commit);
+    }
+
+    /// <summary>
+    /// Switches to a local branch with <c>switch --no-guess</c>, or to the local branch tracking an origin branch, creating
+    /// it with <c>switch --create --track</c> when it does not exist. It never forces, resets or cleans.
+    /// </summary>
+    internal async Task<GitBranchResult> CheckoutAsync(GitCheckoutRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentException.ThrowIfNullOrWhiteSpace(request.BranchRef);
+        bool origin = request.BranchRef.StartsWith(OriginPrefix, StringComparison.Ordinal);
+        if (!origin && !request.BranchRef.StartsWith(BranchPrefix, StringComparison.Ordinal))
+            throw new ArgumentException("A checkout names a full local or origin branch ref.", nameof(request));
+        string name = request.BranchRef[(origin ? OriginPrefix : BranchPrefix).Length..];
+        RequireBranchName(name);
+        await using Gate gate = await this.EnterAsync(request.Repository, cancellationToken).ConfigureAwait(false);
+        if (gate.State.OperationKind is { } running)
+            throw new GitOperationException(GitFailure.StaleState, $"A {running} is in progress; finish or abort it first. Nothing changed.");
+        string worktree = gate.State.Worktree;
+        string branchRef = await this.CheckedBranchRefAsync(worktree, name, cancellationToken).ConfigureAwait(false);
+        string[] arguments = ["switch", "--no-guess", "--", name];
+        if (origin)
+        {
+            if (await this.RefCommitAsync(worktree, branchRef, cancellationToken).ConfigureAwait(false) is null)
+                arguments = ["switch", "--create", name, "--track", request.BranchRef];
+            else if (await this.UpstreamAsync(worktree, branchRef, cancellationToken).ConfigureAwait(false) != request.BranchRef)
+                throw new GitOperationException(GitFailure.BranchExists,
+                    $"Branch '{name}' already exists and does not track {request.BranchRef}; nothing changed.");
+        }
+        GitRunResult switched = await this.git.RunAsync(worktree, arguments, cancellationToken).ConfigureAwait(false);
+        // LC_ALL=C keeps Git's refusal text fixed.
+        if (switched.Exit.ExitCode is not 0 && Encoding.UTF8.GetString(switched.Errors).Contains("would be overwritten by checkout", StringComparison.Ordinal))
+            throw new GitOperationException(GitFailure.NotClean, "Switching branches would overwrite local changes; nothing changed.");
+        RequireCompleted(switched, "switch branches");
+        return new(branchRef, await this.reader.ResolveCommitAsync(worktree, "HEAD", cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>
@@ -213,6 +249,14 @@ internal sealed class GitLocalChanges(GitCommands git, GitRepositoryReader reade
         Check(result, "read a ref");
         string commit = Encoding.UTF8.GetString(result.Output).TrimEnd('\n');
         return IsCommitId(commit) ? commit : throw new InvalidDataException("Git returned an invalid commit identity.");
+    }
+
+    // The full upstream ref of a local branch, or null when it has none.
+    private async Task<string?> UpstreamAsync(string worktree, string branchRef, CancellationToken cancellationToken)
+    {
+        string upstream = Encoding.UTF8.GetString(await this.reader.ReadAsync(worktree, ["for-each-ref", "--format=%(upstream)", branchRef],
+            cancellationToken).ConfigureAwait(false)).TrimEnd('\n');
+        return upstream.Length == 0 ? null : upstream;
     }
 
     // The worktree whose checked-out branch is the ref, from worktree list --porcelain, or null.

@@ -483,6 +483,14 @@ public enum GitFailure
     BranchCheckedOut,
     /// <summary>No stash has the requested commit; nothing changed.</summary>
     StashNotFound,
+    /// <summary>Git could not authenticate with the remote.</summary>
+    AuthenticationFailed,
+    /// <summary>The branch has no configured upstream.</summary>
+    NoUpstream,
+    /// <summary>The remote rejected the push.</summary>
+    RemoteRejected,
+    /// <summary>No merge tool is configured, it cannot start, or the path has no conflict.</summary>
+    MergeToolUnavailable,
 }
 /// <summary>
 /// A Git operation refused or failed for the classified reason <see cref="Failure"/> names. It derives from
@@ -506,3 +514,91 @@ public sealed class GitOperationException(GitFailure failure, string message) : 
 /// <param name="BranchName">The new branch's short name.</param>
 public sealed record PreparedGitWorktree(string RepositoryPath, string CommonDirectory,
     string RequestedSourceRef, string? BaseCommit, string BranchName);
+
+/// <summary>A selectable local or origin branch.</summary>
+/// <param name="RefName">The full ref, <c>refs/heads/...</c> or <c>refs/remotes/origin/...</c>.</param>
+/// <param name="CommitId">The commit the ref names.</param>
+/// <param name="UpstreamRef">The full upstream ref of a local branch, or null.</param>
+/// <param name="CheckedOutWorktree">The worktree a local branch is checked out in, or null.</param>
+public sealed record GitBranchReference(string RefName, string CommitId, string? UpstreamRef, string? CheckedOutWorktree);
+
+/// <summary>Switches the worktree to a full branch ref from <see cref="GitClient.ReadBranchesAsync"/>.</summary>
+/// <param name="Repository">The worktree root.</param>
+/// <param name="BranchRef">The full ref, <c>refs/heads/...</c> or <c>refs/remotes/origin/...</c>.</param>
+public sealed record GitCheckoutRequest(string Repository, string BranchRef);
+
+/// <summary>Removes the named paths from the index and keeps the working files.</summary>
+/// <param name="Repository">The worktree root.</param>
+/// <param name="Paths">The files or entries to unstage, never a directory, <c>.</c> or Git metadata.</param>
+public sealed record GitUnstageRequest(string Repository, IReadOnlyList<string> Paths);
+
+/// <summary>The paths unstaging processed.</summary>
+/// <param name="UnstagedPaths">The repository-relative paths removed from the index.</param>
+public sealed record GitUnstageResult(IReadOnlyList<string> UnstagedPaths);
+
+/// <summary>Commits the index as it is, adding nothing.</summary>
+/// <param name="Repository">The worktree root.</param>
+/// <param name="Message">The commit message.</param>
+public sealed record GitCommitStagedRequest(string Repository, string Message);
+
+/// <summary>Reads the stage-zero index blob of one path.</summary>
+/// <param name="Repository">A directory inside the repository.</param>
+/// <param name="Path">The literal repository-relative path, with forward slashes.</param>
+/// <param name="MaximumBytes">The largest blob accepted, in bytes, from 0 to <see cref="Array.MaxLength"/>.</param>
+public sealed record GitIndexFileRequest(string Repository, string Path, long MaximumBytes);
+
+/// <summary>The index bytes of one path, or Present false. The caller disposes it.</summary>
+/// <param name="Present">True when the index holds a stage-zero entry for the path.</param>
+/// <param name="Mode">The entry's Git mode, such as <c>100644</c>, or null when the path is absent.</param>
+/// <param name="Content">The entry's bytes as a read-only stream over memory, or null when the path is absent.</param>
+public sealed record GitIndexFileContent(bool Present, string? Mode, Stream? Content) : IAsyncDisposable
+{
+    /// <summary>Disposes the content stream.</summary>
+    public ValueTask DisposeAsync() => this.Content?.DisposeAsync() ?? ValueTask.CompletedTask;
+}
+
+/// <summary>One page of a file's history that follows renames.</summary>
+/// <param name="Repository">A directory inside the repository.</param>
+/// <param name="Revision">The revision to walk from.</param>
+/// <param name="Path">The file's repository-relative path at <paramref name="Revision"/>.</param>
+/// <param name="Limit">The most versions to return, at least 1.</param>
+/// <param name="Skip">How many versions of the same walk were already returned.</param>
+public sealed record GitFileHistoryRequest(string Repository, string Revision, string Path, int Limit, int Skip = 0);
+
+/// <summary>A commit and the file's repository-relative path in it.</summary>
+/// <param name="Commit">The commit that changed the file.</param>
+/// <param name="Path">The file's repository-relative path in that commit.</param>
+public sealed record GitFileVersion(GitCommitSummary Commit, string Path);
+
+/// <summary>A page of file versions from a revision resolved once.</summary>
+/// <param name="ResolvedOid">The commit the revision resolved to. Pass it as the next page's revision.</param>
+/// <param name="Versions">The page's versions, newest first.</param>
+/// <param name="HasMore">True when more versions follow this page.</param>
+public sealed record GitFileHistoryPage(string ResolvedOid, IReadOnlyList<GitFileVersion> Versions, bool HasMore);
+
+/// <summary>One repository-relative path in one repository.</summary>
+/// <param name="Repository">The worktree root.</param>
+/// <param name="Path">The literal repository-relative path, with forward slashes.</param>
+public sealed record GitFileActionRequest(string Repository, string Path);
+
+/// <summary>Whether a configured command's outcome is confirmed.</summary>
+public enum GitCommandState
+{
+    /// <summary>Git exited 0.</summary>
+    Completed,
+    /// <summary>Git exited with another code; something may have changed.</summary>
+    Failed,
+    /// <summary>The call was cancelled or the process was lost after Git started.</summary>
+    Unknown,
+}
+
+/// <summary>A configured command's outcome. Failed does not mean nothing changed.</summary>
+/// <param name="State">Whether the outcome is confirmed.</param>
+/// <param name="Failure">The classified failure of a Failed outcome, or null.</param>
+/// <param name="Diagnostic">The app's message for a Failed or Unknown outcome; never Git's raw output.</param>
+public sealed record GitCommandResult(GitCommandState State, GitFailure? Failure = null, string? Diagnostic = null);
+
+/// <summary>What Ignore wrote: the ignore file and whether its rule was already present.</summary>
+/// <param name="IgnoreFile">The absolute path of the ignore file.</param>
+/// <param name="AlreadyPresent">True when an identical rule was already present and nothing was written.</param>
+public sealed record GitIgnoreResult(string IgnoreFile, bool AlreadyPresent);
