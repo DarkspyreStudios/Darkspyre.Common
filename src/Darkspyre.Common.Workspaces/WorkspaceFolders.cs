@@ -154,14 +154,14 @@ public sealed partial class WorkspaceFolders
 
     /// <summary>
     /// Removes a workspace folder, or a single worktree, named by its absolute path: each worktree in it, unlocked first,
-    /// then the branch each was on, then the folder with everything left in it, such as <c>tmp</c>.
+    /// then the branch each was on, then the folder with everything left in it, such as <c>tmp</c> and <c>.agent-ds</c>.
     /// </summary>
     /// <remarks>
     /// Before anything is removed, every worktree must lose nothing but ignored files, such as build output, and every
-    /// commit on its branch must be on a remote-tracking branch; and a workspace folder must hold nothing at its top level
-    /// but worktrees and <c>tmp</c>. Otherwise <see cref="WorkspaceRemovalBlockedException"/> names the worktree or the
-    /// items, and nothing is removed. A worktree Git keeps is locked again and the removal stops with an
-    /// <see cref="IOException"/>.
+    /// commit on its branch must be on a remote-tracking branch. Otherwise <see cref="WorkspaceRemovalBlockedException"/>
+    /// names the worktree and nothing is removed. A top-level item that is not a worktree, including <c>tmp</c> and
+    /// <c>.agent-ds</c>, does not block; it is deleted with the folder. A worktree Git keeps is locked again and the
+    /// removal stops with an <see cref="IOException"/>.
     /// </remarks>
     public async Task<WorkspaceRemovalResult> RemoveAsync(string path, WorkspaceActor actor, CancellationToken cancellationToken = default)
     {
@@ -169,21 +169,15 @@ public sealed partial class WorkspaceFolders
         path = FolderOf(path);
         if (!Directory.Exists(path)) throw new DirectoryNotFoundException($"The folder {path} does not exist.");
         List<(string Path, GitRepositorySnapshot Worktree)> members = [];
-        List<string> strays = [];
         if (await this.OwnWorktreeAsync(path, cancellationToken).ConfigureAwait(false) is { } single) members.Add((path, single));
         else
         {
             foreach (string entry in Directory.EnumerateFileSystemEntries(path).Order(StringComparer.Ordinal))
             {
-                if (Path.GetFileName(entry) == TemporaryFolderName) continue;
                 if (Directory.Exists(entry) && await this.OwnWorktreeAsync(entry, cancellationToken).ConfigureAwait(false) is { } member)
                     members.Add((entry, member));
-                else strays.Add(entry);
             }
         }
-        if (strays.Count > 0)
-            throw new WorkspaceRemovalBlockedException($"The workspace {path} holds items that are not git worktrees: "
-                + $"{string.Join(", ", strays)}. Repair the workspace, or move them, first. Nothing was removed.");
         foreach ((string member, _) in members)
         {
             GitPreservationCheck check = await this.git.CheckPreservationAsync(member, cancellationToken).ConfigureAwait(false);

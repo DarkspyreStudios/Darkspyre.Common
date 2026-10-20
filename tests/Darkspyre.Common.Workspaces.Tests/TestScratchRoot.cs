@@ -30,6 +30,8 @@ public static class TestScratchRoot
     public static string Directory => root ?? throw new InvalidOperationException("The test scratch root is not initialized.");
 
     [ModuleInitializer]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA2255:The 'ModuleInitializer' attribute is only intended to be used in application code or advanced source generator scenarios",
+        Justification = "The scratch root must exist before any test code runs.")]
     internal static void Initialize()
     {
         string? configured = Environment.GetEnvironmentVariable(Override);
