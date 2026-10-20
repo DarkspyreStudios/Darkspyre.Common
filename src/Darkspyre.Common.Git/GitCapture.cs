@@ -20,8 +20,9 @@ internal sealed record GitRunOptions
 /// <param name="Errors">What the child wrote to standard error, up to the bound.</param>
 /// <param name="TimedOut">True when the timeout stopped the child.</param>
 /// <param name="OutputLimitExceeded">True when the child wrote more than <see cref="GitRunOptions.OutputLimit"/>.</param>
+/// <param name="OutputBytes">Every byte read from both channels, kept or not.</param>
 internal sealed record GitRunResult(GitExit Exit, byte[] Output, byte[] Errors, bool TimedOut = false,
-    bool OutputLimitExceeded = false);
+    bool OutputLimitExceeded = false, long OutputBytes = 0);
 
 /// <summary>The one run-to-completion path for a Git child: input, both channels and exit together.</summary>
 internal static class GitCapture
@@ -67,7 +68,8 @@ internal static class GitCapture
         // Drain every channel concurrently. A fault cancels sibling waits; the caller's disposal still owns
         // stop and observed exit, even when a caller cancels midway through I/O.
         await Task.WhenAll(writing, stdout, stderr, exiting).ConfigureAwait(false);
-        return new(await exiting.ConfigureAwait(false), output.ToArray(), errors.ToArray(), timedOut, limit.Exceeded);
+        return new(await exiting.ConfigureAwait(false), output.ToArray(), errors.ToArray(), timedOut, limit.Exceeded,
+            limit.Limit is null ? output.Length + errors.Length : limit.OutputBytes);
     }
 
     private static async Task StopAsync(IGitProcess process, Task<GitExit> exiting)
@@ -125,10 +127,13 @@ internal static class GitCapture
 
         internal bool Exceeded { get; private set; }
 
+        internal long OutputBytes { get; private set; }
+
         internal void Keep(MemoryStream destination, byte[] chunk, int count)
         {
             lock (this.gate)
             {
+                this.OutputBytes += count;
                 if (output.Length + errors.Length + count > this.Limit) this.Exceeded = true;
                 else destination.Write(chunk, 0, count);
             }

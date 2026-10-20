@@ -30,6 +30,19 @@ They cannot fetch from network, file or helper transports, even when repository 
 This process-local policy changes no Git configuration and does not change explicit mutation operations.
 The setting is supported by [Git 2.34](https://git-scm.com/docs/git/2.34.0#Documentation/git.txt-codeGITALLOWPROTOCOLcode).
 
+### Command lines
+
+`GitCommandLine.RunAsync` runs `GitCommandLineRequest.Arguments` exactly as given, with no added option, path check,
+repository lock or version check. The caller confines the working directory and every folder in the arguments.
+It starts a `Change` child through the supplied launcher and returns `GitCommandLineResult` with the exit, both output
+channels, timeout state and every byte read, including bytes dropped at the output bound.
+
+Its environment derives from the library's one environment list. It clears ambient repository overrides and
+`GIT_CONFIG_PARAMETERS`, inherits `GIT_OPTIONAL_LOCKS` and `LC_ALL`, clears `GIT_EDITOR` and `GIT_SEQUENCE_EDITOR`,
+and sets `GIT_TERMINAL_PROMPT=0`. Environment config supplies `core.editor=false`; a caller's `-c core.editor=...`
+still wins. Standard input is closed. A command that needs an editor or credential prompt fails without waiting.
+The command-line and client entries share `GitCommands.StartAndCaptureAsync` for start, disposal and capture.
+
 ### Seams
 
 - `IGitProcessLauncher` starts every Git child. `GitProcessStart` carries the arguments, working directory, environment
@@ -50,7 +63,8 @@ The setting is supported by [Git 2.34](https://git-scm.com/docs/git/2.34.0#Docum
 
 - Every Git run captures through one internal path, `GitCapture`: it writes the input and closes standard input, drains
   both output channels together, applies an optional output bound across both channels (output past the bound is read
-  and dropped), and on a timeout requests a stop, then forces it after 5 seconds.
+  and dropped), reports every byte read across both channels, and on a timeout requests a stop, then forces it after
+  5 seconds.
 - Reads run with `--no-replace-objects --no-optional-locks`, `GIT_NO_REPLACE_OBJECTS=1`, and every inherited trace,
   namespace and `GIT_CONFIG_*` variable cleared.
 - Object existence replaces lazy-fetch suppression. A blob reader reads once whether the repository is a partial clone

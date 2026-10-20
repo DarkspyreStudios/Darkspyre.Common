@@ -30,6 +30,7 @@ public sealed class GitCaptureTests
         Assert.Equal(0, result.Exit.ExitCode);
         Assert.False(result.TimedOut);
         Assert.True(result.OutputLimitExceeded);
+        Assert.Equal(large.LongLength, result.OutputBytes);
         Assert.True(result.Output.Length + result.Errors.Length <= limit, "The capture kept more than its bound.");
     }
 }

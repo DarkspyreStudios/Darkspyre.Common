@@ -38,6 +38,22 @@ internal sealed class GitCommands(IGitProcessLauncher processes, GitReadPolicy r
         ["GIT_EDITOR"] = ":", ["GIT_SEQUENCE_EDITOR"] = ":",
     });
 
+    // The run-as-given entry inherits output shaping and clears editors so the config default applies.
+    // Git reads these config entries below -c options, so the caller's own core.editor still wins.
+    private static readonly ImmutableDictionary<string, string?> CommandLineEnvironment = Environment
+        .Remove("GIT_OPTIONAL_LOCKS").Remove("LC_ALL")
+        .SetItems(new Dictionary<string, string?>
+        {
+            ["GIT_EDITOR"] = null, ["GIT_SEQUENCE_EDITOR"] = null,
+            ["GIT_CONFIG_COUNT"] = "1", ["GIT_CONFIG_KEY_0"] = "core.editor", ["GIT_CONFIG_VALUE_0"] = "false",
+        });
+
+    /// <summary>Runs a command line unchanged as a Change child, with the caller's timeout and output bound.</summary>
+    internal Task<GitRunResult> RunCommandLineAsync(string directory, IReadOnlyList<string> arguments, TimeSpan timeout,
+        int outputLimit, CancellationToken cancellationToken) =>
+        this.StartAndCaptureAsync(new(arguments, directory, CommandLineEnvironment, GitProcessKind.Change),
+            new() { Timeout = timeout, OutputLimit = outputLimit }, cancellationToken);
+
     internal Task<GitRunResult> RunAsync(string directory, IReadOnlyList<string> arguments,
         CancellationToken cancellationToken = default) =>
         this.RunCoreAsync(directory, arguments, new(Environment, GitProcessKind.Change, new()), cancellationToken);
@@ -74,7 +90,7 @@ internal sealed class GitCommands(IGitProcessLauncher processes, GitReadPolicy r
         return this.processes.StartAsync(start, cancellationToken);
     }
 
-    private async Task<GitRunResult> RunCoreAsync(string directory, IReadOnlyList<string> arguments, RunOptions options,
+    private Task<GitRunResult> RunCoreAsync(string directory, IReadOnlyList<string> arguments, RunOptions options,
         CancellationToken cancellationToken)
     {
         if (options.Capture.Timeout is { } timeout) ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
@@ -82,9 +98,16 @@ internal sealed class GitCommands(IGitProcessLauncher processes, GitReadPolicy r
         // Explicit argv preserves whitespace, NUL-delimited Git output and shell-looking path data.
         GitProcessStart start = new(["--no-pager", "-c", "core.fsmonitor=false", .. arguments], directory,
             options.Environment, options.Kind);
+        return this.StartAndCaptureAsync(start, options.Capture, cancellationToken);
+    }
+
+    private async Task<GitRunResult> StartAndCaptureAsync(GitProcessStart start, GitRunOptions capture,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
         IGitProcess process = await this.processes.StartAsync(start, cancellationToken).ConfigureAwait(false);
         await using (process.ConfigureAwait(false))
-            return await GitCapture.CaptureAsync(process, options.Capture, cancellationToken).ConfigureAwait(false);
+            return await GitCapture.CaptureAsync(process, capture, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>How one run-to-completion child starts and is captured.</summary>
