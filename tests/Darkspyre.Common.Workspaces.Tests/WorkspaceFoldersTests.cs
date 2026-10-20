@@ -47,21 +47,25 @@ public sealed class WorkspaceFoldersTests
         Assert.Empty(Git.Run(fixture.Second, "branch", "--list", "done").Trim());
     }
 
-    /// <summary>An inspection reports healthy, missing and broken repositories and every stray top-level item.</summary>
+    /// <summary>
+    /// An inspection reports every stray top-level item. Removal deletes them with the folder; they do not block.
+    /// </summary>
     [Fact]
-    public async Task InspectReportsStrayItems()
+    public async Task InspectReportsStrayItemsAndRemovalDeletesThem()
     {
         Fixture fixture = Fixture.Create();
-        await fixture.Folders.CreateAsync(new(fixture.Folder, "inspected", fixture.Repositories, false), Actor);
+        WorkspaceCreateResult created = await fixture.Folders.CreateAsync(new(fixture.Folder, "inspected", fixture.Repositories, false), Actor);
         Directory.CreateDirectory(Path.Combine(fixture.Folder, "Library"));
-        Directory.CreateDirectory(Path.Combine(fixture.Folder, ".home"));
+        Directory.CreateDirectory(Path.Combine(fixture.Folder, ".agent-ds"));
         File.WriteAllText(Path.Combine(fixture.Folder, "notes.txt"), "notes");
 
         WorkspaceInspection inspection = await fixture.Folders.InspectAsync(fixture.Folder, fixture.Repositories);
+        WorkspaceRemovalResult removed = await fixture.Folders.RemoveAsync(fixture.Folder, Actor);
 
         Assert.All(inspection.Repositories, item => Assert.Equal(WorkspaceRepositoryState.Healthy, item.State));
-        Assert.Equal([".home", "Library", "notes.txt"], inspection.Strays.Select(Path.GetFileName));
-        await Assert.ThrowsAsync<WorkspaceRemovalBlockedException>(() => fixture.Folders.RemoveAsync(fixture.Folder, Actor));
+        Assert.Equal([".agent-ds", "Library", "notes.txt"], inspection.Strays.Select(Path.GetFileName));
+        Assert.Equal(created.Worktrees.Select(item => item.Path), removed.Worktrees);
+        Assert.False(Directory.Exists(fixture.Folder));
     }
 
     /// <summary>

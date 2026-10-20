@@ -258,10 +258,11 @@ a `WorkspaceActor`, the acting owner and the trigger, which each log line names.
   as one made for a single task, as another worktree; and every remaining top-level item except `tmp` as a stray, so
   a caller can warn instead of refusing.
 - `RemoveAsync` takes a workspace folder or a single worktree. Every worktree must lose nothing but ignored files and
-  have every commit on a remote-tracking branch, and a workspace must hold nothing but worktrees and `tmp`; otherwise
-  `WorkspaceRemovalBlockedException` names the cause and nothing is removed. It unlocks and removes each worktree,
-  deletes each branch while it still names the removed head, and deletes the folder. A worktree on a branch with no
-  commits is removable when it holds no tracked, untracked or staged files; its branch has no ref, so none is deleted.
+  have every commit on a remote-tracking branch; otherwise `WorkspaceRemovalBlockedException` names the worktree and
+  nothing is removed. A top-level item that is not a worktree, including `tmp` and `.agent-ds`, does not block. It
+  unlocks and removes each worktree, deletes each branch while it still names the removed head, and deletes the folder
+  with whatever remains in it. A worktree on a branch with no commits is removable when it holds no tracked, untracked
+  or staged files; its branch has no ref, so none is deleted.
 - `RepairAsync` stashes each healthy worktree's uncommitted and untracked changes (`darkspyre-repair <timestamp>`);
   moves each broken repository folder into `tmp/repaired-<yyyyMMdd-HHmmss>`; unlocks each missing worktree's record and
   prunes the repositories; re-creates each missing worktree on the branch (the local branch, else a new branch at
