@@ -46,7 +46,7 @@
     </PropertyGroup>
     <MakeDir Directories="$(_LocalServicePackageOutput)" />
     <WriteLinesToFile File="$(_LocalServicePackageOutput)inputs.txt" Lines="@(Compile->'%(FullPath)');@(ReferencePath->'%(FullPath)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
-    <Exec Command="dotnet &quot;@(_LocalServicePackagingAssembly)&quot; capture &quot;$(_LocalServiceOutput)&quot; &quot;$(_LocalServiceEntryFile)&quot; &quot;$(_LocalServicePackageOutput)&quot; &quot;$(LocalServiceMetadataPrefix)&quot; &quot;$(LocalServiceLayoutId)&quot;" />
+    <Exec Command="dotnet &quot;@(_LocalServicePackagingAssembly)&quot; capture &quot;$(_LocalServiceOutput).&quot; &quot;$(_LocalServiceEntryFile)&quot; &quot;$(_LocalServicePackageOutput)&quot; &quot;$(LocalServiceMetadataPrefix)&quot; &quot;$(LocalServiceLayoutId)&quot;" />
     <ItemGroup>
       <Compile Include="$(_LocalServicePackageOutput)ServicePackageMetadata.cs" />
     </ItemGroup>
