@@ -1,0 +1,77 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Layout;
+
+namespace Darkspyre.Agent.Common.UI.Dialogs;
+
+/// <summary>
+/// The window's layer for sheets and confirmations, above the shell. Each open dialog shows over a backdrop; Escape or a
+/// click on the backdrop dismisses the topmost one. The shell view places the layer; any view opens a dialog here.
+/// </summary>
+public sealed class ModalLayer : Panel
+{
+    private readonly List<(Control Backdrop, IModal Dialog)> open = [];
+
+    /// <summary>Creates the layer, which takes no space and no input while no dialog is open.</summary>
+    public ModalLayer()
+    {
+        this.IsHitTestVisible = false;
+        this.Classes.Add("modal-layer");
+    }
+
+    /// <summary>Shows <paramref name="dialog"/> over everything opened before it.</summary>
+    public void Show(IModal dialog)
+    {
+        ArgumentNullException.ThrowIfNull(dialog);
+        // A dialog stays 24 px inside the window on every side; content that does not fit scrolls inside the dialog. A
+        // layer that fills the window takes all of it. The backdrop's dimming brush comes from the modal-backdrop style; a
+        // local brush here would override it.
+        Border backdrop = new() { Padding = new Thickness(dialog.FillsWindow ? 0 : 24) };
+        backdrop.Classes.Add("modal-backdrop");
+        backdrop.PointerPressed += (_, args) =>
+        {
+            if (ReferenceEquals(args.Source, backdrop)) dialog.RequestDismiss();
+        };
+        Control content = dialog.View;
+        content.HorizontalAlignment = dialog.FillsWindow ? HorizontalAlignment.Stretch : HorizontalAlignment.Center;
+        content.VerticalAlignment = dialog.FillsWindow ? VerticalAlignment.Stretch : VerticalAlignment.Center;
+        backdrop.Child = content;
+        this.open.Add((backdrop, dialog));
+        this.Children.Add(backdrop);
+        this.IsHitTestVisible = true;
+        content.AttachedToVisualTree += (_, _) => (content as InputElement)?.Focus();
+    }
+
+    /// <summary>Removes <paramref name="dialog"/>; a dialog already gone is ignored.</summary>
+    public void Close(IModal dialog)
+    {
+        int index = this.open.FindIndex(entry => ReferenceEquals(entry.Dialog, dialog));
+        if (index < 0) return;
+        this.Children.Remove(this.open[index].Backdrop);
+        this.open.RemoveAt(index);
+        this.IsHitTestVisible = this.open.Count > 0;
+    }
+
+    /// <summary>Dismisses the topmost dialog on Escape in <paramref name="window"/>. The application calls it once for its window.</summary>
+    public void Attach(TopLevel window) => window.AddHandler(KeyDownEvent, (_, args) =>
+    {
+        if (args.Key != Key.Escape || this.open.Count == 0) return;
+        this.open[^1].Dialog.RequestDismiss();
+        args.Handled = true;
+    }, RoutingStrategies.Tunnel);
+}
+
+/// <summary>A dialog the modal layer shows.</summary>
+public interface IModal
+{
+    /// <summary>The dialog's view.</summary>
+    Control View { get; }
+
+    /// <summary>Asks the dialog to close unanswered, as Escape and a click outside do. It may refuse, such as for unsaved edits.</summary>
+    void RequestDismiss();
+
+    /// <summary>True for a layer that fills the window: no backdrop padding and no centring.</summary>
+    bool FillsWindow => false;
+}

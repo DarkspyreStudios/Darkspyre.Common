@@ -165,10 +165,72 @@ Each folder is its own namespace, `Darkspyre.Agent.Common.UI.<folder>`:
 
 | Namespace | Holds |
 | --- | --- |
+| `.Controls` | `Forms` and `ButtonSize`, `Sizes`, `Badge`, `Spinner`, `LoopingAnimation`, `IconPicker`, `ColorPicker`, `StatusLight` and `StatusLightState`, `QuotaRing`, `ClipboardText`, `Watching<TShown>` and `UiChangeSubscription`, `Remount`, `KeyedViews`, `KeyedChildren`, `UiRefresh`, `ShownList` |
+| `.Icons` | `Icon`, `IconSource`, `AppIcons`, `ProjectIcons`, `PluginPanelIcons`, `AttachmentPreviewIcons` |
+| `.Dialogs` | `ModalLayer`, `Sheet`, `ConfirmDialog`, `PaletteSheet`, `DialogPresenter` with `SheetRequest`, `ISheet` and `ConfirmationRequest` |
+| `.Errors` | `UiRegion`, `UiFailure`, `FailureView` |
+| `.Composition` | `CompositionTarget`, `CompositionSlot`, `ICompositionPresenter`, `SurfaceScopeContext`, `AppearanceSection`, `IAppearanceSectionRegistry` |
+| `.Themes` | `CommonTheme`, holding `ControlStyles` |
 | `.Code` | `SourceView`, `DiffView`, `DiffViewMode`, and `TextDiff` with its line types |
 | `.Markdown` | `MarkdownViewer`, `IMarkdownLinkSource`, `CopyFeedback`, the Mermaid renderer |
 | `.Pdf` | `PdfViewer`, `PdfZoom` |
 | `.Terminal` | `TerminalView` |
+
+agent-ds's `Darkspyre.Agent.Plugin` references the library, so a plugin compiles against it and loads the
+application's copy (agent-ds `SharedLibraries.props` excludes its runtime assets from plugin packages).
+
+### Starting it
+
+An application adds `new CommonTheme()` to its styles before its own. `CommonTheme` holds the common control styles,
+the colour picker's templates, the palette, failure-card, quota-ring and status-light styles, and the
+`CompositionTarget` template. Three static hooks connect the library to its application, each set once at startup:
+
+| Hook | Receives | Without it |
+| --- | --- | --- |
+| `CompositionTarget.Presenter` (`ICompositionPresenter`) | Each target entering and leaving a window, and a request for each of its four inline slots | A target shows its own content and empty slots |
+| `AppearanceSection.Registry` (`IAppearanceSectionRegistry`) | Each control joining or leaving a typography section | A section changes no font |
+| `UiRegion.Log` (`Action<UiFailure>`) | Every failure a region shows, and every `UiRegion.Report` no region encloses (`UiRegion.NoRegion`) | Nothing is logged |
+
+`ModalLayer.Attach(window)` makes Escape dismiss the topmost dialog of that window.
+
+### Controls and dialogs
+
+- **`UiRegion`** is one region of a window. A failure reported inside it through `UiRegion.Report`, or thrown while
+  its content is laid out, replaces the region with a `FailureView` offering Reload this area and the error details;
+  the rest of the window keeps working. A failure belongs to the `Scope` that was showing: another scope shows the
+  content again, and the failed scope shows its card again until Reload this area. Its style class is `ui-region`.
+- **`FailureView`** is the card a failed area shows: an optional title and subtitle, a sentence, the caller's actions
+  with Show details, an optional status line, and the hidden details table and stack trace.
+- **`Watching<TShown>`** is a view that reads a record from its owners and renders only when the record changed. It
+  subscribes to each `Owners` entry, an owner's `SubscribeChangesAsync` method group as a `UiChangeSubscription`,
+  while it is in a window. One refresh runs at a time, requests during a refresh coalesce into one more, and an equal
+  record renders nothing. A failing read or render goes to `UiRegion.Report`.
+- **`DialogPresenter`** shows a `SheetRequest` as a `Sheet` and a `ConfirmationRequest` as a `ConfirmDialog` in one
+  window's `ModalLayer`, from any thread. The returned `ISheet` closes when disposed; its `Completion` is true only
+  after `Complete()`. A confirmation answers true only for an explicit confirm; a cancelled token closes it and answers
+  false. `ConfirmDialog.AskAsync` takes the same cancellation token.
+- **`StatusLight`** is a round light for a `StatusLightState`, pulsing at a pace and offset derived from its key, with
+  style classes `light-active`, `light-off`, `light-failed`, `light-fallback` and `light-busy`. **`QuotaRing`** is a
+  14 px gauge whose fill and colour follow the used fraction, grey with a question mark when unknown, dimmed when stale
+  and pulsing while updating. **`ClipboardText.WriteAsync`** writes literal text to the window's clipboard and returns
+  false when no clipboard is available.
+
+### Resource keys
+
+The styles and controls read these application resources through `DynamicResource` or a resource lookup, so a theme
+change restyles at once. agent-ds's theme supplies all of them.
+
+| Keys | Type |
+| --- | --- |
+| accent.brush, bg.brush, color-accent-foreground.brush, color-accent.brush, color-background.brush, color-border.brush, color-border.brush.40, color-border.brush.60, color-destructive.brush, color-destructive.brush.90, color-foreground.brush, color-info.brush, color-input.brush, color-muted-foreground.brush, color-muted.brush, color-popover-foreground.brush, color-popover.brush, color-primary-foreground.brush, color-primary.brush, color-primary.brush.20, color-primary.brush.90, color-ring.brush, color-secondary-foreground.brush, color-secondary.brush, color-secondary.brush.80, color-success.brush, color-warning.brush, danger.brush, faint.brush, line.brush, muted.brush, panel.brush, raised.brush, text.brush, text.brush.3 | `IBrush` |
+| danger, faint, line, ok, warn (`QuotaRing`) | `Color` |
+| control-h, control-h-lg, control-h-sm, control-h-xs, font-size-body, font-size-code, font-size-control, font-size-heading-1 to font-size-heading-5, font-size-secondary, font-size-small, font-size-title | `double` |
+| font-body, font-code, font-control, font-heading-1 to font-heading-5, font-secondary, font-small, font-title | `FontFamily` |
+| radius, radius-lg, radius-md, radius-sm | `CornerRadius` |
+
+The styles also restyle these Fluent resources: ComboBoxBackgroundBorderBrushUnfocused, ComboBoxBackgroundUnfocused,
+ComboBoxDropDownBackground, ComboBoxDropDownBorderBrush, ComboBoxDropdownBorderPadding, ComboBoxDropdownBorderThickness,
+ComboBoxDropdownContentMargin, ComboBoxPlaceHolderForeground, OverlayCornerRadius and TextControlPlaceholderOpacity.
 
 ### Document viewers
 

@@ -1,0 +1,1078 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:icons="using:Darkspyre.Agent.Common.UI.Icons"
+        xmlns:controls="using:Darkspyre.Agent.Common.UI.Controls"
+        x:Class="Darkspyre.Agent.Common.UI.Themes.ControlStyles">
+  <!--
+    The common controls in the look the shell had: the component library's variants, sizes, radii and colours, and the
+    shell stylesheet's base rules. Every theme value is a DynamicResource, so a theme change restyles at once.
+  -->
+
+  <!-- The window and text: the theme background and text colour, the body text entry. -->
+  <Style Selector="Window">
+    <Setter Property="Background" Value="{DynamicResource bg.brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource text.brush}" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-body}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-body}" />
+  </Style>
+  <Style Selector="TextBlock.h1">
+    <Setter Property="FontFamily" Value="{DynamicResource font-heading-1}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-heading-1}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="TextBlock.h2">
+    <Setter Property="FontFamily" Value="{DynamicResource font-heading-4}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-heading-4}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="TextBlock.muted, SelectableTextBlock.muted">
+    <Setter Property="Foreground" Value="{DynamicResource muted.brush}" />
+  </Style>
+  <Style Selector="TextBlock.faint">
+    <Setter Property="Foreground" Value="{DynamicResource faint.brush}" />
+  </Style>
+  <Style Selector="TextBlock.code, SelectableTextBlock.code">
+    <Setter Property="FontFamily" Value="{DynamicResource font-code}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-code}" />
+  </Style>
+  <Style Selector="TextBlock.error, TextBlock.vault-startup-error">
+    <Setter Property="Foreground" Value="{DynamicResource color-destructive.brush}" />
+  </Style>
+
+  <!-- A plain button: no fill and no border, the inherited colour, the control radius. -->
+  <Style Selector="Button">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource text.brush}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius}" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-body}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-body}" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource text.brush}" />
+  </Style>
+  <Style Selector="Button:disabled">
+    <Setter Property="Opacity" Value="0.5" />
+  </Style>
+  <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <!-- The library button: 32 px high, 10 px sides, 14 px medium text, the medium radius. -->
+  <Style Selector="Button.primary, Button.secondary, Button.outline, Button.ghost, Button.destructive, Button.link">
+    <Setter Property="Height" Value="{DynamicResource control-h}" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-control}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-control}" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-md}" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.sm">
+    <Setter Property="Height" Value="{DynamicResource control-h-sm}" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-secondary}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-secondary}" />
+  </Style>
+  <Style Selector="Button.xs">
+    <Setter Property="Height" Value="{DynamicResource control-h-xs}" />
+    <Setter Property="Padding" Value="8,0" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-secondary}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-secondary}" />
+  </Style>
+  <Style Selector="Button.lg">
+    <Setter Property="Height" Value="{DynamicResource control-h-lg}" />
+  </Style>
+  <Style Selector="Button.icon">
+    <Setter Property="Width" Value="{DynamicResource control-h}" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+  <Style Selector="Button.icon.sm">
+    <Setter Property="Width" Value="{DynamicResource control-h-sm}" />
+  </Style>
+  <Style Selector="Button.icon.xs">
+    <Setter Property="Width" Value="{DynamicResource control-h-xs}" />
+  </Style>
+
+  <Style Selector="Button.primary /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource color-primary.brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource color-primary-foreground.brush}" />
+  </Style>
+  <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource color-primary.brush.90}" />
+    <Setter Property="Foreground" Value="{DynamicResource color-primary-foreground.brush}" />
+  </Style>
+  <Style Selector="Button.secondary /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource color-secondary.brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource color-secondary-foreground.brush}" />
+  </Style>
+  <Style Selector="Button.secondary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource color-secondary.brush.80}" />
+    <Setter Property="Foreground" Value="{DynamicResource color-secondary-foreground.brush}" />
+  </Style>
+  <Style Selector="Button.destructive /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource color-destructive.brush}" />
+    <Setter Property="Foreground" Value="White" />
+  </Style>
+  <Style Selector="Button.destructive:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource color-destructive.brush.90}" />
+    <Setter Property="Foreground" Value="White" />
+  </Style>
+  <Style Selector="Button.outline /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource color-background.brush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource color-input.brush}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="Button.outline:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.ghost:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource color-accent.brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource color-accent-foreground.brush}" />
+  </Style>
+  <Style Selector="Button.link">
+    <Setter Property="Foreground" Value="{DynamicResource color-primary.brush}" />
+  </Style>
+  <Style Selector="Button.link:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{DynamicResource color-primary.brush}" />
+  </Style>
+
+  <!-- ToggleButton follows Button; pressed shows the accent fill. -->
+  <Style Selector="ToggleButton">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource muted.brush}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius}" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+  </Style>
+  <Style Selector="ToggleButton:pointerover /template/ ContentPresenter#PART_ContentPresenter, ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource raised.brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource text.brush}" />
+  </Style>
+
+  <!-- Text input: 32 px high, 10 px sides, a 1 px input border, the large radius; the ring colour on focus. -->
+  <Style Selector="TextBox">
+    <Setter Property="MinHeight" Value="{DynamicResource control-h}" />
+    <Setter Property="Padding" Value="10,4" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-control}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-control}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-lg}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource color-input.brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource text.brush}" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="TextBox /template/ Border#PART_BorderElement">
+    <Setter Property="MinHeight" Value="0" />
+  </Style>
+  <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource color-input.brush}" />
+  </Style>
+  <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource color-ring.brush}" />
+    <Setter Property="BorderThickness" Value="1.5" />
+  </Style>
+  <Style Selector="TextBox.code">
+    <Setter Property="FontFamily" Value="{DynamicResource font-code}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-code}" />
+  </Style>
+  <Style Selector="TextBox.sm">
+    <Setter Property="MinHeight" Value="{DynamicResource control-h-sm}" />
+    <Setter Property="Height" Value="{DynamicResource control-h-sm}" />
+    <Setter Property="Padding" Value="10,0" />
+  </Style>
+  <Style Selector="TextBox[AcceptsReturn=True]">
+    <Setter Property="VerticalContentAlignment" Value="Top" />
+    <Setter Property="Padding" Value="10,8" />
+    <Setter Property="MinHeight" Value="64" />
+  </Style>
+
+  <!-- Select: the input's box with a chevron; its list is a popover. -->
+  <Style Selector="ComboBox">
+    <Setter Property="MinHeight" Value="{DynamicResource control-h}" />
+    <Setter Property="Height" Value="{DynamicResource control-h}" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-control}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-control}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-lg}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource color-input.brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource text.brush}" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+  </Style>
+  <!-- The small select matches the small button, so a row of small controls shares one height. -->
+  <Style Selector="ComboBox.sm">
+    <Setter Property="MinHeight" Value="{DynamicResource control-h-sm}" />
+    <Setter Property="Height" Value="{DynamicResource control-h-sm}" />
+  </Style>
+  <Style Selector="ComboBox:pointerover /template/ Border#Background">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource color-input.brush}" />
+  </Style>
+  <Style Selector="ComboBox /template/ Border#PopupBorder">
+    <Setter Property="Background" Value="{DynamicResource color-popover.brush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource color-border.brush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-md}" />
+    <Setter Property="Padding" Value="4" />
+  </Style>
+  <Style Selector="ComboBoxItem">
+    <Setter Property="Padding" Value="8,6" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-control}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-control}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-sm}" />
+    <Setter Property="Foreground" Value="{DynamicResource color-popover-foreground.brush}" />
+  </Style>
+  <Style Selector="ComboBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter, ComboBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource color-accent.brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource color-accent-foreground.brush}" />
+  </Style>
+
+  <!-- Checkbox: a 16 px box with the input border, filled with the primary colour when checked. -->
+  <Style Selector="CheckBox">
+    <Setter Property="FontFamily" Value="{DynamicResource font-control}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-control}" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Padding" Value="8,0,0,0" />
+  </Style>
+  <Style Selector="CheckBox /template/ Border#NormalRectangle">
+    <Setter Property="Width" Value="16" />
+    <Setter Property="Height" Value="16" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-sm}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource color-input.brush}" />
+    <Setter Property="Background" Value="{DynamicResource color-background.brush}" />
+  </Style>
+  <Style Selector="CheckBox:checked /template/ Border#NormalRectangle">
+    <Setter Property="BorderBrush" Value="{DynamicResource color-primary.brush}" />
+    <Setter Property="Background" Value="{DynamicResource color-primary.brush}" />
+  </Style>
+  <Style Selector="CheckBox:checked /template/ Path#CheckGlyph">
+    <Setter Property="Fill" Value="{DynamicResource color-primary-foreground.brush}" />
+  </Style>
+
+  <!-- Labels: 14 px medium. -->
+  <Style Selector="Label">
+    <Setter Property="FontFamily" Value="{DynamicResource font-control}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-control}" />
+    <Setter Property="FontWeight" Value="Medium" />
+  </Style>
+  <Style Selector="TextBlock.label">
+    <Setter Property="FontFamily" Value="{DynamicResource font-control}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-control}" />
+    <Setter Property="FontWeight" Value="Medium" />
+  </Style>
+
+  <!-- Tabs: a muted strip with 3 px inset; the selected tab is raised on the background. -->
+  <Style Selector="TabControl">
+    <Setter Property="Padding" Value="0" />
+  </Style>
+  <Style Selector="TabControl /template/ ItemsPresenter#PART_ItemsPresenter">
+    <Setter Property="Margin" Value="0" />
+  </Style>
+  <Style Selector="TabItem">
+    <Setter Property="FontFamily" Value="{DynamicResource font-control}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-control}" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Padding" Value="8,4" />
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-md}" />
+    <Setter Property="Foreground" Value="{DynamicResource color-muted-foreground.brush}" />
+  </Style>
+  <Style Selector="TabItem:selected">
+    <Setter Property="Foreground" Value="{DynamicResource color-foreground.brush}" />
+    <Setter Property="Background" Value="{DynamicResource color-background.brush}" />
+  </Style>
+  <Style Selector="TabItem:selected /template/ Border#PART_SelectedPipe">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+
+  <!-- List: rows divided by a faint line inside a bordered, rounded box. -->
+  <Style Selector="ListBox">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource color-border.brush.40}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-md}" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+  <Style Selector="ListBoxItem">
+    <Setter Property="Padding" Value="16,12" />
+    <Setter Property="BorderBrush" Value="{DynamicResource color-border.brush.40}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+  </Style>
+  <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter, ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource raised.brush}" />
+  </Style>
+
+  <!--
+    Autocomplete: the input's box set on the control, because its text box takes these from it, over a popover list like
+    the select's, whose rows have no dividers. These follow the list styles above so they win over them. The popover's
+    own values are set in the template, so only a style with a pseudo-class, here the open list, overrides them.
+    A row takes no focus, so a press on it leaves focus in the text box: a focused row would take focus from the box,
+    which closes the list and runs the box's own focus handlers while the press is still choosing.
+  -->
+  <Style Selector="AutoCompleteBox">
+    <Setter Property="MinHeight" Value="{DynamicResource control-h}" />
+    <Setter Property="Padding" Value="10,4" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-control}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-control}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-lg}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource color-input.brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource text.brush}" />
+  </Style>
+  <Style Selector="AutoCompleteBox:dropdownopen /template/ Border#PART_SuggestionsContainer">
+    <Setter Property="Background" Value="{DynamicResource color-popover.brush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource color-border.brush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-md}" />
+    <Setter Property="Padding" Value="4" />
+  </Style>
+  <Style Selector="AutoCompleteBox ListBoxItem">
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="Padding" Value="8,6" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-control}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-control}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-sm}" />
+    <Setter Property="Foreground" Value="{DynamicResource color-popover-foreground.brush}" />
+  </Style>
+  <Style Selector="AutoCompleteBox ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter, AutoCompleteBox ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource color-accent.brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource color-accent-foreground.brush}" />
+  </Style>
+
+  <!--
+    Picker chip: the one layout of a picker on a bar. The chip owns the padding, minimum height, corner, hover and focus
+    fill; its picker, a select or an autocomplete box, takes no frame, padding, fixed height or chevron, is centred, and
+    reads the dimmest text on the bar. These follow the select and autocomplete styles above so they win over them.
+  -->
+  <Style Selector="Border.picker-chip">
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Padding" Value="5,2" />
+    <Setter Property="CornerRadius" Value="5" />
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Border.picker-chip:pointerover, Border.picker-chip:focus-within">
+    <Setter Property="Background" Value="{DynamicResource raised.brush}" />
+  </Style>
+  <Style Selector="Border.picker-chip > ComboBox, Border.picker-chip > AutoCompleteBox">
+    <Setter Property="Height" Value="NaN" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="5" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="Foreground" Value="{DynamicResource faint.brush}" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-small}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-small}" />
+  </Style>
+  <!--
+    The chip's select takes its content's width. This template is the Fluent select's own, with the chevron's fixed column,
+    the overlay and the glyph removed and the theme's minimum width left off the background, so nothing but the selection
+    is measured. The part names and types are the ones the Fluent select's state rules and the select itself look up.
+  -->
+  <Style Selector="Border.picker-chip > ComboBox">
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Template">
+      <ControlTemplate TargetType="ComboBox">
+        <DataValidationErrors>
+          <Grid>
+            <Border Name="Background" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}" />
+            <Border Name="HighlightBackground" IsVisible="False" Background="{DynamicResource ComboBoxBackgroundUnfocused}"
+                    BorderBrush="{DynamicResource ComboBoxBackgroundBorderBrushUnfocused}" BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="{TemplateBinding CornerRadius}" />
+            <TextBlock Name="PlaceholderTextBlock" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                       VerticalAlignment="{TemplateBinding VerticalContentAlignment}" Opacity="{DynamicResource TextControlPlaceholderOpacity}"
+                       Margin="{TemplateBinding Padding}" Text="{TemplateBinding PlaceholderText}" Foreground="{TemplateBinding PlaceholderForeground}">
+              <TextBlock.IsVisible>
+                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                  <Binding Path="SelectionBoxItem" RelativeSource="{RelativeSource TemplatedParent}" Converter="{x:Static ObjectConverters.IsNull}" />
+                  <Binding Path="!IsEditable" RelativeSource="{RelativeSource TemplatedParent}" />
+                </MultiBinding>
+              </TextBlock.IsVisible>
+            </TextBlock>
+            <ContentControl Name="ContentPresenter" Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                            Margin="{TemplateBinding Padding}" HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" IsVisible="{TemplateBinding IsEditable, Converter={x:Static BoolConverters.Not}}" />
+            <TextBox Name="PART_EditableTextBox" Padding="{TemplateBinding Padding}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                     VerticalAlignment="{TemplateBinding VerticalContentAlignment}" Foreground="{TemplateBinding Foreground}" Background="Transparent"
+                     Text="{TemplateBinding Text, Mode=TwoWay}" PlaceholderText="{TemplateBinding PlaceholderText}" BorderThickness="0"
+                     IsVisible="{TemplateBinding IsEditable}">
+              <TextBox.Resources>
+                <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+                <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
+                <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
+              </TextBox.Resources>
+            </TextBox>
+            <Popup Name="PART_Popup" WindowManagerAddShadowHint="False" IsOpen="{TemplateBinding IsDropDownOpen, Mode=TwoWay}"
+                   MinWidth="{Binding Bounds.Width, RelativeSource={RelativeSource TemplatedParent}}" MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                   PlacementTarget="Background" IsLightDismissEnabled="True" InheritsTransform="True">
+              <Border Name="PopupBorder" Background="{DynamicResource ComboBoxDropDownBackground}" BorderBrush="{DynamicResource ComboBoxDropDownBorderBrush}"
+                      BorderThickness="{DynamicResource ComboBoxDropdownBorderThickness}" Padding="{DynamicResource ComboBoxDropdownBorderPadding}"
+                      HorizontalAlignment="Stretch" CornerRadius="{DynamicResource OverlayCornerRadius}">
+                <ScrollViewer HorizontalScrollBarVisibility="{TemplateBinding (ScrollViewer.HorizontalScrollBarVisibility)}" IsScrollChainingEnabled="False"
+                              VerticalScrollBarVisibility="{TemplateBinding (ScrollViewer.VerticalScrollBarVisibility)}"
+                              IsDeferredScrollingEnabled="{TemplateBinding (ScrollViewer.IsDeferredScrollingEnabled)}">
+                  <ItemsPresenter Name="PART_ItemsPresenter" Margin="{DynamicResource ComboBoxDropdownContentMargin}" ItemsPanel="{TemplateBinding ItemsPanel}" />
+                </ScrollViewer>
+              </Border>
+            </Popup>
+          </Grid>
+        </DataValidationErrors>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="Border.picker-chip > AutoCompleteBox /template/ TextBox">
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Foreground" Value="{DynamicResource faint.brush}" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-small}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-small}" />
+  </Style>
+  <Style Selector="Border.picker-chip > AutoCompleteBox /template/ TextBox:pointerover /template/ Border#PART_BorderElement, Border.picker-chip > AutoCompleteBox /template/ TextBox:focus /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <!--
+    A disabled chip looks as it does enabled, with its text faded. The Fluent disabled rules would give the select's
+    background and border, the autocomplete box's inner text box background and border, and the text each a disabled brush;
+    these put the chip's normal brushes back.
+  -->
+  <Style Selector="Border.picker-chip > ComboBox:disabled, Border.picker-chip > AutoCompleteBox:disabled">
+    <Setter Property="Opacity" Value="0.5" />
+  </Style>
+  <Style Selector="Border.picker-chip > ComboBox:disabled /template/ Border#Background">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource color-input.brush}" />
+  </Style>
+  <Style Selector="Border.picker-chip > ComboBox:disabled /template/ ContentControl#ContentPresenter">
+    <Setter Property="Foreground" Value="{DynamicResource faint.brush}" />
+  </Style>
+  <Style Selector="Border.picker-chip > ComboBox:disabled /template/ TextBlock#PlaceholderTextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource ComboBoxPlaceHolderForeground}" />
+  </Style>
+  <Style Selector="Border.picker-chip > ComboBox /template/ TextBox#PART_EditableTextBox:disabled, Border.picker-chip > AutoCompleteBox /template/ TextBox:disabled">
+    <Setter Property="Foreground" Value="{DynamicResource faint.brush}" />
+  </Style>
+  <Style Selector="Border.picker-chip > AutoCompleteBox /template/ TextBox:disabled /template/ Border#PART_BorderElement">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource color-input.brush}" />
+  </Style>
+
+  <!-- Progress: a 4 px track in the primary colour at 20 %, filled with the primary colour. -->
+  <Style Selector="ProgressBar">
+    <Setter Property="Height" Value="4" />
+    <Setter Property="MinHeight" Value="4" />
+    <Setter Property="CornerRadius" Value="2" />
+    <Setter Property="Background" Value="{DynamicResource color-primary.brush.20}" />
+    <Setter Property="Foreground" Value="{DynamicResource color-primary.brush}" />
+  </Style>
+
+  <!-- Switch: the primary colour when on, the input colour when off. -->
+  <Style Selector="ToggleSwitch">
+    <Setter Property="FontFamily" Value="{DynamicResource font-control}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-control}" />
+    <Setter Property="MinHeight" Value="0" />
+  </Style>
+
+  <!-- Popovers, menus and tooltips: the popover surface with a border and the medium radius. -->
+  <Style Selector="FlyoutPresenter">
+    <Setter Property="Background" Value="{DynamicResource color-popover.brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource color-popover-foreground.brush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource color-border.brush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-md}" />
+    <Setter Property="Padding" Value="16" />
+  </Style>
+  <Style Selector="MenuFlyoutPresenter, ContextMenu">
+    <Setter Property="Background" Value="{DynamicResource color-popover.brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource color-popover-foreground.brush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource color-border.brush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-md}" />
+    <Setter Property="Padding" Value="4" />
+    <Setter Property="MinWidth" Value="128" />
+  </Style>
+  <Style Selector="MenuItem">
+    <Setter Property="Padding" Value="8,6" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-control}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-control}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-sm}" />
+    <Setter Property="Foreground" Value="{DynamicResource color-popover-foreground.brush}" />
+  </Style>
+  <Style Selector="MenuItem:pointerover /template/ Border#PART_LayoutRoot, MenuItem:selected /template/ Border#PART_LayoutRoot">
+    <Setter Property="Background" Value="{DynamicResource color-accent.brush}" />
+  </Style>
+  <Style Selector="ToolTip">
+    <Setter Property="Background" Value="{DynamicResource color-primary.brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource color-primary-foreground.brush}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-md}" />
+    <Setter Property="Padding" Value="12,6" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-secondary}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-secondary}" />
+  </Style>
+
+  <!--
+    Collapsible: every expander's one look. The header is a plain row with a 10 px chevron before its text, pointing
+    right when closed and down when open. Hovered, the row takes a 3% fill of the text colour and its text the text
+    colour; nothing else changes. Keyboard focus draws a 1 px ring round the row. The content shows below the header while open.
+  -->
+  <Styles.Resources>
+    <ControlTheme x:Key="ExpanderHeaderTheme" TargetType="ToggleButton">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="8,5" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="CornerRadius" Value="{DynamicResource radius-sm}" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="FocusAdorner">
+        <FocusAdornerTemplate>
+          <Border BorderBrush="{DynamicResource color-ring.brush}" BorderThickness="1" CornerRadius="{DynamicResource radius-sm}" />
+        </FocusAdornerTemplate>
+      </Setter>
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Name="ExpanderHeaderRow" Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" Padding="{TemplateBinding Padding}">
+            <DockPanel>
+              <Viewbox Name="ExpanderChevron" DockPanel.Dock="Left" Width="10" Height="10" Margin="0,0,8,0" VerticalAlignment="Center">
+                <icons:Icon Source="{x:Static icons:AppIcons.Chevron}" />
+              </Viewbox>
+              <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"
+                                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+            </DockPanel>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+      <Style Selector="^:checked /template/ Viewbox#ExpanderChevron">
+        <Setter Property="RenderTransform" Value="rotate(90deg)" />
+      </Style>
+      <Style Selector="^:pointerover">
+        <Setter Property="Background" Value="{DynamicResource text.brush.3}" />
+        <Setter Property="Foreground" Value="{DynamicResource text.brush}" />
+      </Style>
+    </ControlTheme>
+    <ControlTheme x:Key="{x:Type Expander}" TargetType="Expander">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Stretch" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}">
+            <DockPanel>
+              <ToggleButton Name="ExpanderHeader" DockPanel.Dock="Top" Theme="{StaticResource ExpanderHeaderTheme}"
+                            IsChecked="{TemplateBinding IsExpanded, Mode=TwoWay}" Content="{TemplateBinding Header}" ContentTemplate="{TemplateBinding HeaderTemplate}" />
+              <Border Name="ExpanderContent" IsVisible="{TemplateBinding IsExpanded}">
+                <ContentPresenter Name="PART_ContentPresenter" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" Padding="{TemplateBinding Padding}"
+                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+              </Border>
+            </DockPanel>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
+  </Styles.Resources>
+
+  <!-- Thin, quiet scrollbars: a 9 px thumb in the line colour, inset 2 px. -->
+  <Style Selector="ScrollBar">
+    <Setter Property="AllowAutoHide" Value="True" />
+  </Style>
+  <Style Selector="ScrollBar /template/ Thumb">
+    <Setter Property="Background" Value="{DynamicResource line.brush}" />
+  </Style>
+  <Style Selector="ScrollBar /template/ Thumb:pointerover">
+    <Setter Property="Background" Value="{DynamicResource raised.brush}" />
+  </Style>
+
+  <!-- Toasts: the card surface with the border and the large radius. -->
+  <Style Selector="NotificationCard">
+    <Setter Property="Background" Value="{DynamicResource color-popover.brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource color-popover-foreground.brush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource color-border.brush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-lg}" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-control}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-control}" />
+  </Style>
+  <!-- Badge: a chip as high as the extra-small button, 2 px by 8 px padding, 12 px medium text, the small radius. -->
+  <Style Selector="ContentControl.badge">
+    <Setter Property="MinHeight" Value="{DynamicResource control-h-xs}" />
+    <Setter Property="Padding" Value="8,2" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-secondary}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-secondary}" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-sm}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Background" Value="{DynamicResource color-primary.brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource color-primary-foreground.brush}" />
+  </Style>
+  <Style Selector="ContentControl.badge.secondary">
+    <Setter Property="Background" Value="{DynamicResource color-secondary.brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource color-secondary-foreground.brush}" />
+  </Style>
+  <Style Selector="ContentControl.badge.outline">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource color-border.brush.60}" />
+    <Setter Property="Foreground" Value="{DynamicResource color-foreground.brush}" />
+  </Style>
+  <Style Selector="ContentControl.badge.destructive">
+    <Setter Property="Background" Value="{DynamicResource color-destructive.brush}" />
+    <Setter Property="Foreground" Value="White" />
+  </Style>
+  <Style Selector=":is(Decorator).spinner">
+    <Setter Property="TextElement.Foreground" Value="{DynamicResource muted.brush}" />
+  </Style>
+
+  <!-- Dialogs: the background surface, a border, the large radius, 24 px padding and 16 px between parts; the
+       backdrop is black at half opacity. A dialog stays inside the window less 48 px and scrolls inside. -->
+  <Style Selector="Border.modal-backdrop">
+    <Setter Property="Background" Value="#80000000" />
+  </Style>
+  <Style Selector="Border.sheet, Border.alert-dialog">
+    <Setter Property="Background" Value="{DynamicResource color-background.brush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource color-border.brush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-lg}" />
+    <Setter Property="Padding" Value="24" />
+    <Setter Property="BoxShadow" Value="0 10 15 -3 #1A000000, 0 4 6 -4 #1A000000" />
+    <Setter Property="MaxWidth" Value="512" />
+    <Setter Property="Margin" Value="24" />
+  </Style>
+  <Style Selector="Border.system-dashboard">
+    <Setter Property="Width" Value="1120" />
+    <Setter Property="MaxWidth" Value="1120" />
+  </Style>
+  <Style Selector="TextBlock.dialog-title">
+    <Setter Property="FontSize" Value="{DynamicResource font-size-heading-3}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-heading-3}" />
+  </Style>
+  <Style Selector="TextBlock.dialog-description">
+    <Setter Property="FontFamily" Value="{DynamicResource font-control}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-control}" />
+    <Setter Property="Foreground" Value="{DynamicResource color-muted-foreground.brush}" />
+  </Style>
+  <Style Selector="Button.dialog-close">
+    <Setter Property="Opacity" Value="0.7" />
+    <Setter Property="Width" Value="24" />
+    <Setter Property="Height" Value="24" />
+    <Setter Property="VerticalAlignment" Value="Top" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.dialog-close:pointerover">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector=":is(Control).dialog-footer">
+    <Setter Property="Margin" Value="0,16,0,0" />
+  </Style>
+  <Style Selector=":is(Control).dialog-header">
+    <Setter Property="Margin" Value="0,0,0,16" />
+  </Style>
+  <!-- Settings: a layer over the whole window, the sections on a muted strip at the left and the chosen section beside
+       it, which scrolls as one area under its title. -->
+  <Style Selector="Border.settings-view">
+    <Setter Property="Background" Value="{DynamicResource color-background.brush}" />
+  </Style>
+  <Style Selector="ScrollViewer.settings-sidebar">
+    <Setter Property="Width" Value="240" />
+    <Setter Property="Background" Value="{DynamicResource color-muted.brush}" />
+    <Setter Property="Padding" Value="12,16" />
+  </Style>
+  <Style Selector="TextBlock.settings-nav-group">
+    <Setter Property="FontFamily" Value="{DynamicResource font-small}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-small}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource muted.brush}" />
+    <Setter Property="Margin" Value="6,10,0,4" />
+  </Style>
+  <Style Selector="ToggleButton.settings-nav">
+    <Setter Property="MinHeight" Value="{DynamicResource control-h}" />
+    <Setter Property="Padding" Value="8,2" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-control}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-control}" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-md}" />
+    <Setter Property="Foreground" Value="{DynamicResource color-muted-foreground.brush}" />
+  </Style>
+  <Style Selector="ToggleButton.settings-nav:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource color-foreground.brush}" />
+  </Style>
+  <Style Selector="ToggleButton.settings-nav:checked /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource color-background.brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource color-foreground.brush}" />
+  </Style>
+  <Style Selector="DockPanel.settings-header">
+    <Setter Property="Margin" Value="32,24,32,16" />
+  </Style>
+  <Style Selector="TextBlock.settings-title">
+    <Setter Property="FontFamily" Value="{DynamicResource font-heading-2}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-heading-2}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="TextBlock.settings-subtitle">
+    <Setter Property="FontFamily" Value="{DynamicResource font-secondary}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-secondary}" />
+    <Setter Property="Foreground" Value="{DynamicResource muted.brush}" />
+  </Style>
+  <Style Selector="ScrollViewer.settings-content">
+    <Setter Property="Padding" Value="32,0,32,32" />
+  </Style>
+  <Style Selector="ScrollViewer.settings-content > :is(Control)">
+    <Setter Property="MaxWidth" Value="900" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+  </Style>
+  <!-- A row of controls centres each child on its line. -->
+  <Style Selector="WrapPanel.control-row > :is(Control)">
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <!-- A settings row: the name, a "changed" mark and one line of help at the left, its control at the right. -->
+  <Style Selector="Grid.setting-line">
+    <Setter Property="Margin" Value="0,8" />
+  </Style>
+  <Style Selector="TextBlock.setting-name">
+    <Setter Property="FontFamily" Value="{DynamicResource font-title}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-title}" />
+    <Setter Property="FontWeight" Value="Medium" />
+  </Style>
+  <Style Selector="TextBlock.setting-help, TextBlock.setting-unit">
+    <Setter Property="FontFamily" Value="{DynamicResource font-secondary}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-secondary}" />
+    <Setter Property="Foreground" Value="{DynamicResource muted.brush}" />
+  </Style>
+  <Style Selector="TextBlock.setting-unit">
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="TextBlock.setting-changed">
+    <Setter Property="FontFamily" Value="{DynamicResource font-small}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-small}" />
+    <Setter Property="Foreground" Value="{DynamicResource color-primary.brush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="TextBlock.settings-group-title">
+    <Setter Property="Margin" Value="0,4,0,0" />
+  </Style>
+  <Style Selector="Button.settings-link">
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+  </Style>
+  <Style Selector="Button.settings-result">
+    <Setter Property="Padding" Value="8,6" />
+  </Style>
+  <!-- Appearance: a theme card is a 176 px box holding its four colours as a 28 px strip, its name, and its marks; the
+       theme in use has the accent border. -->
+  <Style Selector="Border.theme-card">
+    <Setter Property="Width" Value="176" />
+    <Setter Property="Padding" Value="4" />
+    <Setter Property="BorderBrush" Value="{DynamicResource line.brush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-lg}" />
+  </Style>
+  <Style Selector="Border.theme-card.active">
+    <Setter Property="BorderBrush" Value="{DynamicResource accent.brush}" />
+  </Style>
+  <Style Selector="Button.theme-card-choose">
+    <Setter Property="Height" Value="NaN" />
+    <Setter Property="Padding" Value="6" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+  </Style>
+  <Style Selector="Border.theme-swatches">
+    <Setter Property="Height" Value="28" />
+    <Setter Property="BorderBrush" Value="{DynamicResource line.brush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
+  <Style Selector="TextBlock.theme-card-name">
+    <Setter Property="FontFamily" Value="{DynamicResource font-secondary}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-secondary}" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    <Setter Property="TextWrapping" Value="NoWrap" />
+  </Style>
+  <Style Selector="WrapPanel.theme-card-marks">
+    <Setter Property="Margin" Value="6,0,6,4" />
+  </Style>
+  <!-- Appearance text: the "Apply to" switcher's buttons are the small control height with 10 px sides, the font
+       dropdowns 240 px wide, the section name box 160 px, and the preview a bordered panel. -->
+  <Style Selector="ToggleButton.appearance-target">
+    <Setter Property="Height" Value="{DynamicResource control-h-sm}" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-control}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-control}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource color-input.brush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-md}" />
+  </Style>
+  <Style Selector="ComboBox.appearance-more">
+    <Setter Property="MinWidth" Value="120" />
+  </Style>
+  <Style Selector="ComboBox.appearance-font">
+    <Setter Property="Width" Value="240" />
+  </Style>
+  <Style Selector="TextBox.appearance-section-name">
+    <Setter Property="Width" Value="160" />
+  </Style>
+  <Style Selector="WrapPanel.appearance-stepper > TextBlock.appearance-size">
+    <Setter Property="MinWidth" Value="64" />
+    <Setter Property="TextAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Border.appearance-preview">
+    <Setter Property="Margin" Value="0,12,0,0" />
+    <Setter Property="Padding" Value="16" />
+    <Setter Property="BorderBrush" Value="{DynamicResource line.brush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-lg}" />
+    <Setter Property="Background" Value="{DynamicResource panel.brush}" />
+  </Style>
+  <Style Selector="TextBlock.appearance-preview-code">
+    <Setter Property="FontFamily" Value="{DynamicResource font-code}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-code}" />
+  </Style>
+  <Style Selector="TextBlock.appearance-preview-secondary">
+    <Setter Property="FontFamily" Value="{DynamicResource font-secondary}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-secondary}" />
+  </Style>
+  <Style Selector="TextBlock.h3">
+    <Setter Property="FontFamily" Value="{DynamicResource font-heading-4}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-heading-4}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="TextBlock.h4">
+    <Setter Property="FontFamily" Value="{DynamicResource font-heading-5}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-heading-5}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="TextBlock.note">
+    <Setter Property="FontFamily" Value="{DynamicResource font-secondary}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-secondary}" />
+    <Setter Property="Foreground" Value="{DynamicResource muted.brush}" />
+    <Setter Property="LineHeight" Value="18" />
+  </Style>
+  <Style Selector="TextBlock.settings-note, TextBlock.settings-empty">
+    <Setter Property="FontFamily" Value="{DynamicResource font-secondary}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-secondary}" />
+    <Setter Property="Foreground" Value="{DynamicResource muted.brush}" />
+  </Style>
+  <Style Selector="TextBlock.declared-secret-state">
+    <Setter Property="FontFamily" Value="{DynamicResource font-small}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-small}" />
+    <Setter Property="Foreground" Value="{DynamicResource muted.brush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="TextBlock.plugin-problem">
+    <Setter Property="Foreground" Value="{DynamicResource color-destructive.brush}" />
+  </Style>
+  <Style Selector="StackPanel.declared-secret, Grid.driver-variant">
+    <Setter Property="Margin" Value="0,0,0,0" />
+  </Style>
+  <Style Selector="StackPanel.declared-secret">
+    <Setter Property="Margin" Value="0,8" />
+  </Style>
+  <Style Selector="Grid.driver-variant">
+    <Setter Property="Margin" Value="0,12" />
+  </Style>
+
+  <!-- A bordered list row, such as a granted path or a blocked action: 5 px by 9 px padding, the line border, the
+       window background, a 6 px radius. -->
+  <Style Selector="Border.list-row">
+    <Setter Property="Padding" Value="9,5" />
+    <Setter Property="BorderBrush" Value="{DynamicResource line.brush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Background" Value="{DynamicResource bg.brush}" />
+  </Style>
+  <Style Selector="TextBlock.path">
+    <Setter Property="FontFamily" Value="{DynamicResource font-code}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-code}" />
+    <Setter Property="Foreground" Value="{DynamicResource muted.brush}" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    <Setter Property="TextWrapping" Value="NoWrap" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="TextBlock.path.provider">
+    <Setter Property="FontFamily" Value="{DynamicResource font-body}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-secondary}" />
+    <Setter Property="Foreground" Value="{DynamicResource text.brush}" />
+  </Style>
+  <Style Selector="TextBlock.paths-none">
+    <Setter Property="FontFamily" Value="{DynamicResource font-secondary}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-secondary}" />
+    <Setter Property="Foreground" Value="{DynamicResource faint.brush}" />
+  </Style>
+
+  <!-- The add-connection step strip: each step muted, the step the person is on in the text colour. -->
+  <Style Selector="WrapPanel.connection-steps > TextBlock">
+    <Setter Property="FontFamily" Value="{DynamicResource font-secondary}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-secondary}" />
+    <Setter Property="Foreground" Value="{DynamicResource muted.brush}" />
+  </Style>
+  <Style Selector="WrapPanel.connection-steps > TextBlock.current">
+    <Setter Property="Foreground" Value="{DynamicResource text.brush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <!-- Model usage: a numeric table with a hairline above each row. -->
+  <Style Selector="Grid.usage-row">
+    <Setter Property="Margin" Value="0,7" />
+  </Style>
+  <Style Selector="Grid.usage-row > TextBlock">
+    <Setter Property="FontFamily" Value="{DynamicResource font-title}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-title}" />
+  </Style>
+  <Style Selector="Grid.usage-head > TextBlock">
+    <Setter Property="FontFamily" Value="{DynamicResource font-small}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-small}" />
+    <Setter Property="Foreground" Value="{DynamicResource muted.brush}" />
+  </Style>
+  <Style Selector="TextBlock.usage-model">
+    <Setter Property="FontFamily" Value="{DynamicResource font-code}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-code}" />
+  </Style>
+
+  <!-- Base instructions: one bordered box, a row per document with a hairline between. -->
+  <Style Selector="Border.base-instructions-box">
+    <Setter Property="BorderBrush" Value="{DynamicResource line.brush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+  </Style>
+  <Style Selector="Grid.base-instructions-row">
+    <Setter Property="Margin" Value="14,12" />
+  </Style>
+  <Style Selector="TextBlock.base-instructions-name">
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="TextBlock.base-instructions-desc">
+    <Setter Property="FontFamily" Value="{DynamicResource font-secondary}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-secondary}" />
+    <Setter Property="Foreground" Value="{DynamicResource muted.brush}" />
+  </Style>
+
+  <!-- Model list lines, drawn by ModelOption.View in both model pickers: one text size, headers set apart by weight and colour. -->
+  <Style Selector="TextBlock.model-section-header">
+    <Setter Property="Foreground" Value="{DynamicResource faint.brush}" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-control}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-control}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LetterSpacing" Value="0.2" />
+  </Style>
+  <Style Selector="TextBlock.model-section-note, TextBlock.model-availability">
+    <Setter Property="Foreground" Value="{DynamicResource faint.brush}" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-control}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-control}" />
+  </Style>
+  <Style Selector="TextBlock.model-availability.unavailable">
+    <Setter Property="Foreground" Value="{DynamicResource danger.brush}" />
+  </Style>
+
+  <!-- The command palette: 560 px on the panel colour with a 12 px radius and a deep shadow, raised above centre. -->
+  <Style Selector="Border.palette">
+    <Setter Property="Width" Value="560" />
+    <Setter Property="MaxWidth" Value="560" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Margin" Value="24,0,24,120" />
+    <Setter Property="Background" Value="{DynamicResource panel.brush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource line.brush}" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="BoxShadow" Value="0 20 56 0 #80000000" />
+  </Style>
+  <Style Selector="TextBlock.palette-label">
+    <Setter Property="FontFamily" Value="{DynamicResource font-title}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-title}" />
+  </Style>
+  <Style Selector="TextBlock.palette-detail">
+    <Setter Property="FontFamily" Value="{DynamicResource font-small}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-small}" />
+    <Setter Property="Foreground" Value="{DynamicResource faint.brush}" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    <Setter Property="HorizontalAlignment" Value="Right" />
+  </Style>
+
+  <!-- Failure cards: the raised colour with a 3 px danger stripe. -->
+  <Style Selector="Border.surface-failure-card, Border.region-failure-card">
+    <Setter Property="Margin" Value="12" />
+    <Setter Property="Padding" Value="16,12" />
+    <Setter Property="BorderBrush" Value="{DynamicResource danger.brush}" />
+    <Setter Property="BorderThickness" Value="3,1,1,1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius}" />
+    <Setter Property="Background" Value="{DynamicResource raised.brush}" />
+  </Style>
+  <Style Selector="TextBlock.surface-failure-title">
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="TextBlock.surface-failure-version, TextBlock.surface-failure-sentence">
+    <Setter Property="Foreground" Value="{DynamicResource muted.brush}" />
+  </Style>
+  <Style Selector="TextBlock.surface-failure-error">
+    <Setter Property="Foreground" Value="{DynamicResource danger.brush}" />
+  </Style>
+  <Style Selector="SelectableTextBlock.surface-failure-stack">
+    <Setter Property="Background" Value="{DynamicResource bg.brush}" />
+    <Setter Property="Foreground" Value="{DynamicResource faint.brush}" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-secondary}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-secondary}" />
+    <Setter Property="Padding" Value="8" />
+    <Setter Property="MaxHeight" Value="256" />
+  </Style>
+
+  <!-- The quota ring pulses while a reading is in progress. -->
+  <Style Selector="controls|QuotaRing.quota-updating">
+    <Style.Animations>
+      <Animation Duration="0:0:1.6" IterationCount="Infinite" Easing="SineEaseInOut">
+        <KeyFrame Cue="0%"><Setter Property="Opacity" Value="1" /></KeyFrame>
+        <KeyFrame Cue="50%"><Setter Property="Opacity" Value="0.45" /></KeyFrame>
+        <KeyFrame Cue="100%"><Setter Property="Opacity" Value="1" /></KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+
+  <!-- A round status light: a dot whose colour and glow follow the light. -->
+  <Style Selector="Decorator.status-light Ellipse.status-dot">
+    <Setter Property="Fill" Value="{DynamicResource color-muted.brush}" />
+  </Style>
+  <Style Selector="Decorator.status-light.light-active Ellipse.status-dot">
+    <Setter Property="Fill" Value="{DynamicResource color-success.brush}" />
+  </Style>
+  <Style Selector="Decorator.status-light.light-active Border.status-glow">
+    <Setter Property="BoxShadow" Value="0 0 11 3 #9922c55e" />
+  </Style>
+  <Style Selector="Decorator.status-light.light-failed Ellipse.status-dot">
+    <Setter Property="Fill" Value="{DynamicResource color-destructive.brush}" />
+  </Style>
+  <Style Selector="Decorator.status-light.light-failed Border.status-glow">
+    <Setter Property="BoxShadow" Value="0 0 12 3 #aad66868" />
+  </Style>
+  <Style Selector="Decorator.status-light.light-fallback Ellipse.status-dot">
+    <Setter Property="Fill" Value="{DynamicResource color-warning.brush}" />
+  </Style>
+  <Style Selector="Decorator.status-light.light-fallback Border.status-glow">
+    <Setter Property="BoxShadow" Value="0 0 10 3 #b3eab308" />
+  </Style>
+  <Style Selector="Decorator.status-light.light-busy Ellipse.status-dot">
+    <Setter Property="Fill" Value="{DynamicResource color-info.brush}" />
+  </Style>
+</Styles>
