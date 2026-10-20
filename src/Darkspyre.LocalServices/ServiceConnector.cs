@@ -37,16 +37,28 @@ public sealed class ServiceConnector : IServiceConnector
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(ServiceProtocol.ConnectDeadline);
         using IServiceInstallation installation = this.platform.OpenInstallation(this.registration);
+        ServiceProtocolException? incompatible = null;
         try
         {
             while (true)
             {
                 deadline.Token.ThrowIfCancellationRequested();
-                ServiceSubscription? connected = await TryConnectAsync(installation, deadline.Token).ConfigureAwait(false);
+                ServiceSubscription? connected = null;
+                try
+                {
+                    connected = await TryConnectAsync(installation, deadline.Token).ConfigureAwait(false);
+                    incompatible = null;
+                }
+                catch (ServiceProtocolException error) when (error.Code == ServiceErrorCode.IncompatibleProtocol)
+                {
+                    // Discovery can outlive an owner that ran another protocol, and a new owner replaces it only when it
+                    // publishes. The loop launches or waits as for a missing owner; the deadline reports a mismatch that stays.
+                    incompatible = error;
+                }
                 if (connected is not null) return connected;
                 ServiceLaunchReservation reservation = await installation.TryReserveLaunchAsync(deadline.Token).ConfigureAwait(false);
                 if (reservation.Decision == ServiceLaunchDecision.Exhausted)
-                    throw new ServiceProtocolException(ServiceErrorCode.Unavailable);
+                    throw incompatible ?? new ServiceProtocolException(ServiceErrorCode.Unavailable);
                 if (reservation.Decision == ServiceLaunchDecision.Reserved)
                 {
                     Guid attempt = reservation.AttemptId!.Value;
@@ -68,7 +80,7 @@ public sealed class ServiceConnector : IServiceConnector
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            throw new ServiceProtocolException(ServiceErrorCode.Unavailable);
+            throw incompatible ?? new ServiceProtocolException(ServiceErrorCode.Unavailable);
         }
     }
 
