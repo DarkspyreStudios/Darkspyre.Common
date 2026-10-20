@@ -182,9 +182,13 @@ closure or corruption recovery.
 
 `ServiceConnector` takes a trusted installed registration and a subscriber-library launch observer.
 It authenticates and subscribes to an existing protocol/store/layout-compatible owner even when another
-package is preferred. Store/layout, authentication, permissions and malformed metadata fail closed.
+package is preferred. A store mismatch, authentication, permissions and malformed metadata fail closed.
 Only transport loss before subscription returns and explicit Unavailable/ServiceDraining responses retry.
-No business request is part of this loop. Cancellation never kills a backend or revokes another client.
+An IncompatibleProtocol answer (another family or protocol in discovery, a handshake or a layout mismatch) is
+treated as no owner: the loop reserves and launches as usual. Discovery can outlive an owner that ran another
+protocol, and the launched owner replaces it when it publishes. When the connect deadline passes and the last
+answer was IncompatibleProtocol, the connector throws that error, not Unavailable, so a live owner of another
+protocol is still reported. No business request is part of this loop. Cancellation never kills a backend or revokes another client.
 
 When no owner is available, the connector reserves a launch, pins the preferred verified package and
 spawns its registered arguments. The child inherits the pin. The observation callback must consume
