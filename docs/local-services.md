@@ -369,20 +369,22 @@ tool in the subscriber's configuration, so a Release build of a solution that do
 command inventories the built service output and writes `manifest.json` and `ServicePackageMetadata.cs`, which carries
 the `<prefix>.LayoutId` and `<prefix>.ClientBuildDigest` assembly metadata. The client digest covers the manifest and
 the hashes of the subscriber's compile inputs and references. The payload is copied to `<folder>/payload/` and the
-manifest to `<folder>/manifest.json` beside the subscriber, for builds and no-build publishes. After each build,
-`build/LocalServices/EmptyServiceDirectories.targets` removes folders without files from `<folder>/payload/` in the
-project's output, because incremental clean deletes files of an earlier payload layout but not their folders.
-`SubscriberPackage.targets` imports it for subscribers; a project that only copies a subscriber's payload sets
-`LocalServicePackageFolder` and imports it to get the same cleanup. The folder's last
-segment must be `service`: the packaging tool's `finalize` command, run by Mac signing, refreshes every
-`service/manifest.json` from its signed `payload/`.
+manifest to `<folder>/manifest.json` beside the subscriber, for builds and no-build publishes.
 
-A repository whose projects reference a service's libraries imports `build/LocalServices/LocalServiceConsumer.targets`
-once, from its `Directory.Build.targets`. Agent-ds, AgentDSPlugins, Inference and Search do, and Darkspyre.Common does
-for its own libraries' references. A solution build unsets Configuration and Platform for a referenced project outside
-the solution, which would build the LocalServices libraries in Debug under a Release consumer. The file sets
-`ShouldUnsetParentConfigurationAndPlatform` to false for every project of the repository, so those libraries build in
-the consumer's configuration.
+A repository whose projects reference a service's libraries or receive a subscriber's payload imports
+`build/LocalServices/LocalServiceConsumer.targets` once, from its `Directory.Build.targets`. Agent-ds, AgentDSPlugins,
+Inference and Search do, and Darkspyre.Common does for its own libraries' references. The file applies to every project
+of the repository:
+
+- A solution build unsets Configuration and Platform for a referenced project outside the solution, which would build
+  the LocalServices libraries in Debug under a Release consumer. The file sets
+  `ShouldUnsetParentConfigurationAndPlatform` to false, so those libraries build in the consumer's configuration.
+- After each build, `RemoveEmptyLocalServiceDirectories` removes folders without files from `<folder>/payload/` in the
+  project's output, because incremental clean deletes files of an earlier payload layout but not their folders. The
+  folder is the project's `LocalServicePackageFolder`, or `service` in a project that only copies the payload.
+
+The folder's last segment must be `service`: the packaging tool's `finalize` command, run by Mac signing, refreshes every
+`service/manifest.json` from its signed `payload/`.
 
 ## Wire documentation
 

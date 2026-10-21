@@ -1,13 +1,35 @@
 <Project>
   <!--
-    Build behaviour for every project that references a local service's libraries. A repository imports this file once,
-    from its Directory.Build.targets, so no project needs its own import.
+    Build behaviour for every project that references a local service's libraries or receives its payload. A repository
+    imports this file once, from its Directory.Build.targets, so no project needs its own import.
 
     Configuration: a solution build unsets Configuration and Platform for a referenced project that is not in the
     solution, so the Darkspyre.LocalServices libraries would build in Debug under a Release consumer. The consumer's
     values flow on instead.
+
+    Payload: copying a service payload creates only the folders that hold files, and IncrementalClean deletes files it
+    wrote earlier but not their folders, so a folder from an earlier payload layout would stay and differ from the
+    manifest's inventory. The target removes folders without files from <OutDir>/<LocalServicePackageFolder>/payload,
+    where LocalServicePackageFolder is the subscriber's setting and "service" in a project that only receives the payload.
   -->
   <PropertyGroup>
     <ShouldUnsetParentConfigurationAndPlatform>false</ShouldUnsetParentConfigurationAndPlatform>
   </PropertyGroup>
+
+  <Target Name="RemoveEmptyLocalServiceDirectories" AfterTargets="IncrementalClean">
+    <PropertyGroup>
+      <_LocalServicePayloadFolder>$(LocalServicePackageFolder)</_LocalServicePayloadFolder>
+      <_LocalServicePayloadFolder Condition="'$(_LocalServicePayloadFolder)' == ''">service</_LocalServicePayloadFolder>
+      <_LocalServicePayloadRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(OutDir)', '$(_LocalServicePayloadFolder)', 'payload'))</_LocalServicePayloadRoot>
+      <_LocalServicePayloadDirectories Condition="Exists('$(_LocalServicePayloadRoot)')">$([System.IO.Directory]::GetDirectories('$(_LocalServicePayloadRoot)', '*', System.IO.SearchOption.AllDirectories))</_LocalServicePayloadDirectories>
+    </PropertyGroup>
+    <ItemGroup Condition="'$(_LocalServicePayloadDirectories)' != ''">
+      <_LocalServicePayloadDirectory Include="$(_LocalServicePayloadDirectories)" />
+      <_LocalServicePayloadDirectory Update="@(_LocalServicePayloadDirectory)">
+        <Files>$([System.IO.Directory]::GetFiles('%(FullPath)', '*', System.IO.SearchOption.AllDirectories))</Files>
+      </_LocalServicePayloadDirectory>
+      <_LocalServiceEmptyDirectory Include="@(_LocalServicePayloadDirectory)" Condition="'%(Files)' == ''" />
+    </ItemGroup>
+    <RemoveDir Directories="@(_LocalServiceEmptyDirectory)" />
+  </Target>
 </Project>
