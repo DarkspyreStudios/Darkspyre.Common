@@ -369,7 +369,11 @@ tool in the subscriber's configuration, so a Release build of a solution that do
 command inventories the built service output and writes `manifest.json` and `ServicePackageMetadata.cs`, which carries
 the `<prefix>.LayoutId` and `<prefix>.ClientBuildDigest` assembly metadata. The client digest covers the manifest and
 the hashes of the subscriber's compile inputs and references. The payload is copied to `<folder>/payload/` and the
-manifest to `<folder>/manifest.json` beside the subscriber, for builds and no-build publishes. The folder's last
+manifest to `<folder>/manifest.json` beside the subscriber, for builds and no-build publishes. After each build,
+`build/LocalServices/EmptyServiceDirectories.targets` removes folders without files from `<folder>/payload/` in the
+project's output, because incremental clean deletes files of an earlier payload layout but not their folders.
+`SubscriberPackage.targets` imports it for subscribers; a project that only copies a subscriber's payload sets
+`LocalServicePackageFolder` and imports it to get the same cleanup. The folder's last
 segment must be `service`: the packaging tool's `finalize` command, run by Mac signing, refreshes every
 `service/manifest.json` from its signed `payload/`.
 

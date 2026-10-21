@@ -1,0 +1,22 @@
+<Project>
+  <!--
+    Removes directories without files from the service payload beside a project's output. Copying a payload creates
+    only the folders that hold files, and IncrementalClean deletes files it wrote earlier but not their folders, so a
+    folder from an earlier payload layout would stay and differ from the manifest's inventory. The importing project
+    sets LocalServicePackageFolder (SubscriberPackage.targets imports this file for subscribers).
+  -->
+  <Target Name="RemoveEmptyLocalServiceDirectories" AfterTargets="IncrementalClean" Condition="'$(LocalServicePackageFolder)' != ''">
+    <PropertyGroup>
+      <_LocalServicePayloadRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(OutDir)', '$(LocalServicePackageFolder)', 'payload'))</_LocalServicePayloadRoot>
+      <_LocalServicePayloadDirectories Condition="Exists('$(_LocalServicePayloadRoot)')">$([System.IO.Directory]::GetDirectories('$(_LocalServicePayloadRoot)', '*', System.IO.SearchOption.AllDirectories))</_LocalServicePayloadDirectories>
+    </PropertyGroup>
+    <ItemGroup Condition="'$(_LocalServicePayloadDirectories)' != ''">
+      <_LocalServicePayloadDirectory Include="$(_LocalServicePayloadDirectories)" />
+      <_LocalServicePayloadDirectory Update="@(_LocalServicePayloadDirectory)">
+        <Files>$([System.IO.Directory]::GetFiles('%(FullPath)', '*', System.IO.SearchOption.AllDirectories))</Files>
+      </_LocalServicePayloadDirectory>
+      <_LocalServiceEmptyDirectory Include="@(_LocalServicePayloadDirectory)" Condition="'%(Files)' == ''" />
+    </ItemGroup>
+    <RemoveDir Directories="@(_LocalServiceEmptyDirectory)" />
+  </Target>
+</Project>

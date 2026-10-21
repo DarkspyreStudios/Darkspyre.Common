@@ -8,6 +8,8 @@
       LocalServicePackageFolder   the folder beside the subscriber that holds manifest.json and payload/; its last
                                   segment must be "service", which the signing manifest refresh looks for
   -->
+  <Import Project="EmptyServiceDirectories.targets" />
+
   <PropertyGroup>
     <_LocalServicePackagingProject>$(MSBuildThisFileDirectory)../Darkspyre.LocalServices.Packaging/Darkspyre.LocalServices.Packaging.csproj</_LocalServicePackagingProject>
   </PropertyGroup>
