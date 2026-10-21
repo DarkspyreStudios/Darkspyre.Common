@@ -5,8 +5,12 @@ Shared libraries for Darkspyre applications. Each library is its own project and
 
 Consumers build these libraries from source. A consuming repository sets `DarkspyreCommonSourceRoot` to a
 Darkspyre.Common checkout and imports `eng/SourceReferences.targets` from its `Directory.Build.targets`; each
-`Darkspyre.Common.*` and `Darkspyre.Agent.Common.UI` `PackageReference` then becomes a `ProjectReference` with its asset
-metadata kept. No package is published.
+`Darkspyre.Common.*`, `Darkspyre.Agent.Common.UI` and `Darkspyre.Mobile.*` `PackageReference` then becomes a
+`ProjectReference` with its asset metadata kept. No package is published.
+
+`Darkspyre.Common.slnx` builds every library except `Darkspyre.Mobile.Maui`, on macOS, Linux and Windows, from this
+repository alone. `Darkspyre.Mobile.slnx` builds `Darkspyre.Mobile.Maui`; it needs the .NET MAUI iOS workload and the
+sibling `oauth-broker` and `SecureStore` worktrees, which only that project imports. Missing source fails its build.
 
 ## Darkspyre.Common.Git
 
@@ -198,6 +202,39 @@ load context of `Darkspyre.Common.Pdf.Pdfium.dll`. No portable code checks the o
 `three-pages-protected.pdf` (password `secret`). The test project references the three PDFium native packages, and the
 runtime picks its own native file. The test class carries the three `SupportedOSPlatform` attributes.
 
+## Darkspyre.Common.Markdown
+
+The one Markdown safety policy every Darkspyre surface parses with. It references only Markdig and no UI framework. The
+desktop's `MarkdownViewer` and the mobile `MarkdownView` both build their pipelines from it.
+
+### Starting it
+
+```csharp
+MarkdownPipelineBuilder builder = MarkdownSafety.CreateBuilder(linkSource); // null: the allow-list alone
+builder.Extensions.Add(new MyRendererExtension());                         // the caller's own extensions
+MarkdownPipeline pipeline = MarkdownSafety.Build(builder);                  // turns HTML off and builds
+```
+
+### Behaviour
+
+- `CreateBuilder` takes Markdig's advanced preset without `GenericAttributesExtension` and `MediaLinkExtension`, so
+  Markdown cannot add attributes such as `{onclick=x}` or embed players, and adds the link check. `Build` applies
+  `DisableHtml`, so raw HTML is parsed as text, and builds the pipeline.
+- `MarkdownSafety.IsAllowedTarget` allows an absolute http or https address with a host, a mailto address, and a
+  relative path. It refuses an empty target, one with surrounding white space, a control character, `"`, `<`, `>` or
+  `\`, and one starting `//`.
+- Without a link source, a refused link or image target is emptied, so it cannot be followed or loaded, and a refused
+  autolink such as `<javascript:alert(1)>` keeps no address.
+- With an `IMarkdownLinkSource`, an http, https or mailto target is still checked by `IsAllowedTarget`, and every other
+  target is a link only when the source's `Accepts` is true. A refused link shows as its own text, a refused image is
+  emptied and a refused autolink becomes literal text. `MarkdownLinkSpan` is the span a source's `Find` returns; the
+  desktop viewer uses `Find` to add links to plain text.
+
+### Tests
+
+`tests/Darkspyre.Common.Markdown.Tests` parses links, autolinks and an attribute block with the pipeline and checks that
+only web and mail links keep their targets and that no attribute reaches the HTML.
+
 ## Darkspyre.Agent.Common.UI
 
 One library of shared Avalonia UI that any Darkspyre application can reference. It references no agent-ds project.
@@ -212,7 +249,7 @@ Each folder is its own namespace, `Darkspyre.Agent.Common.UI.<folder>`:
 | `.Composition` | `CompositionTarget`, `CompositionSlot`, `ICompositionPresenter`, `SurfaceScopeContext`, `AppearanceSection`, `IAppearanceSectionRegistry` |
 | `.Themes` | `CommonTheme`, holding `ControlStyles` |
 | `.Code` | `SourceView`, `DiffView`, `DiffViewMode`, and `TextDiff` with its line types |
-| `.Markdown` | `MarkdownViewer`, `IMarkdownLinkSource`, `CopyFeedback`, the Mermaid renderer |
+| `.Markdown` | `MarkdownViewer`, `CopyFeedback`, the Mermaid renderer |
 | `.Pdf` | `PdfViewer`, `PdfZoom` |
 | `.Terminal` | `TerminalView` |
 
@@ -294,8 +331,8 @@ markers take `font-body` at `font-size-body`, a heading of level N takes `font-h
 and inline code and code blocks take `font-code` at `font-size-code`. LiveMarkdown classes heading text
 `Heading1` to `Heading6`, the other text `ParagraphBlock`, and list markers `ListBlockBullet` and `ListBlockNumber`.
 
-- **`MarkdownViewer`** renders Markdown through LiveMarkdown. Raw HTML is shown as text; generic attributes and media
-  embeds are off. A link or image target that is not an absolute http or https address with a host, a mailto address
+- **`MarkdownViewer`** renders Markdown through LiveMarkdown with the policy of `Darkspyre.Common.Markdown`. Raw HTML is
+  shown as text; generic attributes and media embeds are off. A link or image target that is not an absolute http or https address with a host, a mailto address
   or a relative path is emptied, so it cannot be followed or loaded. Activating an allowed link raises `LinkActivated`;
   the viewer opens nothing itself. A caller that sets `LinkSource` (an `IMarkdownLinkSource`) gets its own parse
   pipeline: an http, https or mailto target is still checked as above, every other target is a link only when the
@@ -318,7 +355,8 @@ and inline code and code blocks take `font-code` at `font-size-code`. LiveMarkdo
   drawn again when the theme changes their colours or font, and not for a resource change that leaves them as they
   were. The colour tokens are read whole on each resource or theme change and handed to LiveMarkdown as one resource
   dictionary, only when a colour differs, so a change restyles the rendered text once and an unrelated one not at all
-  ([DSA-1102](https://darkspyre.atlassian.net/browse/DSA-1102)).
+  ([DSA-1102](https://darkspyre.atlassian.net/browse/DSA-1102)). The pipeline is `MarkdownSafety.CreateBuilder` with
+  the viewer's Mermaid fences, its link-source links and LiveMarkdown's code-block span fixer, then `MarkdownSafety.Build`.
 - **`SourceView`** shows read-only text in AvaloniaEdit with line numbers and TextMate highlighting chosen by file
   extension or language id. `Find` marks every case-insensitive match; `FindNext` and `FindPrevious` wrap. `GoToLine`
   scrolls to a line; asked for before the text is set, it applies when the text arrives. A new `Text` keeps the
@@ -350,6 +388,89 @@ and inline code and code blocks take `font-code` at `font-size-code`. LiveMarkdo
   size when the view is resized. Both run through a transport the view owns, so RoyalTerminal starts no shell. The
   screen's background and text colours follow `panel` and `text`, and a resource pass that leaves a colour as it was
   sets nothing. The owner disposes the view when its panel closes.
+
+## Darkspyre.Mobile.Components
+
+A Razor class library (`net11.0`, no MAUI) of what every Darkspyre mobile app's screens share. It references
+`Darkspyre.Common.Markdown` and `Microsoft.AspNetCore.Components.Web`. Its web assets are served under
+`_content/Darkspyre.Mobile.Components/`.
+
+| Item | Holds |
+| --- | --- |
+| `MarkdownView` | Renders Markdown as HTML for transcript entries, streaming text and prompt messages |
+| `wwwroot/mobile.css` | The mobile theme: light and dark colours, `header`, dense `list` and `row`, `empty`, `card`, `button`, `input`, `icon`, `error`, the Markdown styles and the code colours |
+| `Icons/` | Lucide icons as inline SVG components (`Bell`, `ChevronLeft`, `ChevronRight`, `Folder`, `LogIn`, `MessageSquare`, `Monitor`, `RefreshCw`, `Send`, `TriangleAlert`, `X`) drawn in the current text colour; `Class` adds classes after `icon` |
+| `wwwroot/highlight/` | highlight.js 11.11.1, the common-languages build, and its licence |
+| `wwwroot/markdown.js` | `highlightNew(element)` |
+
+### Starting it
+
+The app's host page loads the theme and the two scripts before the Blazor script:
+
+```html
+<link rel="stylesheet" href="_content/Darkspyre.Mobile.Components/mobile.css" />
+<script src="_content/Darkspyre.Mobile.Components/highlight/highlight.min.js"></script>
+<script src="_content/Darkspyre.Mobile.Components/markdown.js"></script>
+```
+
+A screen writes `<MarkdownView Text="@text" />`.
+
+### Behaviour
+
+- `MarkdownView` parses with `MarkdownSafety.CreateBuilder` and a link source that accepts and finds nothing, plus one
+  rule of its own: every image becomes its alt text, so no remote image loads. Only http, https and mailto targets stay
+  links; every other link or autolink target, relative ones and `javascript:` included, shows as its own text. Raw HTML
+  shows as text, and no attribute, style or embed reaches the page. The HTML is parsed again only when `Text` changes.
+- After each render, `MarkdownView` calls `highlightNew` on its element. The function colours each `pre code` block not
+  yet coloured whose `language-<name>` class names a language highlight.js knows. A block in an unknown language, or one
+  highlight.js fails on, stays plain text, and a missing or failing script leaves every block plain; no error reaches
+  the renderer. highlight.js wraps text in `span` classes and runs no content.
+- A tapped link navigates the web view unless the host keeps it on the app's pages; a MAUI app uses
+  `UseDarkspyreLinkPolicy` from `Darkspyre.Mobile.Maui`.
+- The desktop keeps plain code blocks; only the mobile view colours them.
+
+### Tests
+
+No automated test. Its one rule beyond the shared policy, images as alt text, is checked by hand with the code colouring
+and the link rules in a MAUI host on the iOS simulator.
+
+## Darkspyre.Mobile.Maui
+
+A .NET MAUI library (`net11.0-ios`) with what every Darkspyre MAUI app needs. It is
+built by `Darkspyre.Mobile.slnx`. It references `Darkspyre.Mobile.Components`, `Darkspyre.OAuthBroker.Client` and
+`SecureStore.iOS`, and imports the oauth-broker and SecureStore `eng/SourceReferences.targets` in its own project file.
+It compiles against `Microsoft.AspNetCore.Components.WebView.Maui` without that package's build targets, which belong to
+the app: they would make the library a web app with its own `_framework/blazor.modules.json`, colliding with the app's.
+
+### Starting it
+
+```csharp
+builder.UseMauiApp<App>().AddDarkspyreMobile("com.example.app"); // the app's own stable credential service name
+blazorWebView.UseDarkspyreLinkPolicy();
+```
+
+### Behaviour
+
+- **`AddDarkspyreMobile`** adds the Blazor WebView and the platform's `ICredentialStore` for the service name. The
+  platform registration is the partial method `AddPlatformCredentials`, which each `Platforms/<platform>/` folder
+  implements; on iOS it is SecureStore's `IosKeychainCredentialStore`, the app's device-only Keychain. No shared file
+  names an operating system. MAUI's `SecureStorage` is not used.
+- **`UseDarkspyreLinkPolicy`** keeps a `BlazorWebView` on the app's own pages. A URL outside the app's origin is
+  cancelled; an http, https or mailto URL is then opened with `Launcher.Default`, so a tapped web link opens in the
+  system browser. Every other scheme, including `tel:`, other apps' schemes and the app's own redirect scheme, opens
+  nothing.
+- **`WebAuthenticatorSignIn`** runs `BrokerSignIn`'s browser step through MAUI's `WebAuthenticator`; one instance is
+  both its `IBrowserLauncher` and its `ISignInCallbackFactory`. Its callback's `RedirectUri` is the redirect it was
+  created with. `OpenAsync` starts the system sign-in sheet on the main thread without waiting for it, and `WaitAsync`
+  returns the redirect's query parameters. A sheet the person cancels makes `WaitAsync` throw
+  `OperationCanceledException`. The token passed to `WaitAsync` stops the wait but cannot dismiss the sheet.
+
+### Tests
+
+No automated test. The Keychain write and read through `ICredentialStore`, the link policy opening an https link in
+Safari, and the window's `Stopped` and `Resumed` events are checked by hand in a minimal MAUI host on the iOS simulator.
+An app built with the iOS 27 SDK declares the UIKit scene life cycle: a `SceneDelegate` derived from
+`MauiUISceneDelegate` and a `UIApplicationSceneManifest` in `Info.plist`, as the MAUI templates do.
 
 ## Darkspyre.Common.Workspaces
 

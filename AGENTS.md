@@ -22,6 +22,8 @@ This repository records no law exception.
 
 ## Versions
 
-Each library's version is `<net>.<major>.<minor>.<build>`, set by its property in `Directory.Build.props`
-(`DarkspyreCommonGitVersion` for `Darkspyre.Common.Git`). The first part is the .NET major version the libraries target.
+Each library's version is `<net>.<major>.<minor>.<build>`, set by its property in `Directory.Build.props`, such as
+`DarkspyreCommonGitVersion` for `Darkspyre.Common.Git`, `DarkspyreCommonMarkdownVersion` for `Darkspyre.Common.Markdown`,
+`DarkspyreMobileComponentsVersion` for `Darkspyre.Mobile.Components` and `DarkspyreMobileMauiVersion` for
+`Darkspyre.Mobile.Maui`. The first part is the .NET major version the libraries target.
 The last part goes up by one when the library's code changes. Each library's csproj sets `<Version>` from its property.

@@ -11,10 +11,9 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Darkspyre.Common.Markdown;
 using LiveMarkdown.Avalonia;
 using Markdig;
-using Markdig.Extensions.GenericAttributes;
-using Markdig.Extensions.MediaLinks;
 using Markdig.Renderers;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
@@ -36,10 +35,8 @@ public sealed class MarkdownLinkEventArgs(string target) : EventArgs
 /// Renders Markdown, including Mermaid diagrams. Raw HTML is shown as text; links outside the allow-list become inert.
 /// </summary>
 /// <remarks>
-/// The allow-list is absolute http and https addresses with a host, mailto addresses, and relative paths. With a
-/// <see cref="LinkSource"/>, every target that is not an http, https or mailto address is a link only when the source
-/// accepts it, a refused link shows as its own text, and the source adds links to plain text and code spans. Generic
-/// attributes and media links are off, so Markdown cannot add attributes or embed players. Code blocks carry a copy
+/// Links, attributes, media and raw HTML follow <see cref="MarkdownSafety"/>. With a <see cref="LinkSource"/>, the
+/// source also adds links to plain text and code spans. Code blocks carry a copy
 /// button that shows a check for two seconds after it copies, and no syntax colouring. The context menu offers Copy and
 /// Select All; the platform's Copy and Select All keys do the same. A <c>mermaid</c> fence is drawn by
 /// <see cref="MermaidRenderer"/>; when that draws nothing, the fence stays a code block. Colours come from the theme token resources and follow them when they change:
@@ -206,7 +203,7 @@ public sealed class MarkdownViewer : TemplatedControl
 
     /// <summary>Finds extra links in the text; null finds none. Setting it reparses the whole text, streamed text included.</summary>
     /// <remarks>
-    /// While a source is set, an http, https or mailto target is still checked by <see cref="IsAllowedTarget"/>, and
+    /// While a source is set, an http, https or mailto target is still checked by <see cref="MarkdownSafety.IsAllowedTarget"/>, and
     /// every other target is a link only when <see cref="IMarkdownLinkSource.Accepts"/> is true. When the source raises
     /// <see cref="IMarkdownLinkSource.Changed"/>, the whole text is parsed again on the UI thread.
     /// </remarks>
@@ -242,17 +239,6 @@ public sealed class MarkdownViewer : TemplatedControl
 
     /// <summary>Raised when the theme variant or a theme resource changes, so diagrams are drawn again.</summary>
     internal event EventHandler? ThemeChanged;
-
-    /// <summary>Whether a link to <paramref name="target"/> may be activated.</summary>
-    public static bool IsAllowedTarget(string? target)
-    {
-        if (string.IsNullOrEmpty(target) || target != target.Trim() || target.StartsWith("//", StringComparison.Ordinal)
-            || target.Any(character => char.IsControl(character) || character is '"' or '<' or '>' or '\\'))
-            return false;
-        if (Uri.TryCreate(target, UriKind.Absolute, out Uri? absolute))
-            return absolute.Scheme is "http" or "https" or "mailto" && (absolute.Scheme == "mailto" || !string.IsNullOrEmpty(absolute.Host));
-        return Uri.TryCreate(target, UriKind.Relative, out _);
-    }
 
     /// <summary>Selects every block and remembers the rendered text of that selection.</summary>
     public void SelectAll()
@@ -399,31 +385,15 @@ public sealed class MarkdownViewer : TemplatedControl
             string text => text,
             _ => null,
         };
-        if (Allows(this.linkSource, target)) this.LinkActivated?.Invoke(this, new MarkdownLinkEventArgs(target!));
+        if (MarkdownSafety.Allows(this.linkSource, target)) this.LinkActivated?.Invoke(this, new MarkdownLinkEventArgs(target!));
     }
-
-    // Without a source, the allow-list decides. With one, a web or mail target is still checked by the allow-list, and
-    // any other target is a link only when the source accepts it.
-    private static bool Allows(IMarkdownLinkSource? source, string? target)
-    {
-        if (source is null) return IsAllowedTarget(target);
-        if (string.IsNullOrEmpty(target)) return false;
-        return IsWebTarget(target) ? IsAllowedTarget(target) : source.Accepts(target);
-    }
-
-    private static bool IsWebTarget(string target) => target.StartsWith("http:", StringComparison.OrdinalIgnoreCase)
-        || target.StartsWith("https:", StringComparison.OrdinalIgnoreCase) || target.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase);
 
     private static MarkdownPipeline CreatePipeline(IMarkdownLinkSource? source)
     {
-        MarkdownPipelineBuilder pipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions();
-        // The advanced preset includes arbitrary attributes and unsandboxed media embeds.
-        pipeline.Extensions.TryRemove<GenericAttributesExtension>();
-        pipeline.Extensions.TryRemove<MediaLinkExtension>();
+        MarkdownPipelineBuilder pipeline = MarkdownSafety.CreateBuilder(source);
         pipeline.Extensions.AddIfNotAlready<MermaidFences>();
-        pipeline.Extensions.Add(new InertLinks(source));
         if (source is not null) pipeline.Extensions.Add(new FileLinks(source));
-        return pipeline.DisableHtml().UseCodeBlockSpanFixer().Build();
+        return MarkdownSafety.Build(pipeline.UseCodeBlockSpanFixer());
     }
 
     /// <summary>Runs the viewer's link check for the link the renderer reports.</summary>
@@ -438,56 +408,6 @@ public sealed class MarkdownViewer : TemplatedControl
         public bool CanExecute(object? parameter) => true;
 
         public void Execute(object? parameter) => activate(parameter);
-    }
-
-    /// <summary>
-    /// Checks every link and image the Markdown wrote. Without a source, a refused target is emptied, so it cannot be
-    /// followed or loaded. With a source, a refused link is replaced by its own text and a refused image is emptied.
-    /// </summary>
-    private sealed class InertLinks(IMarkdownLinkSource? source) : IMarkdownExtension
-    {
-        public void Setup(MarkdownPipelineBuilder pipeline) => pipeline.DocumentProcessed += this.Guard;
-
-        public void Setup(MarkdownPipeline pipeline, IMarkdownRenderer renderer)
-        {
-        }
-
-        private void Guard(MarkdownDocument document)
-        {
-            foreach (LinkInline link in document.Descendants<LinkInline>().ToList())
-            {
-                string? target = link.GetDynamicUrl?.Invoke() ?? link.Url;
-                link.GetDynamicUrl = null;
-                if (Allows(source, target)) link.Url = target;
-                else if (source is null || link.IsImage) link.Url = string.Empty;
-                else Unwrap(link);
-            }
-            foreach (AutolinkInline link in document.Descendants<AutolinkInline>().ToList())
-            {
-                if (Allows(source, link.IsEmail ? "mailto:" + link.Url : link.Url)) continue;
-                if (source is not null)
-                {
-                    link.ReplaceBy(new LiteralInline(link.Url) { Span = link.Span });
-                    continue;
-                }
-                link.Url = string.Empty;
-                link.IsEmail = false;
-            }
-        }
-
-        // The link's children take its place, so its text shows as ordinary text.
-        private static void Unwrap(LinkInline link)
-        {
-            Inline? child = link.FirstChild;
-            while (child is not null)
-            {
-                Inline? next = child.NextSibling;
-                child.Remove();
-                link.InsertBefore(child);
-                child = next;
-            }
-            link.Remove();
-        }
     }
 
     /// <summary>
@@ -543,7 +463,7 @@ public sealed class MarkdownViewer : TemplatedControl
         private void LinkCode(Markdig.Syntax.Inlines.CodeInline code)
         {
             string target = code.Content.Trim();
-            if (target.Length == 0 || IsWebTarget(target) || !source.Accepts(target)) return;
+            if (target.Length == 0 || MarkdownSafety.IsWebTarget(target) || !source.Accepts(target)) return;
             LinkInline link = new(target, string.Empty) { Span = code.Span, IsClosed = true };
             code.ReplaceBy(link);
             link.AppendChild(code);

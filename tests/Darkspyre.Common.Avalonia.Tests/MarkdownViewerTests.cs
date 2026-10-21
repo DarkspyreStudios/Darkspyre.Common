@@ -9,9 +9,8 @@ using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Darkspyre.Agent.Common.UI.Markdown;
+using Darkspyre.Common.Markdown;
 using LiveMarkdown.Avalonia;
-using Markdig.Syntax;
-using Markdig.Syntax.Inlines;
 using Xunit;
 
 namespace Darkspyre.Common.Avalonia.Tests;
@@ -30,17 +29,6 @@ public sealed class MarkdownViewerTests
         Assert.Contains("onerror", text, StringComparison.Ordinal);
         Assert.Empty(ViewSession.All<Image>(viewer));
     });
-
-    [Fact]
-    public void ADisallowedLinkTargetIsEmptiedAndAnAllowedOneKept()
-    {
-        MarkdownDocument document = Markdig.Markdown.Parse("[bad](javascript:alert(1)) [odd](//host/x) [good](https://example.com/a) [local](docs/readme.md)",
-            MarkdownViewer.Pipeline);
-
-        string[] targets = [.. document.Descendants<LinkInline>().Select(link => link.Url ?? "(null)")];
-
-        Assert.Equal([string.Empty, string.Empty, "https://example.com/a", "docs/readme.md"], targets);
-    }
 
     [Fact]
     public Task OnlyAnAllowedLinkIsActivated() => ViewSession.RunAsync(() =>

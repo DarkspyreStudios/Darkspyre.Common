@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+  <!-- A MAUI library, so it overrides the repository's net11.0. It is outside Darkspyre.Common.slnx because it needs the
+       MAUI workload; Darkspyre.Mobile.slnx builds it. -->
+  <PropertyGroup>
+    <TargetFramework>net11.0-ios</TargetFramework>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <SupportedOSPlatformVersion>17.0</SupportedOSPlatformVersion>
+    <RootNamespace>Darkspyre.Mobile.Maui</RootNamespace>
+    <Version>$(DarkspyreMobileMauiVersion)</Version>
+    <Description>What every Darkspyre MAUI app needs: the broker sign-in browser step, the web view link policy and the platform credential store.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" />
+    <!-- The WebView packages' build targets are for the app: they make the project that imports them a root web app with
+         its own fallback _framework/blazor.modules.json, which would collide with the app's copy. The library has no web
+         assets, so it compiles against the packages without them. -->
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" ExcludeAssets="build;buildTransitive;buildMultitargeting" />
+    <PackageReference Include="Darkspyre.OAuthBroker.Client" />
+    <PackageReference Include="SecureStore.iOS" />
+    <ProjectReference Include="../Darkspyre.Mobile.Components/Darkspyre.Mobile.Components.csproj" />
+  </ItemGroup>
+  <!-- Only this project builds the oauth-broker and SecureStore siblings from source, so no other Darkspyre.Common project
+       needs them. They follow the package references they replace. -->
+  <Import Project="../../../oauth-broker/eng/SourceReferences.targets" />
+  <Import Project="../../../SecureStore/eng/SourceReferences.targets" />
+</Project>

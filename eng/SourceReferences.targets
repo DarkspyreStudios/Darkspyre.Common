@@ -8,7 +8,10 @@
     <_DarkspyreCommonSourceProject Include="@(PackageReference->WithMetadataValue('Identity', 'Darkspyre.Common.Pdf.Pdfium')->'$(MSBuildThisFileDirectory)../src/Darkspyre.Common.Pdf.Pdfium/Darkspyre.Common.Pdf.Pdfium.csproj')" />
     <_DarkspyreCommonSourceProject Include="@(PackageReference->WithMetadataValue('Identity', 'Darkspyre.Common.Workspaces')->'$(MSBuildThisFileDirectory)../src/Darkspyre.Common.Workspaces/Darkspyre.Common.Workspaces.csproj')" />
     <_DarkspyreCommonSourceProject Include="@(PackageReference->WithMetadataValue('Identity', 'Darkspyre.Agent.Common.UI')->'$(MSBuildThisFileDirectory)../src/Darkspyre.Agent.Common.UI/Darkspyre.Agent.Common.UI.csproj')" />
-    <PackageReference Remove="Darkspyre.Common.Git;Darkspyre.Common.Pdf;Darkspyre.Common.Pdf.Pdfium;Darkspyre.Common.Workspaces;Darkspyre.Agent.Common.UI" />
+    <_DarkspyreCommonSourceProject Include="@(PackageReference->WithMetadataValue('Identity', 'Darkspyre.Common.Markdown')->'$(MSBuildThisFileDirectory)../src/Darkspyre.Common.Markdown/Darkspyre.Common.Markdown.csproj')" />
+    <_DarkspyreCommonSourceProject Include="@(PackageReference->WithMetadataValue('Identity', 'Darkspyre.Mobile.Components')->'$(MSBuildThisFileDirectory)../src/Darkspyre.Mobile.Components/Darkspyre.Mobile.Components.csproj')" />
+    <_DarkspyreCommonSourceProject Include="@(PackageReference->WithMetadataValue('Identity', 'Darkspyre.Mobile.Maui')->'$(MSBuildThisFileDirectory)../src/Darkspyre.Mobile.Maui/Darkspyre.Mobile.Maui.csproj')" />
+    <PackageReference Remove="Darkspyre.Common.Git;Darkspyre.Common.Pdf;Darkspyre.Common.Pdf.Pdfium;Darkspyre.Common.Workspaces;Darkspyre.Agent.Common.UI;Darkspyre.Common.Markdown;Darkspyre.Mobile.Components;Darkspyre.Mobile.Maui" />
     <ProjectReference Include="@(_DarkspyreCommonSourceProject)">
       <Private Condition="'%(ExcludeAssets)' == 'all' or $([System.String]::Copy(';%(ExcludeAssets);').Contains(';runtime;'))">false</Private>
       <ReferenceOutputAssembly Condition="'%(ExcludeAssets)' == 'all' or $([System.String]::Copy(';%(ExcludeAssets);').Contains(';compile;'))">false</ReferenceOutputAssembly>

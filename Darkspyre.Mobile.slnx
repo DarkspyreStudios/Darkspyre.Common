@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Darkspyre.Mobile.Maui/Darkspyre.Mobile.Maui.csproj" />
+  </Folder>
+</Solution>

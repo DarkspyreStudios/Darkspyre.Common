@@ -1,11 +1,12 @@
-namespace Darkspyre.Agent.Common.UI.Markdown;
+namespace Darkspyre.Common.Markdown;
 
-/// <summary>Finds links in text a MarkdownViewer shows. Called while the viewer parses, possibly off the UI thread.</summary>
+/// <summary>Finds links in text a Markdown viewer shows. Called while the viewer parses, possibly off the UI thread.</summary>
 /// <remarks>
-/// The viewer calls <see cref="Find"/> on plain text outside links, and <see cref="Accepts"/> on each Markdown link's
-/// own target and on each code span's trimmed text that is not a web or mail address. A click on a link whose target
-/// is not a web or mail address raises <see cref="MarkdownViewer.LinkActivated"/> only when <see cref="Accepts"/> is
-/// true for that target.
+/// A viewer whose pipeline <see cref="MarkdownSafety.CreateBuilder"/> built with this source calls <see cref="Accepts"/>
+/// on each Markdown link's own target that is not a web or mail address; a refused link shows as its own text. The
+/// desktop viewer also calls <see cref="Find"/> on plain text outside links and <see cref="Accepts"/> on each code span's
+/// trimmed text that is not a web or mail address, and raises its link event for such a target only when
+/// <see cref="Accepts"/> is true for it.
 /// </remarks>
 /// <gotcha>A target <see cref="Find"/> returns must also be accepted by <see cref="Accepts"/>, or a click on its link
 /// does nothing.</gotcha>

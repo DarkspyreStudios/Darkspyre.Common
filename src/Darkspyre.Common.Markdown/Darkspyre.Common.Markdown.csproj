@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Darkspyre.Common.Markdown</RootNamespace>
+    <Version>$(DarkspyreCommonMarkdownVersion)</Version>
+    <Description>The Markdown safety policy every Darkspyre surface parses with: allowed link targets, inert links, no attributes, media embeds or raw HTML.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Markdig" />
+    <!-- MarkdownViewer applies the same link check when a person activates a link, and FileLinks skips web targets. -->
+    <InternalsVisibleTo Include="Darkspyre.Agent.Common.UI" />
+  </ItemGroup>
+</Project>

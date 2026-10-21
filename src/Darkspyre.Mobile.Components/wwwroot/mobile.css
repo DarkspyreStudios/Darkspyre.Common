@@ -1,0 +1,321 @@
+/* The shared Darkspyre mobile theme. Colours follow the system's light or dark appearance. */
+
+:root {
+    color-scheme: light dark;
+    --background: #ffffff;
+    --panel: #f4f4f5;
+    --raised: #f4f4f5;
+    --text: #27272a;
+    --muted: #71717a;
+    --line: #e4e4e7;
+    --accent: #3b82f6;
+    --link: #2563eb;
+    --danger: #dc2626;
+    --on-accent: #ffffff;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-code: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --code-keyword: #cf222e;
+    --code-string: #0a3069;
+    --code-number: #0550ae;
+    --code-comment: #6e7781;
+    --code-title: #8250df;
+    --code-type: #953800;
+    --code-attribute: #116329;
+    --code-addition: #116329;
+    --code-deletion: #82071e;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background: #18181b;
+        --panel: #1e1e1e;
+        --raised: #27272a;
+        --text: #e4e4e7;
+        --muted: #a1a1aa;
+        --line: #3f3f46;
+        --accent: #3b82f6;
+        --link: #60a5fa;
+        --danger: #f87171;
+        --code-keyword: #ff7b72;
+        --code-string: #a5d6ff;
+        --code-number: #79c0ff;
+        --code-comment: #8b949e;
+        --code-title: #d2a8ff;
+        --code-type: #ffa657;
+        --code-attribute: #7ee787;
+        --code-addition: #aff5b4;
+        --code-deletion: #ffdcd7;
+    }
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    background: var(--background);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.4;
+    -webkit-text-size-adjust: 100%;
+}
+
+/* A screen's title bar: a back control, the title, and actions at the end. */
+.header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: env(safe-area-inset-top) 12px 0 12px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+}
+
+.header-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 17px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* A dense list of rows, each a title with an optional detail line and a trailing marker. */
+.list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--line);
+    color: inherit;
+    text-decoration: none;
+}
+
+.row:active {
+    background: var(--raised);
+}
+
+.row-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.row-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.row-detail {
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* The short message an empty list shows. */
+.empty {
+    padding: 32px 16px;
+    color: var(--muted);
+    text-align: center;
+}
+
+.card {
+    margin: 8px 12px;
+    padding: 12px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+}
+
+.button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 0 14px;
+    background: var(--raised);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text);
+    font: inherit;
+}
+
+.button:disabled {
+    opacity: 0.5;
+}
+
+.button-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+}
+
+.button-danger {
+    color: var(--danger);
+}
+
+.input {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 36px;
+    padding: 8px 10px;
+    background: var(--background);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text);
+    font: inherit;
+}
+
+.input:focus {
+    border-color: var(--accent);
+    outline: none;
+}
+
+.icon {
+    flex: none;
+    width: 20px;
+    height: 20px;
+}
+
+.error {
+    color: var(--danger);
+}
+
+/* Markdown rendered by MarkdownView. */
+.markdown {
+    overflow-wrap: anywhere;
+}
+
+.markdown > :first-child {
+    margin-top: 0;
+}
+
+.markdown > :last-child {
+    margin-bottom: 0;
+}
+
+.markdown a {
+    color: var(--link);
+}
+
+.markdown code {
+    font-family: var(--font-code);
+    font-size: 13px;
+}
+
+.markdown pre {
+    overflow-x: auto;
+    padding: 10px;
+    background: var(--raised);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+
+.markdown blockquote {
+    margin: 8px 0;
+    padding-left: 10px;
+    border-left: 3px solid var(--accent);
+    color: var(--muted);
+}
+
+.markdown table {
+    border-collapse: collapse;
+}
+
+.markdown th,
+.markdown td {
+    padding: 4px 8px;
+    border: 1px solid var(--line);
+}
+
+.markdown hr {
+    border: none;
+    border-top: 1px solid var(--line);
+}
+
+/* Code colours for the classes highlight.js writes. */
+.hljs-keyword,
+.hljs-doctag,
+.hljs-meta .hljs-keyword,
+.hljs-template-tag,
+.hljs-template-variable,
+.hljs-variable.language_ {
+    color: var(--code-keyword);
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-meta .hljs-string {
+    color: var(--code-string);
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-variable,
+.hljs-attr,
+.hljs-selector-attr,
+.hljs-selector-class,
+.hljs-selector-id {
+    color: var(--code-number);
+}
+
+.hljs-comment,
+.hljs-code,
+.hljs-formula,
+.hljs-meta {
+    color: var(--code-comment);
+}
+
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.function_,
+.hljs-section {
+    color: var(--code-title);
+}
+
+.hljs-type,
+.hljs-built_in,
+.hljs-params {
+    color: var(--code-type);
+}
+
+.hljs-name,
+.hljs-tag,
+.hljs-attribute,
+.hljs-selector-tag,
+.hljs-selector-pseudo,
+.hljs-quote {
+    color: var(--code-attribute);
+}
+
+.hljs-addition {
+    color: var(--code-addition);
+}
+
+.hljs-deletion {
+    color: var(--code-deletion);
+}
+
+.hljs-emphasis {
+    font-style: italic;
+}
+
+.hljs-strong {
+    font-weight: 600;
+}

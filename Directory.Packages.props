@@ -1,6 +1,7 @@
 <Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageFloatingVersionsEnabled>true</CentralPackageFloatingVersionsEnabled>
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.0" />
@@ -21,5 +22,15 @@
     <PackageVersion Include="Mermaider" Version="0.15.1" />
     <PackageVersion Include="Svg.Skia" Version="3.0.2" />
     <PackageVersion Include="RoyalApps.RoyalTerminal.Avalonia" Version="0.6.3" />
+    <!-- The version LiveMarkdown.Avalonia depends on. -->
+    <PackageVersion Include="Markdig" Version="1.1.2" />
+    <!-- The ASP.NET Core version of the installed .NET SDK. -->
+    <PackageVersion Include="Microsoft.AspNetCore.Components.Web" Version="11.0.0-rc.2.26504.105" />
+    <!-- The installed maui-ios workload's version. With central package management MAUI adds no implicit references. -->
+    <PackageVersion Include="Microsoft.Maui.Controls" Version="11.0.0-rc.2.26505.5" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="11.0.0-rc.2.26505.5" />
+    <!-- Darkspyre.Mobile.Maui builds these from the sibling oauth-broker and SecureStore worktrees. -->
+    <PackageVersion Include="Darkspyre.OAuthBroker.Client" Version="*" />
+    <PackageVersion Include="SecureStore.iOS" Version="*" />
   </ItemGroup>
 </Project>

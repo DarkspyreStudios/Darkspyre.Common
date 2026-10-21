@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+  <PropertyGroup>
+    <RootNamespace>Darkspyre.Mobile.Components</RootNamespace>
+    <Version>$(DarkspyreMobileComponentsVersion)</Version>
+    <Description>Razor components shared by the Darkspyre mobile apps: the safe Markdown view with code colouring, the mobile theme and the Lucide icons.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
+    <ProjectReference Include="../Darkspyre.Common.Markdown/Darkspyre.Common.Markdown.csproj" />
+  </ItemGroup>
+</Project>
