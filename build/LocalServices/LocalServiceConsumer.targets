@@ -1,0 +1,13 @@
+<Project>
+  <!--
+    Build behaviour for every project that references a local service's libraries. A repository imports this file once,
+    from its Directory.Build.targets, so no project needs its own import.
+
+    Configuration: a solution build unsets Configuration and Platform for a referenced project that is not in the
+    solution, so the Darkspyre.LocalServices libraries would build in Debug under a Release consumer. The consumer's
+    values flow on instead.
+  -->
+  <PropertyGroup>
+    <ShouldUnsetParentConfigurationAndPlatform>false</ShouldUnsetParentConfigurationAndPlatform>
+  </PropertyGroup>
+</Project>

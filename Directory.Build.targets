@@ -5,4 +5,6 @@
   <PropertyGroup>
     <UsedAvaloniaProducts />
   </PropertyGroup>
+  <!-- A library reached from a consumer's solution build keeps the consumer's configuration for its own references. -->
+  <Import Project="$(MSBuildThisFileDirectory)build/LocalServices/LocalServiceConsumer.targets" />
 </Project>

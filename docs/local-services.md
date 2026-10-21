@@ -377,6 +377,13 @@ project's output, because incremental clean deletes files of an earlier payload 
 segment must be `service`: the packaging tool's `finalize` command, run by Mac signing, refreshes every
 `service/manifest.json` from its signed `payload/`.
 
+A repository whose projects reference a service's libraries imports `build/LocalServices/LocalServiceConsumer.targets`
+once, from its `Directory.Build.targets`. Agent-ds, AgentDSPlugins, Inference and Search do, and Darkspyre.Common does
+for its own libraries' references. A solution build unsets Configuration and Platform for a referenced project outside
+the solution, which would build the LocalServices libraries in Debug under a Release consumer. The file sets
+`ShouldUnsetParentConfigurationAndPlatform` to false for every project of the repository, so those libraries build in
+the consumer's configuration.
+
 ## Wire documentation
 
 The Contracts library emits XML documentation for wire envelopes, fields, lifecycle states and safe errors.
