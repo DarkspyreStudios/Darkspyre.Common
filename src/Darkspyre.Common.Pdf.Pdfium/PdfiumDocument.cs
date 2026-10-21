@@ -8,6 +8,7 @@ namespace Darkspyre.Common.Pdf.Pdfium;
 /// <summary>An open PDFium document with a form-fill environment, over a native copy of the bytes.</summary>
 [SupportedOSPlatform("macos")]
 [SupportedOSPlatform("linux")]
+[SupportedOSPlatform("windows")]
 internal sealed class PdfiumDocument : IPdfDocument
 {
     // US Letter, the common default media box, keeps a box for a page whose size cannot be read.

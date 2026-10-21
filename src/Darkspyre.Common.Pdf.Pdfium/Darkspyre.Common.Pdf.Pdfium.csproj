@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Description>The PDFium implementation of the PDF engine for 64-bit macOS and Linux. The consumer's platform build links its runtime's PDFium native package.</Description>
+    <Description>The PDFium implementation of the PDF engine for 64-bit macOS, Linux and Windows. The consumer's platform build links its runtime's PDFium native package.</Description>
     <RootNamespace>Darkspyre.Common.Pdf.Pdfium</RootNamespace>
     <Version>$(DarkspyreCommonPdfPdfiumVersion)</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>

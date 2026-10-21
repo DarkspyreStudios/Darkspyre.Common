@@ -10,6 +10,7 @@
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="bblanchon.PDFium.macOS" />
     <PackageReference Include="bblanchon.PDFium.Linux" />
+    <PackageReference Include="bblanchon.PDFium.Win32" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Darkspyre.Common.Pdf.Pdfium/Darkspyre.Common.Pdf.Pdfium.csproj" />

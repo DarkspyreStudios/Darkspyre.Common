@@ -157,9 +157,11 @@ reads bookmarks and internal links.
   result records, and `UnavailablePdfEngine`, which a build with no PDF implementation returns. Every coordinate is in
   points from the top-left of the page as displayed, after the page's rotation. Pixels are 8-bit RGBA, top row first,
   with no row padding.
-- `Darkspyre.Common.Pdf.Pdfium` is the PDFium implementation, `PdfiumEngine`, for 64-bit macOS and Linux
-  (`[SupportedOSPlatform("macos")]`, `[SupportedOSPlatform("linux")]`). It holds the native bindings, so it is a
-  platform implementation under the operating-system boundary rule.
+- `Darkspyre.Common.Pdf.Pdfium` is the PDFium implementation, `PdfiumEngine`, for 64-bit macOS, Linux and Windows
+  (`[SupportedOSPlatform("macos")]`, `[SupportedOSPlatform("linux")]`, `[SupportedOSPlatform("windows")]`). It holds
+  the native bindings, so it is a platform implementation under the operating-system boundary rule. The bindings use
+  `CULong` for C `unsigned long`, which is 64 bits on macOS and Linux and 32 bits on Windows, and every other type in
+  them has one size on all three.
 
 ### Starting it
 
@@ -172,7 +174,8 @@ PdfBitmap? tile = await document.RenderAsync(0, 2, new PdfPixelArea(0, 0, 512, 5
 ```
 
 `Darkspyre.Common.Pdf.Pdfium` references no native package. The consumer's platform build links its runtime's PDFium
-native package (`bblanchon.PDFium.macOS` or `bblanchon.PDFium.Linux`), and `LibraryImport("pdfium")` resolves in the
+native package (`bblanchon.PDFium.macOS`, `bblanchon.PDFium.Linux` or `bblanchon.PDFium.Win32`), and
+`LibraryImport("pdfium")` resolves `libpdfium.dylib`, `libpdfium.so` or `pdfium.dll` in the
 load context of `Darkspyre.Common.Pdf.Pdfium.dll`. No portable code checks the operating system.
 
 ### Behaviour
@@ -192,8 +195,8 @@ load context of `Darkspyre.Common.Pdf.Pdfium.dll`. No portable code checks the o
 ### Tests
 
 `tests/Darkspyre.Common.Pdf.Tests` runs the real PDFium engine against the fixtures `three-pages.pdf` and
-`three-pages-protected.pdf` (password `secret`). The test project references both PDFium native packages, and the
-runtime picks its own native file. The test class carries both `SupportedOSPlatform` attributes.
+`three-pages-protected.pdf` (password `secret`). The test project references the three PDFium native packages, and the
+runtime picks its own native file. The test class carries the three `SupportedOSPlatform` attributes.
 
 ## Darkspyre.Agent.Common.UI
 

@@ -9,6 +9,7 @@ namespace Darkspyre.Common.Pdf.Pdfium;
 /// </summary>
 [SupportedOSPlatform("macos")]
 [SupportedOSPlatform("linux")]
+[SupportedOSPlatform("windows")]
 internal static partial class Pdfium
 {
     private const string Library = "pdfium";
@@ -39,9 +40,10 @@ internal static partial class Pdfium
     internal const uint ActionGoTo = 1;
 
     /// <summary>
-    /// sizeof(FPDF_FORMFILLINFO) on LP64 platforms (64-bit macOS and 64-bit Linux): one int (padded to 8), 15 function
-    /// pointers, one pointer (m_pJsPlatform), one FPDF_BOOL (padded to 8) and 17 function pointers = 280 bytes, counted
-    /// from fpdf_formfill.h.
+    /// sizeof(FPDF_FORMFILLINFO) with 8-byte pointers (64-bit macOS, Linux and Windows): one int (padded to 8), 15
+    /// function pointers, one pointer (m_pJsPlatform), one FPDF_BOOL (padded to 8) and 17 function pointers = 280 bytes,
+    /// counted from fpdf_formfill.h. C <c>unsigned long</c> is 64 bits on macOS and Linux and 32 bits on Windows, so every
+    /// <c>unsigned long</c> parameter and return is <see cref="CULong"/>.
     /// </summary>
     internal const int FormFillInfoSize = 280;
 

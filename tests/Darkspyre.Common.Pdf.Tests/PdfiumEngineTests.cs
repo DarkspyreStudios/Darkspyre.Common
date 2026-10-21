@@ -7,6 +7,7 @@ namespace Darkspyre.Common.Pdf.Tests;
 /// <summary>Open, inspect, render, text, bookmarks and links through the real PDFium engine.</summary>
 [SupportedOSPlatform("macos")]
 [SupportedOSPlatform("linux")]
+[SupportedOSPlatform("windows")]
 public sealed class PdfiumEngineTests
 {
     private static async Task<IPdfDocument> OpenAsync(string fixture, string? password = null)

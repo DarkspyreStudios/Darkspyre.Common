@@ -7,6 +7,7 @@ namespace Darkspyre.Common.Pdf.Pdfium;
 /// <summary>The PDFium engine.</summary>
 [SupportedOSPlatform("macos")]
 [SupportedOSPlatform("linux")]
+[SupportedOSPlatform("windows")]
 public sealed class PdfiumEngine : IPdfEngine
 {
     /// <summary>Always true.</summary>

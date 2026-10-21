@@ -17,7 +17,7 @@
          <Version> from its property. -->
     <DarkspyreCommonGitVersion>11.0.10.9</DarkspyreCommonGitVersion>
     <DarkspyreCommonPdfVersion>11.0.10.1</DarkspyreCommonPdfVersion>
-    <DarkspyreCommonPdfPdfiumVersion>11.0.10.1</DarkspyreCommonPdfPdfiumVersion>
+    <DarkspyreCommonPdfPdfiumVersion>11.0.10.2</DarkspyreCommonPdfPdfiumVersion>
     <DarkspyreCommonWorkspacesVersion>11.0.10.2</DarkspyreCommonWorkspacesVersion>
     <DarkspyreAgentCommonUiVersion>11.0.10.0</DarkspyreAgentCommonUiVersion>
     <DarkspyreLocalServicesContractsVersion>11.0.10.1</DarkspyreLocalServicesContractsVersion>
