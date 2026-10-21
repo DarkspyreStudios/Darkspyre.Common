@@ -523,7 +523,9 @@ a `WorkspaceActor`, the acting owner and the trigger, which each log line names.
 - `RemoveAsync` takes a workspace folder or a single worktree and removes it whatever it holds. For each worktree it
   unlocks it, removes it with `ForceRemoveWorktreeAsync`, and deletes its local branch while the branch still names the
   head the worktree had, logging that head commit so `git branch <name> <commit>` recovers it until Git collects it.
-  Then it deletes the folder with whatever remains in it, such as `tmp` and `.agent-ds`. Uncommitted and untracked
+  A workspace folder is named after the branch it was created on, so when a worktree was switched to another branch,
+  `RemoveAsync` also deletes the branch named like the folder, logged the same way, unless a worktree has it checked
+  out. Then it deletes the folder with whatever remains in it, such as `tmp` and `.agent-ds`. Uncommitted and untracked
   files and commits on no remote branch go with it. A detached worktree and a branch with no commits have no ref to
   delete. A failure stops the removal with an `IOException` and leaves the rest in place
   ([DSA-1203](https://darkspyre.atlassian.net/browse/DSA-1203)).

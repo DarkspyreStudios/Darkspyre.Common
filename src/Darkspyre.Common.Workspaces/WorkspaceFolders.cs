@@ -155,8 +155,10 @@ public sealed partial class WorkspaceFolders
     /// <summary>
     /// Removes a workspace folder, or a single worktree, named by its absolute path, whatever it holds. For each worktree
     /// in it: unlock it, remove it with <c>git worktree remove --force</c> (deleting a folder Git leaves and pruning its
-    /// record), and delete the local branch it was on, logging the branch's head commit. Then it deletes the folder with
-    /// everything left in it, such as <c>tmp</c> and <c>.agent-ds</c>.
+    /// record), and delete the local branch it was on, logging the branch's head commit. In a workspace folder it also
+    /// deletes the branch named like the folder, the branch the workspace was created on, when the worktree was switched
+    /// to another branch and no worktree has the original checked out. Then it deletes the folder with everything left
+    /// in it, such as <c>tmp</c> and <c>.agent-ds</c>.
     /// </summary>
     /// <remarks>
     /// Uncommitted and untracked files and commits on no remote branch are deleted with the worktree; the logged head
@@ -178,20 +180,24 @@ public sealed partial class WorkspaceFolders
                     members.Add((entry, member));
             }
         }
+        // A workspace folder is named after the branch it was created on. A worktree switched to another branch leaves
+        // that branch behind, so it is deleted too, unless some worktree still has it checked out.
+        string ownBranch = "refs/heads/" + Path.GetFileName(path);
         List<string> branches = [];
         foreach ((string member, GitRepositorySnapshot worktree) in members)
         {
+            GitBranchReference? own = member == path ? null
+                : (await this.git.ReadBranchesAsync(member, cancellationToken).ConfigureAwait(false))
+                    .FirstOrDefault(branch => branch.RefName == ownBranch && branch.CheckedOutWorktree is null);
             Log.Unlocking(this.logger, member, actor.Actor, actor.Trigger);
             await this.git.UnlockWorktreeAsync(member, cancellationToken).ConfigureAwait(false);
             Log.RemovingWorktree(this.logger, member, actor.Actor, actor.Trigger);
             await this.git.ForceRemoveWorktreeAsync(member, cancellationToken).ConfigureAwait(false);
             // A detached HEAD has no branch, and a branch with no commits has no ref.
-            if (worktree.BranchRef is not { } branch || !branch.StartsWith("refs/heads/", StringComparison.Ordinal)
-                || worktree.HeadCommit is not { } head) continue;
-            Log.DeletingBranch(this.logger, branch, head, member, actor.Actor, actor.Trigger);
-            await this.git.DeleteCreatedBranchAsync(new(worktree.CommonDirectory, worktree.WorktreePath, branch, head),
-                CancellationToken.None).ConfigureAwait(false);
-            branches.Add(branch);
+            if (worktree.BranchRef is { } branch && branch.StartsWith("refs/heads/", StringComparison.Ordinal)
+                && worktree.HeadCommit is { } head)
+                await this.DeleteBranchAsync(worktree, branch, head, member, actor, branches).ConfigureAwait(false);
+            if (own is not null) await this.DeleteBranchAsync(worktree, own.RefName, own.CommitId, member, actor, branches).ConfigureAwait(false);
         }
         if (Directory.Exists(path))
         {
@@ -199,6 +205,15 @@ public sealed partial class WorkspaceFolders
             Directory.Delete(path, recursive: true);
         }
         return new(path, [.. members.Select(member => member.Path)], branches.AsReadOnly());
+    }
+
+    private async Task DeleteBranchAsync(GitRepositorySnapshot worktree, string branch, string head, string member, WorkspaceActor actor,
+        List<string> deleted)
+    {
+        Log.DeletingBranch(this.logger, branch, head, member, actor.Actor, actor.Trigger);
+        await this.git.DeleteCreatedBranchAsync(new(worktree.CommonDirectory, worktree.WorktreePath, branch, head),
+            CancellationToken.None).ConfigureAwait(false);
+        deleted.Add(branch);
     }
 
     // The worktree whose own folder the path is, or null.

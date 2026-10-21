@@ -206,6 +206,27 @@ public sealed class WorkspaceFoldersTests
         Assert.Contains(fixture.Log.Lines, line => line.Contains($"Deleting the branch refs/heads/ended at {head}", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// DSA-1203: a worktree switched to another branch leaves neither that branch nor the branch the workspace was
+    /// created on, which is named like the workspace folder.
+    /// </summary>
+    [Fact]
+    public async Task RemoveDeletesTheCreatedBranchOfAWorktreeSwitchedToAnotherBranch()
+    {
+        Fixture fixture = Fixture.Create();
+        WorkspaceCreateResult created = await fixture.Folders.CreateAsync(new(fixture.Folder, "work", fixture.Repositories, false), Actor);
+        string switched = created.Worktrees[0].Path;
+        Git.Run(switched, "switch", "-q", "-c", "other");
+        string ownHead = Git.Run(fixture.First, "rev-parse", "work").Trim();
+
+        WorkspaceRemovalResult removed = await fixture.Folders.RemoveAsync(fixture.Folder, Actor);
+
+        Assert.Equal(["refs/heads/other", "refs/heads/work", "refs/heads/work"], removed.Branches);
+        Assert.Empty(Git.Run(fixture.First, "branch", "--list", "work", "other").Trim());
+        Assert.Empty(Git.Run(fixture.Second, "branch", "--list", "work").Trim());
+        Assert.Contains(fixture.Log.Lines, line => line.Contains($"Deleting the branch refs/heads/work at {ownHead}", StringComparison.Ordinal));
+    }
+
     // Whether git worktree list names the worktree locked with the workspace reason. Git prints '/' on every system.
     private static bool Locked(string worktree)
     {
