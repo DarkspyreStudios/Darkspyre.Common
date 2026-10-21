@@ -49,7 +49,8 @@ public static class ServiceProcessShutdown
             while (!stopped.Wait(TimeSpan.FromMilliseconds(25)))
                 if (time.GetElapsedTime(started) >= ServiceProtocol.ShutdownDeadline)
                     Environment.Exit(WatchdogExitCode);
-        }) { IsBackground = true, Name = "local-service-shutdown-watchdog" };
+        })
+        { IsBackground = true, Name = "local-service-shutdown-watchdog" };
         watchdog.Start();
         try
         {

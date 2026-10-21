@@ -9,9 +9,11 @@ internal static class ServiceInstaller
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
-        RespectRequiredConstructorParameters = true, RespectNullableAnnotations = true,
+        RespectRequiredConstructorParameters = true,
+        RespectNullableAnnotations = true,
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
-        AllowDuplicateProperties = false, PropertyNameCaseInsensitive = false,
+        AllowDuplicateProperties = false,
+        PropertyNameCaseInsensitive = false,
     };
 
     internal static async Task<ServiceRegistration> InstallAsync(ServiceFileSystem files,

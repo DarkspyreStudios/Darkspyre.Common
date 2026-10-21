@@ -18,8 +18,11 @@ internal sealed class MacServiceFileSystem : ServiceFileSystem
     internal override bool IsExecutable(string path) => (File.GetUnixFileMode(path) & (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute)) != 0;
     internal override FileStream CreateFile(string path) => new(path, new FileStreamOptions
     {
-        Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None,
-        Options = FileOptions.Asynchronous, UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite,
+        Mode = FileMode.CreateNew,
+        Access = FileAccess.Write,
+        Share = FileShare.None,
+        Options = FileOptions.Asynchronous,
+        UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite,
     });
     // fsync hands the data to the drive; F_FULLFSYNC then flushes the drive's write cache once for all synced files.
     internal override void SyncFile(FileStream file)

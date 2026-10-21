@@ -51,8 +51,14 @@ internal static class WindowsDetachedLauncher
                 environment = Marshal.StringToHGlobalUni(string.Join('\0', variables.Order(StringComparer.OrdinalIgnoreCase)) + "\0\0");
                 var startup = new WindowsSpawn.StartupInfoEx
                 {
-                    Startup = new WindowsSpawn.StartupInfo { Size = (uint)Marshal.SizeOf<WindowsSpawn.StartupInfoEx>(), Flags = 0x100,
-                        Input = nullFile.DangerousGetHandle(), Output = nullFile.DangerousGetHandle(), Error = nullFile.DangerousGetHandle() },
+                    Startup = new WindowsSpawn.StartupInfo
+                    {
+                        Size = (uint)Marshal.SizeOf<WindowsSpawn.StartupInfoEx>(),
+                        Flags = 0x100,
+                        Input = nullFile.DangerousGetHandle(),
+                        Output = nullFile.DangerousGetHandle(),
+                        Error = nullFile.DangerousGetHandle()
+                    },
                     Attributes = attributes,
                 };
                 if (!WindowsSpawn.IsProcessInJob(WindowsNative.GetCurrentProcess(), 0, out bool inJob)) throw WindowsNative.Error("inspect launch job");
