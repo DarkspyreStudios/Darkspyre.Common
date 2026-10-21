@@ -108,28 +108,61 @@ internal sealed partial class GitWorktrees(GitCommands git, GitRepositoryReader 
     }
 
     internal Task<GitRemovalResult> RemoveAsync(string worktreePath,
-        CancellationToken cancellationToken = default) => this.RemoveCoreAsync(worktreePath, null, false, cancellationToken);
+        CancellationToken cancellationToken = default) => this.RemoveCoreAsync(worktreePath, null, cancellationToken);
 
     /// <summary>
-    /// Removes a worktree like <see cref="RemoveAsync"/>, except that ignored files, such as build output, do not block
-    /// removal and are deleted with the worktree.
+    /// Core-owned cleanup: removes the worktree whatever it holds, while it still holds the recorded repository and
+    /// branch. The branch stays.
     /// </summary>
-    internal Task<GitRemovalResult> RemoveDiscardingIgnoredAsync(string worktreePath,
-        CancellationToken cancellationToken = default) => this.RemoveCoreAsync(worktreePath, null, true, cancellationToken);
-
-    /// <summary>Core-owned cleanup additionally requires the recorded repository and retained branch.</summary>
     internal Task<GitRemovalResult> RemoveOwnedAsync(string worktreePath,
         PreparedGitWorktree expected, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(expected);
-        return this.RemoveCoreAsync(worktreePath, expected, false, cancellationToken);
+        return this.RemoveCoreAsync(worktreePath, expected, cancellationToken);
     }
 
-    private async Task<GitRemovalResult> RemoveCoreAsync(string worktreePath,
-        PreparedGitWorktree? expected, bool ignoredFilesExpendable, CancellationToken cancellationToken)
+    /// <summary>
+    /// Removes the linked worktree at <paramref name="worktreePath"/> whatever it holds, with
+    /// <c>git worktree remove --force</c>. When Git fails or leaves the folder, the folder is deleted and the repository's
+    /// worktree records are pruned. The branch stays. A locked worktree must be unlocked first.
+    /// </summary>
+    internal async Task ForceRemoveAsync(string worktreePath, CancellationToken cancellationToken = default)
     {
-        bool Removable(GitPreservationCheck check) =>
-            ignoredFilesExpendable ? GitPreservationCheck.LosesOnlyIgnoredFiles(check) : check.CanRemoveWithoutLoss;
+        (GitRepositoryReader.GitLayout layout, IDisposable operation) = await this.EnterWorktreeAsync(worktreePath, cancellationToken)
+            .ConfigureAwait(false);
+        using (operation)
+        {
+            if (layout.WorktreePath != this.paths.Resolve(worktreePath))
+                throw new ArgumentException("Removal requires the worktree's own folder.", nameof(worktreePath));
+            await this.paths.RequireWriteAsync([layout.WorktreePath], cancellationToken).ConfigureAwait(false);
+            await this.ForceRemoveUnderLockAsync(layout, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    // The caller holds the repository's operation gate.
+    private async Task ForceRemoveUnderLockAsync(GitRepositoryReader.GitLayout layout, CancellationToken cancellationToken)
+    {
+        // The fallback deletes a folder, so the primary checkout is refused before Git runs.
+        IReadOnlyList<GitWorktreeEntry> entries = GitWorktreeList.Parse(await this.reader.ReadAsync(layout.WorktreePath,
+            ["worktree", "list", "--porcelain"], cancellationToken).ConfigureAwait(false));
+        if (entries.Count == 0 || this.paths.Resolve(entries[0].Path) == layout.WorktreePath)
+            throw new IOException("The primary checkout is not a removable linked worktree.");
+        // Run from the shared metadata, not the folder being removed.
+        GitRunResult removed = await this.git.RunAsync(layout.CommonDirectory,
+            ["worktree", "remove", "--force", "--", layout.WorktreePath], cancellationToken).ConfigureAwait(false);
+        if (removed.Exit.ExitCode == 0 && removed.Exit.Diagnostic is null
+            && !await this.ExistsAsync(layout.WorktreePath, CancellationToken.None).ConfigureAwait(false)) return;
+        // Git kept the folder or failed, such as on a file it could not delete: the folder goes, then its record.
+        if (Directory.Exists(layout.WorktreePath)) Directory.Delete(layout.WorktreePath, recursive: true);
+        Check(await this.git.RunAsync(layout.CommonDirectory, ["worktree", "prune"], cancellationToken).ConfigureAwait(false),
+            "prune worktrees");
+    }
+
+    // With an expected owner the removal is forced and only the recorded identity is checked; otherwise anything Git
+    // would lose retains the worktree.
+    private async Task<GitRemovalResult> RemoveCoreAsync(string worktreePath,
+        PreparedGitWorktree? expected, CancellationToken cancellationToken)
+    {
         ArgumentException.ThrowIfNullOrWhiteSpace(worktreePath);
         if (!Path.IsPathFullyQualified(worktreePath)) throw new ArgumentException("Removal requires the exact absolute worktree path.", nameof(worktreePath));
         GitRepositoryReader.GitLayout? repository;
@@ -144,7 +177,7 @@ internal sealed partial class GitWorktrees(GitCommands git, GitRepositoryReader 
         }
         using IDisposable operation = await this.locks.EnterAsync(repository.CommonDirectory, cancellationToken).ConfigureAwait(false);
         GitPreservationCheck checkedNow = await this.reader.CheckPreservationAsync(worktreePath, cancellationToken).ConfigureAwait(false);
-        if (!Removable(checkedNow)) return new(GitRemovalStatus.Retained, checkedNow,
+        if (expected is null && !checkedNow.CanRemoveWithoutLoss) return new(GitRemovalStatus.Retained, checkedNow,
             await this.ExistsAsync(worktreePath, cancellationToken).ConfigureAwait(false) ? worktreePath : null, checkedNow.BranchRef);
         GitRepositorySnapshot current = await this.reader.InspectAsync(worktreePath, cancellationToken).ConfigureAwait(false)
             ?? throw new IOException("The worktree changed while waiting for its operation gate.");
@@ -154,15 +187,20 @@ internal sealed partial class GitWorktrees(GitCommands git, GitRepositoryReader 
                 "The worktree no longer matches Core's recorded repository, path or retained branch.");
         if (current.CommonDirectory != repository.CommonDirectory || current.BranchRef != checkedNow.BranchRef
             || current.HeadCommit != checkedNow.HeadCommit
-            || current.Status.Any(entry => !ignoredFilesExpendable || !entry.IsIgnored))
+            || (expected is null && current.Status.Count != 0))
             return new(GitRemovalStatus.Retained, checkedNow, worktreePath, current.BranchRef, "Worktree identity or state changed during removal preparation.");
         try { await this.paths.RequireWriteAsync([current.CommonDirectory, current.WorktreePath], cancellationToken).ConfigureAwait(false); }
         catch (UnauthorizedAccessException)
         {
             return new(GitRemovalStatus.Retained, checkedNow, worktreePath, current.BranchRef, "Current scope policy does not permit worktree removal.");
         }
+        if (expected is not null)
+        {
+            await this.ForceRemoveUnderLockAsync(repository, cancellationToken).ConfigureAwait(false);
+            return new(GitRemovalStatus.Removed, checkedNow, null, current.BranchRef);
+        }
         // Execute from persistent shared metadata, not the directory being removed. Never force,
-        // recursively delete directly, remove a ref, push or merge as a side effect of cleanup.
+        // recursively delete directly, remove a ref, push or merge as a side effect of this removal.
         GitRunResult removed = await this.git.RunAsync(current.CommonDirectory,
             ["worktree", "remove", "--", current.WorktreePath], cancellationToken).ConfigureAwait(false);
         bool remains = await this.ExistsAsync(current.WorktreePath, CancellationToken.None).ConfigureAwait(false);

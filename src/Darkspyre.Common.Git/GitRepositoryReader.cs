@@ -210,21 +210,6 @@ internal sealed partial class GitRepositoryReader(GitCommands git, IGitPathPolic
         Utf8.GetString(await this.ReadAsync(repository, ["remote"], cancellationToken).ConfigureAwait(false))
             .Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
-    /// <summary>The commits reachable from <paramref name="commit"/> that no remote-tracking branch reaches.</summary>
-    internal async Task<IReadOnlyList<string>> ReadUnpublishedCommitsAsync(string repository, string commit,
-        CancellationToken cancellationToken)
-    {
-        // The commit is an object name, never an option: --end-of-options would make --not and --remotes revisions too.
-        if (commit.Length is not (40 or 64) || commit.Any(character => !char.IsAsciiHexDigit(character)))
-            throw new ArgumentException("A commit object name is required.", nameof(commit));
-        string[] commits = Utf8.GetString(await this.ReadAsync(repository,
-            ["rev-list", commit, "--not", "--remotes"], cancellationToken).ConfigureAwait(false))
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        if (commits.Any(item => item.Length is not (40 or 64) || item.Any(character => !char.IsAsciiHexDigit(character))))
-            throw new InvalidDataException("Git returned invalid reachability evidence.");
-        return commits;
-    }
-
     // Every reader command is inspection metadata, such as status that lists files outside the caller's view, so none
     // is kept for replay.
     private Task<GitRunResult> RunAsync(string directory, IReadOnlyList<string> arguments,

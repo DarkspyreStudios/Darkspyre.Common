@@ -345,13 +345,19 @@ public sealed class GitClient
         this.worktrees.ReattachPreparedAsync(prepared, worktreePath, expectedHead, cancellationToken);
 
     /// <summary>
-    /// Removes a worktree like <see cref="RemoveWorktreeAsync"/>, except that ignored files, such as build
-    /// output, do not block removal and are deleted with the worktree.
+    /// Removes a linked worktree whatever it holds, uncommitted and untracked files included, with
+    /// <c>git worktree remove --force</c>. When Git fails or leaves the folder, the folder is deleted and the repository's
+    /// worktree records are pruned. The branch stays.
     /// </summary>
-    public Task<GitRemovalResult> RemoveWorktreeDiscardingIgnoredAsync(string worktreePath, CancellationToken cancellationToken = default) =>
-        this.worktrees.RemoveDiscardingIgnoredAsync(worktreePath, cancellationToken);
+    /// <gotcha>Git refuses to remove a locked worktree. Unlock it first with <see cref="UnlockWorktreeAsync"/>. The primary
+    /// checkout is refused with <see cref="IOException"/>.</gotcha>
+    public Task ForceRemoveWorktreeAsync(string worktreePath, CancellationToken cancellationToken = default) =>
+        this.worktrees.ForceRemoveAsync(worktreePath, cancellationToken);
 
-    /// <summary>Removes a worktree a core module created, only while it still holds the recorded repository and branch.</summary>
+    /// <summary>
+    /// Removes a worktree a core module created, whatever it holds, only while it still holds the recorded repository and
+    /// branch. The branch stays, so the worktree can be reattached.
+    /// </summary>
     public Task<GitRemovalResult> RemoveOwnedWorktreeAsync(string worktreePath, PreparedGitWorktree expected, CancellationToken cancellationToken = default) =>
         this.worktrees.RemoveOwnedAsync(worktreePath, expected, cancellationToken);
 
@@ -388,10 +394,6 @@ public sealed class GitClient
     /// <see cref="GitWorktreeSnapshot.BaseCommit"/> throws <see cref="ArgumentException"/>.</gotcha>
     public Task DeleteCreatedBranchAsync(GitWorktreeSnapshot created, CancellationToken cancellationToken = default) =>
         this.worktrees.DeleteCreatedBranchAsync(created, cancellationToken);
-
-    /// <summary>The commits reachable from <paramref name="commit"/> that no remote-tracking branch reaches.</summary>
-    public Task<IReadOnlyList<string>> ReadUnpublishedCommitsAsync(string repository, string commit, CancellationToken cancellationToken = default) =>
-        this.reader.ReadUnpublishedCommitsAsync(repository, commit, cancellationToken);
 
     /// <summary>The names of the repository's configured remotes, read with a plain <c>git remote</c>.</summary>
     public Task<IReadOnlyList<string>> ReadRemoteNamesAsync(string repository, CancellationToken cancellationToken = default) =>

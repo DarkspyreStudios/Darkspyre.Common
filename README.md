@@ -141,6 +141,12 @@ The `GitClient` operations check paths through the path policy, take the reposit
   unlocks it first. `PruneWorktreesAsync` runs `git worktree prune`. `AttachWorktreeAsync` adds a worktree on a branch
   that may exist: the local branch, else a new untracked branch at `origin/<branch>`, else a new untracked branch at the
   base; the result says which ([DSA-1028](https://darkspyre.atlassian.net/browse/DSA-1028)).
+- `RemoveWorktreeAsync` removes a linked worktree only when nothing would be lost and never forces.
+  `ForceRemoveWorktreeAsync` removes an unlocked linked worktree whatever it holds, with `git worktree remove --force`;
+  when Git fails or leaves the folder, the library deletes the folder and runs `git worktree prune`. It refuses the
+  primary checkout. `RemoveOwnedWorktreeAsync` forces the same way while the worktree still holds the repository, path
+  and branch a core module recorded. None of the three deletes the branch
+  ([DSA-1203](https://darkspyre.atlassian.net/browse/DSA-1203)).
 - A repository-relative path has no empty, `.` or `..` component.
 - `GitPathChecks.NamedPathExists` reports whether a directory entry exists at a path without following a final link, so
   a new clone or worktree never takes the place of a dangling link.
@@ -499,7 +505,7 @@ a `WorkspaceActor`, the acting owner and the trigger, which each log line names.
   re-creating, moving an item and re-applying a stash.
 - Every worktree the library makes is locked with `WorkspaceFolders.LockReason`, "Darkspyre session workspace; do not
   remove", so Git and tools that clean up worktrees leave it alone. The library unlocks a worktree just before it
-  removes it, and locks it again when Git keeps it.
+  removes it.
 - `CreateAsync` refuses an existing folder. For each repository in order it fetches a base that names a
   remote-tracking branch, creates the worktree at `<folder>/<name>` on the new branch and locks it; then it creates
   `tmp/home`. With `SkipFailures` a repository whose fetch or worktree fails is skipped and reported with its reason;
@@ -514,12 +520,13 @@ a `WorkspaceActor`, the acting owner and the trigger, which each log line names.
   directory, locked or not), missing or broken; every other top-level folder that is a git worktree's own folder, such
   as one made for a single task, as another worktree; and every remaining top-level item except `tmp` as a stray, so
   a caller can warn instead of refusing.
-- `RemoveAsync` takes a workspace folder or a single worktree. Every worktree must lose nothing but ignored files and
-  have every commit on a remote-tracking branch; otherwise `WorkspaceRemovalBlockedException` names the worktree and
-  nothing is removed. A top-level item that is not a worktree, including `tmp` and `.agent-ds`, does not block. It
-  unlocks and removes each worktree, deletes each branch while it still names the removed head, and deletes the folder
-  with whatever remains in it. A worktree on a branch with no commits is removable when it holds no tracked, untracked
-  or staged files; its branch has no ref, so none is deleted.
+- `RemoveAsync` takes a workspace folder or a single worktree and removes it whatever it holds. For each worktree it
+  unlocks it, removes it with `ForceRemoveWorktreeAsync`, and deletes its local branch while the branch still names the
+  head the worktree had, logging that head commit so `git branch <name> <commit>` recovers it until Git collects it.
+  Then it deletes the folder with whatever remains in it, such as `tmp` and `.agent-ds`. Uncommitted and untracked
+  files and commits on no remote branch go with it. A detached worktree and a branch with no commits have no ref to
+  delete. A failure stops the removal with an `IOException` and leaves the rest in place
+  ([DSA-1203](https://darkspyre.atlassian.net/browse/DSA-1203)).
 - `RepairAsync` stashes each healthy worktree's uncommitted and untracked changes (`darkspyre-repair <timestamp>`);
   moves each broken repository folder into `tmp/repaired-<yyyyMMdd-HHmmss>`; unlocks each missing worktree's record and
   prunes the repositories; re-creates each missing worktree on the branch (the local branch, else a new branch at
@@ -531,7 +538,7 @@ a `WorkspaceActor`, the acting owner and the trigger, which each log line names.
 
 ### Notes for callers
 
-- The library does not track which workspaces an owner created. When a session is deleted, the caller removes every
+- The library does not track which workspaces an owner created. When a session ends, the caller removes every
   workspace that session created, so it records them as it creates them (Brandon, 2026-10-14).
 
 ### Tests

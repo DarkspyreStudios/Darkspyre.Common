@@ -153,15 +153,15 @@ public sealed partial class WorkspaceFolders
     }
 
     /// <summary>
-    /// Removes a workspace folder, or a single worktree, named by its absolute path: each worktree in it, unlocked first,
-    /// then the branch each was on, then the folder with everything left in it, such as <c>tmp</c> and <c>.agent-ds</c>.
+    /// Removes a workspace folder, or a single worktree, named by its absolute path, whatever it holds. For each worktree
+    /// in it: unlock it, remove it with <c>git worktree remove --force</c> (deleting a folder Git leaves and pruning its
+    /// record), and delete the local branch it was on, logging the branch's head commit. Then it deletes the folder with
+    /// everything left in it, such as <c>tmp</c> and <c>.agent-ds</c>.
     /// </summary>
     /// <remarks>
-    /// Before anything is removed, every worktree must lose nothing but ignored files, such as build output, and every
-    /// commit on its branch must be on a remote-tracking branch. Otherwise <see cref="WorkspaceRemovalBlockedException"/>
-    /// names the worktree and nothing is removed. A top-level item that is not a worktree, including <c>tmp</c> and
-    /// <c>.agent-ds</c>, does not block; it is deleted with the folder. A worktree Git keeps is locked again and the
-    /// removal stops with an <see cref="IOException"/>.
+    /// Uncommitted and untracked files and commits on no remote branch are deleted with the worktree; the logged head
+    /// commit recovers a branch until Git collects it. A branch is deleted only while it still names the head its worktree
+    /// had. A failure stops the removal with an <see cref="IOException"/> and leaves the rest in place.
     /// </remarks>
     public async Task<WorkspaceRemovalResult> RemoveAsync(string path, WorkspaceActor actor, CancellationToken cancellationToken = default)
     {
@@ -178,53 +178,27 @@ public sealed partial class WorkspaceFolders
                     members.Add((entry, member));
             }
         }
-        foreach ((string member, _) in members)
-        {
-            GitPreservationCheck check = await this.git.CheckPreservationAsync(member, cancellationToken).ConfigureAwait(false);
-            if (!GitPreservationCheck.LosesOnlyIgnoredFiles(check))
-                throw new WorkspaceRemovalBlockedException($"The worktree {member} cannot be removed without loss: "
-                    + $"{string.Join(" ", check.Blockers.Where(blocker => blocker != GitPreservationCheck.IgnoredFilesBlocker))} Nothing was removed.");
-            // A branch with no commits has nothing to publish.
-            if (check.HeadCommit is not { } head) continue;
-            IReadOnlyList<string> unpublished = await this.git.ReadUnpublishedCommitsAsync(member, head, cancellationToken)
-                .ConfigureAwait(false);
-            if (unpublished.Count > 0)
-                throw new WorkspaceRemovalBlockedException($"The worktree {member} has {unpublished.Count} commit(s) on no remote branch. "
-                    + "Push them first. Nothing was removed.");
-        }
-
-        List<GitWorktreeSnapshot> branches = [];
+        List<string> branches = [];
         foreach ((string member, GitRepositorySnapshot worktree) in members)
         {
             Log.Unlocking(this.logger, member, actor.Actor, actor.Trigger);
             await this.git.UnlockWorktreeAsync(member, cancellationToken).ConfigureAwait(false);
             Log.RemovingWorktree(this.logger, member, actor.Actor, actor.Trigger);
-            GitRemovalResult removed = await this.git.RemoveWorktreeDiscardingIgnoredAsync(member, cancellationToken).ConfigureAwait(false);
-            if (removed.Status != GitRemovalStatus.Removed)
-            {
-                // A worktree Git keeps stays a workspace worktree, so it gets its lock back.
-                await this.LockAsync(member, actor, CancellationToken.None).ConfigureAwait(false);
-                throw new IOException($"Git kept the worktree {member}: "
-                    + string.Join(" ", [.. removed.Preservation.Blockers.Where(blocker => blocker != GitPreservationCheck.IgnoredFilesBlocker),
-                        .. removed.Diagnostic is { } diagnostic ? [diagnostic] : Array.Empty<string>()])
-                    + " Nothing further was deleted.");
-            }
-            if (removed.BranchRef is { } branch && branch.StartsWith("refs/heads/", StringComparison.Ordinal)
-                && removed.Preservation.HeadCommit is { } head)
-                branches.Add(new(worktree.CommonDirectory, worktree.WorktreePath, branch, head));
-        }
-        // Each branch is deleted only while it still names the commit its worktree had at removal.
-        foreach (GitWorktreeSnapshot branch in branches)
-        {
-            Log.DeletingBranch(this.logger, branch.BranchRef, branch.WorktreePath, actor.Actor, actor.Trigger);
-            await this.git.DeleteCreatedBranchAsync(branch, CancellationToken.None).ConfigureAwait(false);
+            await this.git.ForceRemoveWorktreeAsync(member, cancellationToken).ConfigureAwait(false);
+            // A detached HEAD has no branch, and a branch with no commits has no ref.
+            if (worktree.BranchRef is not { } branch || !branch.StartsWith("refs/heads/", StringComparison.Ordinal)
+                || worktree.HeadCommit is not { } head) continue;
+            Log.DeletingBranch(this.logger, branch, head, member, actor.Actor, actor.Trigger);
+            await this.git.DeleteCreatedBranchAsync(new(worktree.CommonDirectory, worktree.WorktreePath, branch, head),
+                CancellationToken.None).ConfigureAwait(false);
+            branches.Add(branch);
         }
         if (Directory.Exists(path))
         {
             Log.DeletingFolder(this.logger, path, actor.Actor, actor.Trigger);
             Directory.Delete(path, recursive: true);
         }
-        return new(path, [.. members.Select(member => member.Path)], [.. branches.Select(branch => branch.BranchRef)]);
+        return new(path, [.. members.Select(member => member.Path)], branches.AsReadOnly());
     }
 
     // The worktree whose own folder the path is, or null.
@@ -268,7 +242,8 @@ public sealed partial class WorkspaceFolders
                 // A branch made with no commits has no ref to delete.
                 else if (worktree.Worktree.BaseCommit is not null)
                 {
-                    Log.DeletingBranch(this.logger, worktree.Worktree.BranchRef, worktree.Path, actor.Actor, actor.Trigger);
+                    Log.DeletingBranch(this.logger, worktree.Worktree.BranchRef, worktree.Worktree.BaseCommit, worktree.Path,
+                        actor.Actor, actor.Trigger);
                     await this.git.DeleteCreatedBranchAsync(worktree.Worktree, CancellationToken.None).ConfigureAwait(false);
                 }
             }

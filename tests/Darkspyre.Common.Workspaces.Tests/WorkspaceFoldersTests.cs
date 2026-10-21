@@ -179,31 +179,31 @@ public sealed class WorkspaceFoldersTests
     }
 
     /// <summary>
-    /// DSA-1088: a worktree on a branch with no commits is kept while it holds an untracked file, and removed with its
-    /// folder once it is clean; no branch is deleted, since none has a ref.
+    /// DSA-1203: a locked worktree with a modified file, an untracked file and a commit on no remote branch is removed
+    /// with its record, its branch and the folder, and the log names the branch's head commit.
     /// </summary>
     [Fact]
-    public async Task RemoveRemovesACleanOrphanWorktreeAndKeepsOneWithFiles()
+    public async Task RemoveRemovesALockedWorktreeWithUncommittedFilesAndAnUnpushedCommit()
     {
         Fixture fixture = Fixture.Create();
-        string empty = fixture.Empty("empty");
-        WorkspaceCreateResult created = await fixture.Folders.CreateAsync(
-            new(fixture.Folder, "orphan", [new("empty", empty, "HEAD")], false), Actor);
-        string worktree = Assert.Single(created.Worktrees).Path;
-        string notes = Path.Combine(worktree, "notes.txt");
-        File.WriteAllText(notes, "keep\n");
-
-        await Assert.ThrowsAsync<WorkspaceRemovalBlockedException>(() => fixture.Folders.RemoveAsync(fixture.Folder, Actor));
-        Assert.Equal("keep\n", File.ReadAllText(notes));
+        WorkspaceCreateResult created = await fixture.Folders.CreateAsync(new(fixture.Folder, "ended", fixture.Repositories, false), Actor);
+        string worktree = created.Worktrees[0].Path;
+        File.WriteAllText(Path.Combine(worktree, "unpushed.txt"), "committed\n");
+        Git.Run(worktree, "add", "unpushed.txt");
+        Git.Run(worktree, "commit", "-q", "-m", "Unpushed");
+        string head = Git.Run(worktree, "rev-parse", "HEAD").Trim();
+        File.WriteAllText(Path.Combine(worktree, "readme.txt"), "modified\n");
+        File.WriteAllText(Path.Combine(worktree, "untracked.txt"), "untracked\n");
         Assert.True(Locked(worktree));
 
-        File.Delete(notes);
         WorkspaceRemovalResult removed = await fixture.Folders.RemoveAsync(fixture.Folder, Actor);
 
-        Assert.Equal([worktree], removed.Worktrees);
-        Assert.Empty(removed.Branches);
+        Assert.Equal(created.Worktrees.Select(item => item.Path), removed.Worktrees);
+        Assert.Equal(["refs/heads/ended", "refs/heads/ended"], removed.Branches);
         Assert.False(Directory.Exists(fixture.Folder));
-        Assert.DoesNotContain("orphan", Git.Run(empty, "worktree", "list", "--porcelain"), StringComparison.Ordinal);
+        Assert.DoesNotContain(worktree, Git.Run(fixture.First, "worktree", "list", "--porcelain").Replace('\\', '/'), StringComparison.Ordinal);
+        Assert.Empty(Git.Run(fixture.First, "branch", "--list", "ended").Trim());
+        Assert.Contains(fixture.Log.Lines, line => line.Contains($"Deleting the branch refs/heads/ended at {head}", StringComparison.Ordinal));
     }
 
     // Whether git worktree list names the worktree locked with the workspace reason. Git prints '/' on every system.
@@ -227,11 +227,6 @@ public sealed class WorkspaceFoldersTests
             Git.Run(this.First, "push", "-q", "origin", "main:dev");
             Git.Run(this.First, "fetch", "-q", "origin");
             this.Second = Init(Path.Combine(root, "second"));
-            // The second repository's base must be on a remote-tracking branch for a removal to lose nothing.
-            string secondOrigin = Path.Combine(root, "second-origin.git");
-            Git.Run(root, "init", "-q", "--bare", "-b", "main", secondOrigin);
-            Git.Run(this.Second, "remote", "add", "origin", secondOrigin);
-            Git.Run(this.Second, "push", "-q", "-u", "origin", "main");
             this.Folder = Path.Combine(root, "workspaces", "work");
             this.Repositories = [new("first", this.First, "origin/dev"), new("second", this.Second, "main")];
             GitClient git = new(new SystemGitProcessLauncher(), UnrestrictedGitPathPolicy.Instance, new GitRepositoryLocks());

@@ -29,8 +29,8 @@ public sealed partial class WorkspaceFolders
         [LoggerMessage(Level = LogLevel.Information, Message = "Removing the worktree {Worktree} for the {Trigger} of {Actor}")]
         internal static partial void RemovingWorktree(ILogger logger, string worktree, string actor, string trigger);
 
-        [LoggerMessage(Level = LogLevel.Information, Message = "Deleting the branch {Branch} of the worktree {Worktree} for the {Trigger} of {Actor}")]
-        internal static partial void DeletingBranch(ILogger logger, string branch, string worktree, string actor, string trigger);
+        [LoggerMessage(Level = LogLevel.Information, Message = "Deleting the branch {Branch} at {Commit} of the worktree {Worktree} for the {Trigger} of {Actor}")]
+        internal static partial void DeletingBranch(ILogger logger, string branch, string commit, string worktree, string actor, string trigger);
 
         [LoggerMessage(Level = LogLevel.Information, Message = "Deleting the workspace folder {Folder} for the {Trigger} of {Actor}")]
         internal static partial void DeletingFolder(ILogger logger, string folder, string actor, string trigger);

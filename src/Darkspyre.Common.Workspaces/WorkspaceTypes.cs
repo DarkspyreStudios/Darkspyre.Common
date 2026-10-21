@@ -117,7 +117,3 @@ public sealed record WorkspaceMovedItem(string From, string To);
 public sealed record WorkspaceRepairResult(string Folder, IReadOnlyList<WorkspaceRecreatedWorktree> Recreated,
     IReadOnlyList<WorkspaceMovedItem> Moved, string? RepairedFolder, IReadOnlyList<string> Reapplied,
     IReadOnlyList<WorkspaceStashConflict> Conflicts, IReadOnlyList<string> OtherWorktrees);
-
-/// <summary>A removal refused before anything was removed, because it would lose work or an item no check covers.</summary>
-/// <param name="message">Why, naming the worktree or items.</param>
-public sealed class WorkspaceRemovalBlockedException(string message) : IOException(message);

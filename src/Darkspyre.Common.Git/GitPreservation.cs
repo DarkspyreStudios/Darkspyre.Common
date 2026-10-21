@@ -16,11 +16,4 @@ public sealed record GitPreservationCheck(string? HeadCommit, string? BranchRef,
 {
     /// <summary>The blocker a preservation check reports for ignored files, such as build output.</summary>
     public const string IgnoredFilesBlocker = "Ignored files are not preserved.";
-
-    /// <summary>Whether ignored files are the check's only blockers, or it has none.</summary>
-    public static bool LosesOnlyIgnoredFiles(GitPreservationCheck check)
-    {
-        ArgumentNullException.ThrowIfNull(check);
-        return check.Blockers.All(blocker => blocker == IgnoredFilesBlocker);
-    }
 }
