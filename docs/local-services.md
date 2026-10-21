@@ -363,7 +363,9 @@ Its platform composition supplies the same executable-file inspection used durin
 
 `build/LocalServices/SubscriberPackage.targets` bundles a service with its subscriber library. The subscriber project
 sets `LocalServiceProject`, `LocalServiceEntryPoint`, `LocalServiceMetadataPrefix`, `LocalServiceLayoutId` and
-`LocalServicePackageFolder`, then imports the targets. Before the subscriber compiles, the packaging tool's `capture`
+`LocalServicePackageFolder`, then imports the targets. Before the subscriber compiles, the targets build the packaging
+tool in the subscriber's configuration, so a Release build of a solution that does not contain the tool finds it in
+`bin/Release`. The tool's `capture`
 command inventories the built service output and writes `manifest.json` and `ServicePackageMetadata.cs`, which carries
 the `<prefix>.LayoutId` and `<prefix>.ClientBuildDigest` assembly metadata. The client digest covers the manifest and
 the hashes of the subscriber's compile inputs and references. The payload is copied to `<folder>/payload/` and the

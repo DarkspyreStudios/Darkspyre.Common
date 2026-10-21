@@ -16,8 +16,10 @@
     <ProjectReference Include="$(LocalServiceProject)" ReferenceOutputAssembly="false" Private="false" />
     <!-- Package inspection runs on the build machine, independently of the service's target RID. DarkspyrePlatform stays:
          no project on this route reads it, and removing it would give the packaging tool and its libraries a second
-         configuration, which MSBuild builds again into the same output folder. -->
-    <ProjectReference Include="$(_LocalServicePackagingProject)" ReferenceOutputAssembly="false" Private="false"
+         configuration, which MSBuild builds again into the same output folder. The reference only restores the tool:
+         a solution build unsets Configuration for a referenced project outside the solution, so a built reference
+         would compile in Debug. PrepareLocalServiceSubscriber builds the tool in the subscriber's configuration. -->
+    <ProjectReference Include="$(_LocalServicePackagingProject)" ReferenceOutputAssembly="false" Private="false" BuildReference="false"
                       GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;ServiceRuntimeIdentifier;ServicePlatform" />
   </ItemGroup>
 
@@ -36,6 +38,8 @@
 
   <!-- Writes the subscriber manifest and the generated client metadata before the client compiles. -->
   <Target Name="PrepareLocalServiceSubscriber" BeforeTargets="CoreCompile" DependsOnTargets="ResolveReferences;LocateLocalServiceSubscriber">
+    <MSBuild Projects="$(_LocalServicePackagingProject)" Targets="Build" Properties="Configuration=$(Configuration)"
+             RemoveProperties="RuntimeIdentifier;SelfContained;ServiceRuntimeIdentifier;ServicePlatform" />
     <MSBuild Projects="$(_LocalServicePackagingProject)" Targets="GetTargetPath" Properties="Configuration=$(Configuration)"
              RemoveProperties="RuntimeIdentifier;SelfContained;ServiceRuntimeIdentifier;ServicePlatform">
       <Output TaskParameter="TargetOutputs" ItemName="_LocalServicePackagingAssembly" />
