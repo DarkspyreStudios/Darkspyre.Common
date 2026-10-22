@@ -105,12 +105,12 @@ internal sealed class MermaidImageBlockRenderer : HtmlObjectRenderer<MermaidImag
 /// <summary>Teaches the HTML renderer of a Markdown pipeline to write the images <see cref="MermaidImages.Apply"/> puts in a document.</summary>
 public sealed class MermaidImageExtension : IMarkdownExtension
 {
-    /// <inheritdoc />
+    /// <summary>Adds nothing to the parser: the images come from <see cref="MermaidImages.Apply"/>, not from parsing.</summary>
     public void Setup(MarkdownPipelineBuilder pipeline)
     {
     }
 
-    /// <inheritdoc />
+    /// <summary>Adds the writer of drawn <c>mermaid</c> fences to an HTML renderer; other renderers are left unchanged.</summary>
     public void Setup(MarkdownPipeline pipeline, IMarkdownRenderer renderer)
     {
         if (renderer is HtmlRenderer html) html.ObjectRenderers.AddIfNotAlready<MermaidImageBlockRenderer>();
