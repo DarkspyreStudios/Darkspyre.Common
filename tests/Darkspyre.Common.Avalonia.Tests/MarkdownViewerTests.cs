@@ -10,6 +10,7 @@ using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Darkspyre.Agent.Common.UI.Markdown;
 using Darkspyre.Common.Markdown;
+using Darkspyre.Common.Markdown.Mermaid;
 using LiveMarkdown.Avalonia;
 using Xunit;
 

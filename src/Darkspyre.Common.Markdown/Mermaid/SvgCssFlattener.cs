@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace Darkspyre.Agent.Common.UI.Markdown;
+namespace Darkspyre.Common.Markdown.Mermaid;
 
 /// <summary>
 /// Turns Mermaider's themed SVG into plain SVG that a renderer without CSS custom properties can draw. Mermaider declares colours and

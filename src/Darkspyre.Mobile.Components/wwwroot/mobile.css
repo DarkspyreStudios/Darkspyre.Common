@@ -247,6 +247,13 @@ body {
     border-top: 1px solid var(--line);
 }
 
+/* A mermaid fence drawn as an image. */
+.markdown img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
 /* Code colours for the classes highlight.js writes. */
 .hljs-keyword,
 .hljs-doctag,

@@ -10,7 +10,6 @@
     <PackageReference Include="Avalonia.AvaloniaEdit" />
     <PackageReference Include="AvaloniaEdit.TextMate" />
     <PackageReference Include="LiveMarkdown.Avalonia" />
-    <PackageReference Include="Mermaider" />
     <PackageReference Include="Svg.Skia" />
     <PackageReference Include="RoyalApps.RoyalTerminal.Avalonia" />
     <ProjectReference Include="../Darkspyre.Common.Pdf/Darkspyre.Common.Pdf.csproj" />

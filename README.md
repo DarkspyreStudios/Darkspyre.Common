@@ -210,8 +210,9 @@ runtime picks its own native file. The test class carries the three `SupportedOS
 
 ## Darkspyre.Common.Markdown
 
-The one Markdown safety policy every Darkspyre surface parses with. It references only Markdig and no UI framework. The
-desktop's `MarkdownViewer` and the mobile `MarkdownView` both build their pipelines from it.
+The one Markdown safety policy every Darkspyre surface parses with, the Mermaid renderer both surfaces draw diagrams with, and
+the attachment file-kind icon artwork. It references Markdig and Mermaider and no UI framework. The desktop's `MarkdownViewer`
+and the mobile `MarkdownView` both build their pipelines from it.
 
 ### Starting it
 
@@ -235,11 +236,28 @@ MarkdownPipeline pipeline = MarkdownSafety.Build(builder);                  // t
   target is a link only when the source's `Accepts` is true. A refused link shows as its own text, a refused image is
   emptied and a refused autolink becomes literal text. `MarkdownLinkSpan` is the span a source's `Find` returns; the
   desktop viewer uses `Find` to add links to plain text.
+- `Mermaid/` holds the diagram renderer, which has no UI types. `IMermaidRenderer.RenderSvgAsync(source, theme, token)` returns
+  the SVG for a diagram, or null when it cannot be drawn. `MermaiderRenderer` is the one implementation: Mermaider draws the
+  diagram, then `SvgCssFlattener` resolves the CSS custom properties and colour mixes in its SVG to literals so a renderer
+  without CSS, such as Svg.Skia, draws every element. `MermaidTheme(Background, Foreground, Line, Accent, FontFamily)` holds
+  the colours as `#rrggbb` strings and the family all text uses; each surface converts its own theme to it.
+- `MermaidImages` draws the closed `mermaid` fences of a parsed document for a surface that shows HTML. `FencesIn(document)`
+  lists their sources (a fence a streamed reply has not closed is left out), `DrawAsync(sources, theme)` draws each one not yet
+  drawn on the thread pool and keeps the result by source and theme, `IsSettled` says whether every source has finished, and
+  `Apply(document, theme)` replaces each drawn fence with a `MermaidImageBlock`. A renderer that returns null or throws leaves
+  that fence as the code block it was. The pipeline must add `MermaidImageExtension`, which writes the block as
+  `<img alt="diagram" src="data:image/svg+xml;base64,...">`. The SVG reaches the page only as base64 in `src`, never as markup,
+  and an SVG in an `img` runs no script and loads nothing. The cache has no limit.
+- `AttachmentIconPaths` holds the SVG artwork of the file-kind icons (`Image`, `UnavailableImage`, `Pdf`, `Office`, `Text`,
+  `Other`) as markup strings in `ViewBox` `0 0 16 16`, drawn in `currentColor`. The desktop's `AttachmentPreviewIcons` and the
+  phone's `FileKindIcon` both build from it.
 
 ### Tests
 
 `tests/Darkspyre.Common.Markdown.Tests` parses links, autolinks and an attribute block with the pipeline and checks that
-only web and mail links keep their targets and that no attribute reaches the HTML.
+only web and mail links keep their targets and that no attribute reaches the HTML. `MermaidFenceRendersAsAnImageOnThePhone`
+checks that a closed `mermaid` fence becomes an `img` with a base64 SVG data address and no `script`, and that a fence that
+cannot be drawn and an unclosed fence stay code.
 
 ## Darkspyre.Agent.Common.UI
 
@@ -249,13 +267,13 @@ Each folder is its own namespace, `Darkspyre.Agent.Common.UI.<folder>`:
 | Namespace | Holds |
 | --- | --- |
 | `.Controls` | `Forms` and `ButtonSize`, `Sizes`, `Badge`, `Spinner`, `LoopingAnimation`, `IconPicker`, `ColorPicker`, `StatusLight` and `StatusLightState`, `QuotaRing`, `ClipboardText`, `Watching<TShown>` and `UiChangeSubscription`, `Remount`, `KeyedViews`, `KeyedChildren`, `UiRefresh`, `ShownList` |
-| `.Icons` | `Icon`, `IconSource`, `AppIcons`, `ProjectIcons`, `PluginPanelIcons`, `AttachmentPreviewIcons` |
+| `.Icons` | `Icon`, `IconSource`, `AppIcons`, `ProjectIcons`, `PluginPanelIcons`, `AttachmentPreviewIcons` (built from `AttachmentIconPaths` in `Darkspyre.Common.Markdown`) |
 | `.Dialogs` | `ModalLayer`, `Sheet`, `ConfirmDialog`, `PaletteSheet`, `DialogPresenter` with `SheetRequest`, `ISheet` and `ConfirmationRequest` |
 | `.Errors` | `UiRegion`, `UiFailure`, `FailureView` |
 | `.Composition` | `CompositionTarget`, `CompositionSlot`, `ICompositionPresenter`, `SurfaceScopeContext`, `AppearanceSection`, `IAppearanceSectionRegistry` |
 | `.Themes` | `CommonTheme`, holding `ControlStyles` |
 | `.Code` | `SourceView`, `DiffView`, `DiffViewMode`, and `TextDiff` with its line types |
-| `.Markdown` | `MarkdownViewer`, `CopyFeedback`, the Mermaid renderer |
+| `.Markdown` | `MarkdownViewer`, `CopyFeedback` |
 | `.Pdf` | `PdfViewer`, `PdfZoom` |
 | `.Terminal` | `TerminalView` |
 
@@ -356,8 +374,9 @@ and inline code and code blocks take `font-code` at `font-size-code`. LiveMarkdo
   copy itself, and once the code is on the clipboard the button shows a check and is named Copied for two seconds, then
   the copy glyph and the name Copy return. A second press restarts the two seconds. While `Streaming` is true
   and the new text extends the old, only the tail is appended. A `mermaid` fence becomes a diagram drawn by
-  `IMermaidRenderer` (default `MermaiderRenderer`: Mermaider, then `SvgCssFlattener`, which resolves the CSS custom
-  properties and colour mixes Svg.Skia cannot draw). A fence the renderer cannot draw stays a code block. Diagrams are
+  `IMermaidRenderer` from `Darkspyre.Common.Markdown.Mermaid` (default `MermaiderRenderer`), rasterized with Svg.Skia. The
+  viewer converts its `panel`, `text`, `line` and `accent` colours and `font-body` family to a `MermaidTheme`. A fence the
+  renderer cannot draw stays a code block. Diagrams are
   drawn again when the theme changes their colours or font, and not for a resource change that leaves them as they
   were. The colour tokens are read whole on each resource or theme change and handed to LiveMarkdown as one resource
   dictionary, only when a colour differs, so a change restyles the rendered text once and an unrelated one not at all
@@ -405,9 +424,9 @@ A Razor class library (`net11.0`, no MAUI) of what every Darkspyre mobile app's 
 | --- | --- |
 | `MarkdownView` | Renders Markdown as HTML for transcript entries, streaming text and prompt messages |
 | `wwwroot/mobile.css` | The mobile theme: light and dark colours, `header`, dense `list` and `row`, `empty`, `card`, `button`, `input`, `icon`, `error`, the Markdown styles and the code colours |
-| `Icons/` | Lucide icons as inline SVG components (`Bell`, `ChevronLeft`, `ChevronRight`, `Folder`, `LogIn`, `MessageSquare`, `Monitor`, `RefreshCw`, `Send`, `TriangleAlert`, `X`) drawn in the current text colour; `Class` adds classes after `icon` |
+| `Icons/` | Lucide icons as inline SVG components (`Bell`, `ChevronLeft`, `ChevronRight`, `Folder`, `LogIn`, `MessageSquare`, `Monitor`, `RefreshCw`, `Send`, `TriangleAlert`, `X`) drawn in the current text colour; `Class` adds classes after `icon`. `FileKindIcon` (`Kind` of `FileKind` Image, Pdf, Office, Text or Other) draws the attachment file-kind icons from `AttachmentIconPaths`, the artwork the desktop's attachment icons use |
 | `wwwroot/highlight/` | highlight.js 11.11.1, the common-languages build, and its licence |
-| `wwwroot/markdown.js` | `highlightNew(element)` |
+| `wwwroot/markdown.js` | `highlightNew(element)` and `readMermaidTheme(element)` |
 
 ### Starting it
 
@@ -426,7 +445,15 @@ A screen writes `<MarkdownView Text="@text" />`.
 - `MarkdownView` parses with `MarkdownSafety.CreateBuilder` and a link source that accepts and finds nothing, plus one
   rule of its own: every image becomes its alt text, so no remote image loads. Only http, https and mailto targets stay
   links; every other link or autolink target, relative ones and `javascript:` included, shows as its own text. Raw HTML
-  shows as text, and no attribute, style or embed reaches the page. The HTML is parsed again only when `Text` changes.
+  shows as text, and no attribute, style or embed reaches the page. The HTML is parsed again only when `Text` changes or a
+  diagram has finished drawing.
+- A closed `mermaid` fence shows as a code block until it is drawn. After a render that holds one, `MarkdownView` calls
+  `readMermaidTheme`, which reads `--panel`, `--text`, `--line`, `--accent` and `--font-body` from `mobile.css` as the diagram's
+  `MermaidTheme` (a value that is not `#rrggbb`, or a page without the function, leaves every fence as code), draws each closed
+  fence with `MermaidImages` on the thread pool, not in the render pass, and renders again with an `img` whose `src` is the SVG
+  as a base64 data address. Drawn diagrams are kept by fence source and theme for the life of the app, so a streamed reply
+  draws only its new fences, and a change of the system appearance redraws them in the new colours. A fence that cannot be
+  drawn stays code. No SVG or other markup from a diagram enters the page (P2).
 - After each render, `MarkdownView` calls `highlightNew` on its element. The function colours each `pre code` block not
   yet coloured whose `language-<name>` class names a language highlight.js knows. A block in an unknown language, or one
   highlight.js fails on, stays plain text, and a missing or failing script leaves every block plain; no error reaches
@@ -437,8 +464,9 @@ A screen writes `<MarkdownView Text="@text" />`.
 
 ### Tests
 
-No automated test. Its one rule beyond the shared policy, images as alt text, is checked by hand with the code colouring
-and the link rules in a MAUI host on the iOS simulator.
+No automated test of its own. The diagram drawing and the `img` output are tested in `Darkspyre.Common.Markdown.Tests`. The
+rule beyond the shared policy, images as alt text, the code colouring, the link rules, the theme read from `mobile.css` and the
+second render when a diagram finishes are checked by hand in a MAUI host on the iOS simulator.
 
 ## Darkspyre.Mobile.Maui
 

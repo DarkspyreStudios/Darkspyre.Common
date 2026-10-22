@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Markdig" />
+    <PackageReference Include="Mermaider" />
     <!-- MarkdownViewer applies the same link check when a person activates a link, and FileLinks skips web targets. -->
     <InternalsVisibleTo Include="Darkspyre.Agent.Common.UI" />
   </ItemGroup>

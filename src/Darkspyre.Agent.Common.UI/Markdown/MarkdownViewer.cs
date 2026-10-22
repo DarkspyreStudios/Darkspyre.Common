@@ -1,3 +1,4 @@
+using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -12,6 +13,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Darkspyre.Common.Markdown;
+using Darkspyre.Common.Markdown.Mermaid;
 using LiveMarkdown.Avalonia;
 using Markdig;
 using Markdig.Renderers;
@@ -266,9 +268,11 @@ public sealed class MarkdownViewer : TemplatedControl
         Color Find(string key, Color fallback) => this.TryFindResource(key, this.ActualThemeVariant, out object? found) && found is Color colour ? colour : fallback;
         string font = this.TryFindResource("font-body", this.ActualThemeVariant, out object? family) && family is FontFamily named && named.FamilyNames.Count > 0
             ? named.FamilyNames[0] : FontFamily.Default.Name;
-        return new(Find("panel", dark ? Color.Parse("#1e1e1e") : Colors.White), Find("text", dark ? Color.Parse("#e4e4e7") : Color.Parse("#27272a")),
-            Find("accent", Color.Parse("#3b82f6")), Find("line", dark ? Color.Parse("#3f3f46") : Color.Parse("#d4d4d8")), font);
+        return new(Hex(Find("panel", dark ? Color.Parse("#1e1e1e") : Colors.White)), Hex(Find("text", dark ? Color.Parse("#e4e4e7") : Color.Parse("#27272a"))),
+            Hex(Find("line", dark ? Color.Parse("#3f3f46") : Color.Parse("#d4d4d8"))), Hex(Find("accent", Color.Parse("#3b82f6"))), font);
     }
+
+    private static string Hex(Color colour) => string.Create(CultureInfo.InvariantCulture, $"#{colour.R:x2}{colour.G:x2}{colour.B:x2}");
 
     // The renderer's own resources shadow the defaults merged above, so a token the theme lacks keeps the default. The
     // palette is read whole and given to the renderer as one dictionary only when a colour differs: each write to the

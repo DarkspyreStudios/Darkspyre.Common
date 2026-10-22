@@ -11,6 +11,7 @@ using Markdig.Syntax;
 using SkiaSharp;
 using Svg.Skia;
 using Avalonia.VisualTree;
+using Darkspyre.Common.Markdown.Mermaid;
 using CodeBlock = LiveMarkdown.Avalonia.CodeBlock;
 
 namespace Darkspyre.Agent.Common.UI.Markdown;

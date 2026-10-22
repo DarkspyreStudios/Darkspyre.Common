@@ -1,10 +1,8 @@
-using System.Globalization;
-using Avalonia.Media;
 using Mermaider;
 using Mermaider.Models;
 using RenderOptions = Mermaider.Models.RenderOptions;
 
-namespace Darkspyre.Agent.Common.UI.Markdown;
+namespace Darkspyre.Common.Markdown.Mermaid;
 
 /// <summary>Turns Mermaid source into SVG. Returns null when the source cannot be drawn; the fence then stays a code block.</summary>
 public interface IMermaidRenderer
@@ -13,13 +11,13 @@ public interface IMermaidRenderer
     ValueTask<string?> RenderSvgAsync(string source, MermaidTheme theme, CancellationToken cancellationToken);
 }
 
-/// <summary>Colours a diagram is drawn with, taken from the current theme tokens.</summary>
-/// <param name="Background">Behind the diagram: the panel colour.</param>
-/// <param name="Foreground">Text: the text colour.</param>
-/// <param name="Accent">Arrow heads and highlights: the accent colour.</param>
-/// <param name="Border">Box outlines and lines: the line colour.</param>
+/// <summary>Colours and font a diagram is drawn with, taken from the surface's theme. It holds no UI types, so every surface can fill it.</summary>
+/// <param name="Background">Behind the diagram: the panel colour, as <c>#rrggbb</c>.</param>
+/// <param name="Foreground">Text: the text colour, as <c>#rrggbb</c>.</param>
+/// <param name="Line">Box outlines and lines: the line colour, as <c>#rrggbb</c>.</param>
+/// <param name="Accent">Arrow heads and highlights: the accent colour, as <c>#rrggbb</c>.</param>
 /// <param name="FontFamily">The family all diagram text uses.</param>
-public sealed record MermaidTheme(Color Background, Color Foreground, Color Accent, Color Border, string FontFamily);
+public sealed record MermaidTheme(string Background, string Foreground, string Line, string Accent, string FontFamily);
 
 /// <summary>
 /// Default renderer: Mermaider draws the diagram, and the flattener resolves the CSS custom properties and colour mixes
@@ -34,10 +32,10 @@ public sealed class MermaiderRenderer : IMermaidRenderer
         if (string.IsNullOrWhiteSpace(source)) return null;
         RenderOptions options = new()
         {
-            Bg = Hex(theme.Background),
-            Fg = Hex(theme.Foreground),
-            Accent = Hex(theme.Accent),
-            Border = Hex(theme.Border),
+            Bg = theme.Background,
+            Fg = theme.Foreground,
+            Accent = theme.Accent,
+            Border = theme.Line,
             Font = theme.FontFamily,
             Transparent = true,
             Gradient = false,
@@ -55,6 +53,4 @@ public sealed class MermaiderRenderer : IMermaidRenderer
         // Mermaider reports source it cannot parse or lay out with its own exception types; any of them leaves the fence as code.
         catch (Exception error) when (error is not OutOfMemoryException) { return null; }
     }
-
-    private static string Hex(Color colour) => string.Create(CultureInfo.InvariantCulture, $"#{colour.R:x2}{colour.G:x2}{colour.B:x2}");
 }
