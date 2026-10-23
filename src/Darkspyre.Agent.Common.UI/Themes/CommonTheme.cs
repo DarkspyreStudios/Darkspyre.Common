@@ -24,6 +24,11 @@ public sealed class CommonTheme : Styles
         {
             Source = new Uri("avares://Avalonia.Controls.ColorPicker/Themes/Fluent/Fluent.xaml"),
         });
+        // The editor's templates, for SourceView and DiffView. Without them a TextEditor draws nothing.
+        this.Add(new StyleInclude(new Uri("avares://Darkspyre.Agent.Common.UI"))
+        {
+            Source = new Uri("avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml"),
+        });
         this.Add(new ControlStyles());
         this.Resources[typeof(CompositionTarget)] = CompositionTargetTheme();
     }

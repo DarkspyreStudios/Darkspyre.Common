@@ -1,6 +1,8 @@
 using Darkspyre.Agent.Common.UI.Code;
 using Avalonia.Controls;
+using Avalonia.Media;
 using AvaloniaEdit;
+using AvaloniaEdit.Rendering;
 using Xunit;
 
 namespace Darkspyre.Common.Avalonia.Tests;
@@ -108,6 +110,18 @@ public sealed class CodeViewTests
         Assert.Equal(1, view.CurrentMatch);
         Assert.Equal(0, view.Find("missing"));
         return Task.CompletedTask;
+    });
+
+    /// <summary>The Source view draws each line of the file, coloured by its language, here an HTML page.</summary>
+    [Fact]
+    public Task SourceViewDrawsTheFileHighlighted() => ViewSession.RunAsync(async () =>
+    {
+        SourceView view = new() { Text = "<p class=\"note\">Hi</p>\n<script>const x = 1;</script>\n", Language = ".html" };
+        ViewSession.Show(view);
+
+        TextView text = Assert.Single(ViewSession.All<TextEditor>(view)).TextArea.TextView;
+        await ViewSession.WaitForAsync(() => text.VisualLinesValid && text.VisualLines.Count == 3
+            && text.VisualLines[0].Elements.Select(element => (element.TextRunProperties.ForegroundBrush as ISolidColorBrush)?.Color).Distinct().Count() > 1);
     });
 
     [Fact]

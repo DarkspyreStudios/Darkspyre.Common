@@ -4,10 +4,14 @@ using Avalonia.Headless;
 using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Darkspyre.Agent.Common.UI.Themes;
 
 namespace Darkspyre.Common.Avalonia.Tests;
 
-/// <summary>The headless Avalonia session the viewer tests run in, drawing with Skia so pictures can be checked.</summary>
+/// <summary>
+/// The headless Avalonia session the viewer tests run in, drawing with Skia so pictures can be checked. It has the Fluent
+/// theme and the shared controls' theme, as the application does.
+/// </summary>
 internal static class ViewSession
 {
     private static readonly HeadlessUnitTestSession Session = HeadlessUnitTestSession.StartNew(typeof(ViewSession));
@@ -60,6 +64,10 @@ internal static class ViewSession
 
     private sealed class TestApplication : Application
     {
-        public override void Initialize() => this.Styles.Add(new FluentTheme());
+        public override void Initialize()
+        {
+            this.Styles.Add(new FluentTheme());
+            this.Styles.Add(new CommonTheme());
+        }
     }
 }
