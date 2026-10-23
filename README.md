@@ -283,6 +283,7 @@ application's copy (agent-ds `SharedLibraries.props` excludes its runtime assets
 ### Starting it
 
 An application adds `new CommonTheme()` to its styles before its own. `CommonTheme` holds the common control styles,
+including the panel tab (`ToggleButton.plugin-panel-tab`: muted text, and an accent underline on the checked tab),
 the colour picker's templates, the palette, failure-card, quota-ring and status-light styles, and the
 `CompositionTarget` template. Three static hooks connect the library to its application, each set once at startup:
 
