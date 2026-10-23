@@ -117,7 +117,11 @@ public sealed partial class ServiceControlHost
                             throw new InvalidDataException("The service handler returned an invalid result.");
                     }
                     catch (OperationCanceledException) { result = new(ServiceResultStatus.OutcomeUnknown); }
-                    catch (Exception) { result = new(ServiceResultStatus.OutcomeUnknown, Error: new(ServiceErrorCode.Unavailable, Guid.NewGuid())); }
+                    catch (Exception error)
+                    {
+                        result = new(ServiceResultStatus.OutcomeUnknown, Error: new(ServiceErrorCode.Unavailable, Guid.NewGuid(),
+                            $"({error.GetType().FullName}): {error.Message}"));
+                    }
                 }
                 JsonElement? reference = null;
                 if (result.Body is { } body)

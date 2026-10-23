@@ -66,8 +66,8 @@ internal sealed partial class GitRepositoryReader
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or NotSupportedException)
         {
             // Uncertainty is a retention reason, never an invented clean checkout. Cancellation and
-            // invalid caller arguments still propagate normally; no stderr/path payload is copied.
-            blockers.Add($"Preservation could not be established ({error.GetType().Name}).");
+            // invalid caller arguments still propagate normally.
+            blockers.Add($"Preservation could not be established ({error.GetType().Name}): {error.Message}");
         }
         string[] tracked = observed?.Status.Where(entry => !entry.IsUntracked && !entry.IsIgnored).Select(entry => entry.Path).ToArray() ?? [];
         string[] untracked = observed?.Status.Where(entry => entry.IsUntracked).Select(entry => entry.Path).ToArray() ?? [];

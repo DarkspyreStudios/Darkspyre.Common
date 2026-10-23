@@ -42,8 +42,7 @@ public static class GitVersion
         }
         catch (Exception error) when (error is IOException or Win32Exception or UnauthorizedAccessException or NotSupportedException)
         {
-            // No executable stderr or environment paths in shared capability diagnostics.
-            return new(false, "Git is unavailable through the host process provider.");
+            return new(false, $"Git is unavailable through the host process provider ({error.GetType().Name}): {error.Message}");
         }
     }
 

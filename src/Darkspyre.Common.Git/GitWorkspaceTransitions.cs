@@ -42,9 +42,10 @@ internal sealed class GitWorkspaceTransitions(GitCommands git, GitRepositoryRead
                     return new(GitResetStatus.Refused, preservation, current.HeadCommit, current.BranchRef, [], "The new branch already exists.");
                 string start;
                 try { start = await this.reader.ResolveCommitAsync(current.WorktreePath, fresh.StartRef, cancellationToken).ConfigureAwait(false); }
-                catch (IOException)
+                catch (IOException error)
                 {
-                    return new(GitResetStatus.Refused, preservation, current.HeadCommit, current.BranchRef, [], "The requested start ref is unavailable.");
+                    return new(GitResetStatus.Refused, preservation, current.HeadCommit, current.BranchRef, [],
+                        $"The requested start ref is unavailable: {error.Message}");
                 }
                 command = ["switch", "--no-track", "-c", branch, start];
                 break;

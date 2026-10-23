@@ -54,7 +54,7 @@ public sealed partial class ServiceSubscription
                     : Failed(ServiceErrorCode.InvalidState);
             }
             catch (OperationCanceledException) when (running.Token.IsCancellationRequested) { result = new(ServiceResultStatus.Cancelled); }
-            catch (Exception) { result = Failed(ServiceErrorCode.Unavailable); }
+            catch (Exception error) { result = Failed(ServiceErrorCode.Unavailable, $"({error.GetType().FullName}): {error.Message}"); }
             if (result.Payload is { } payload && Encoding.UTF8.GetByteCount(payload.GetRawText()) > CallbackPayloadLimit)
                 result = Failed(ServiceErrorCode.InvalidFrame);
             await SendAsync(new CapabilityResultMessage(this.Identity.Epoch, request.CallbackId, result.Status, result.Payload, result.Error),
@@ -68,7 +68,8 @@ public sealed partial class ServiceSubscription
         }
     }
 
-    private static ServiceCallbackResult Failed(ServiceErrorCode code) => new(ServiceResultStatus.Failed, Error: new(code, Guid.NewGuid()));
+    private static ServiceCallbackResult Failed(ServiceErrorCode code, string? reason = null) =>
+        new(ServiceResultStatus.Failed, Error: new(code, Guid.NewGuid(), reason));
 
     private sealed class RunningCallback(CancellationTokenSource cancellation) : IDisposable
     {

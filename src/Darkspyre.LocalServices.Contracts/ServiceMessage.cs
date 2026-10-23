@@ -139,7 +139,11 @@ public sealed record CapabilityResultMessage(Guid Epoch, Guid CallbackId, Servic
 public sealed record BlobChunkMessage(Guid Epoch, Guid RequestId, Guid TransferId, int Sequence, long TotalBytes,
     byte[] Data, byte[]? FinalSha256) : ServiceMessage;
 
-/// <summary>Safe diagnostic identity. The wire error contains neither an exception dump nor provider contents.</summary>
-/// <param name="Code">The safe error classification.</param>
-/// <param name="CorrelationId">The identity used to correlate private diagnostics.</param>
-public sealed record ServiceError(ServiceErrorCode Code, Guid CorrelationId);
+/// <summary>A service failure: its kind, its identity and, when a handler threw, its reason.</summary>
+/// <param name="Code">The error classification.</param>
+/// <param name="CorrelationId">The identity used to correlate diagnostics.</param>
+/// <param name="Message">
+/// The failure's type in parentheses and its message when a service or callback handler threw; null otherwise. A handler
+/// keeps secrets out of its exception messages, so the text carries none.
+/// </param>
+public sealed record ServiceError(ServiceErrorCode Code, Guid CorrelationId, string? Message = null);

@@ -2,7 +2,7 @@
 
 `Darkspyre.LocalServices.Contracts` defines independent installation and subscriber interfaces, shared result/launch types,
 service identities and typed control/business messages,
-wire limits and lifecycle deadlines. It depends on the .NET libraries only. Protocol version 2 is
+wire limits and lifecycle deadlines. It depends on the .NET libraries only. Protocol version 3 is
 independent of the SDK/plugin version. `Darkspyre.LocalServices` contains the frame codec and the
 subscriber registry, portable connector, handshake and immutable package-cache policy. The build-selected
 platform assemblies own native files, transport and detached launch. Neither library
@@ -31,7 +31,10 @@ belong to the connection/operation owner; decoding a frame does not grant admiss
 
 `AcceptedMessage` acknowledges admission, not commit. `OutcomeUnknown` distinguishes a lost or
 uncertain mutation outcome from a confirmed failure. Authentication material is not part of these
-message records. Error envelopes contain a safe code and correlation ID, not exception/provider text.
+message records. An error envelope, `ServiceError`, carries a code and a correlation ID and, when a service or callback
+handler threw, a message: the exception's full type name in parentheses, a colon and its message. A handler keeps
+secrets out of its exception messages. `ServiceProtocolException(ServiceError)` names the code and then that reason, and
+the Search client's outcome-unknown `IOException` carries it too.
 
 ## Subscriber lifecycle
 
@@ -296,7 +299,8 @@ payload and answer must each fit in one frame. A subscriber answer over the fram
 InvalidFrame before it is sent.
 
 The subscriber runs `IServiceSubscription.CallbackHandler` on its own task, so the receive loop keeps reading. Without a
-handler the callback fails with InvalidState; a handler exception fails it with Unavailable. A deadline or the caller's
+handler the callback fails with InvalidState; a handler exception fails it with Unavailable and the exception's type and
+message. A deadline or the caller's
 cancellation makes the service send a `CancelMessage` whose request ID is the callback ID and return Cancelled at once.
 The subscriber then cancels the handler's token. A result that crosses that Cancel on the wire is ignored. A connection
 that is gone, or closes before it answers, fails the callback with Unavailable. Subscription disposal cancels running
@@ -315,7 +319,8 @@ terminal result reference. The client rejects incomplete or mismatched transfers
 partial bytes as success. Service invalidations use the same subscription's `EventReceived` event.
 
 Cancellation before handler entry returns Cancelled after the admitted transfer settles. A handler
-that stops after entry without a proven result returns OutcomeUnknown. A proven domain result remains
+that stops after entry without a proven result returns OutcomeUnknown; when it threw, the result's error carries the
+exception's type and message. A proven domain result remains
 valid after caller cancellation. Lost transport reports an unknown submitted outcome; read adapters
 interpret that transport failure as unavailable. There is no automatic business replay. The registry
 slot remains occupied until the handler, body transfer and cleanup finish. Connection disposal joins

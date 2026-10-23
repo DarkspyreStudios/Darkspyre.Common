@@ -106,7 +106,7 @@ internal sealed class GitConfiguredCommands(GitCommands git, GitRepositoryReader
         try { result = await this.git.RunAsync(worktree, arguments, cancellationToken).ConfigureAwait(false); }
         catch (Exception error) when (error is IOException or OperationCanceledException)
         {
-            return new(GitCommandState.Unknown, null, UnknownDiagnostic);
+            return new(GitCommandState.Unknown, null, $"{UnknownDiagnostic} The run ended ({error.GetType().Name}): {error.Message}");
         }
         if (result.Exit.ExitCode is not { } code) return new(GitCommandState.Unknown, null, UnknownDiagnostic);
         string output = Encoding.UTF8.GetString(result.Output);

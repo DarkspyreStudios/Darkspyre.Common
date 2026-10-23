@@ -45,7 +45,7 @@ public sealed partial class ServiceSubscription : IServiceSubscription
             await ServiceFrameCodec.WriteAsync(peer.Stream, new SubscribeMessage(peer.Welcome.Epoch), deadline.Token).ConfigureAwait(false);
             ServiceMessage? response = await ServiceFrameCodec.ReadAsync(peer.Stream, deadline.Token).ConfigureAwait(false);
             if (response is null) throw new ServiceProtocolException(ServiceErrorCode.Unavailable);
-            if (response is ProtocolErrorMessage error) throw new ServiceProtocolException(error.Error.Code);
+            if (response is ProtocolErrorMessage error) throw new ServiceProtocolException(error.Error);
             if (response is DrainingMessage draining)
                 throw new ServiceProtocolException(draining.Epoch == peer.Welcome.Epoch ? ServiceErrorCode.ServiceDraining : ServiceErrorCode.WrongEpoch);
             if (response is not SubscribeAckMessage ack || ack.Epoch != peer.Welcome.Epoch || ack.ConnectionId != peer.Welcome.ConnectionId)

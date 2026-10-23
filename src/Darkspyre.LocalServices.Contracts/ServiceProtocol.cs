@@ -4,7 +4,7 @@ namespace Darkspyre.LocalServices.Contracts;
 public static class ServiceProtocol
 {
     /// <summary>The supported wire protocol version.</summary>
-    public const int Version = 2;
+    public const int Version = 3;
     /// <summary>The maximum frame payload size in bytes: the JSON message, or a chunk header and its bytes.</summary>
     public const int MaximumFrameBytes = 1024 * 1024;
     /// <summary>The maximum body chunk size in bytes: the frame payload less the 93-byte final chunk header, so one chunk fills one frame.</summary>
