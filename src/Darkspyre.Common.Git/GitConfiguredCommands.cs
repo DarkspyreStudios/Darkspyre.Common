@@ -7,7 +7,8 @@ namespace Darkspyre.Common.Git;
 /// Fetch, pull, push and the merge tool as the repository's Git configuration sets them up: remotes, refspecs, upstreams,
 /// the pull integration policy, credential helpers and the configured merge tool. Each runs under the repository's
 /// operation gate through <see cref="GitCommands.RunAsync"/>, with no timeout, and reports a
-/// <see cref="GitCommandResult"/> whose diagnostic the library writes; Git's output is never copied into it.
+/// <see cref="GitCommandResult"/>. A failure the library recognizes gets its own sentence; any other carries Git's reason, as
+/// <see cref="GitOperationChecks.Reason"/> takes it from Git's output.
 /// </summary>
 internal sealed class GitConfiguredCommands(GitCommands git, GitRepositoryReader reader, GitRepositoryLocks locks,
     IGitPathPolicy paths)
@@ -121,6 +122,7 @@ internal sealed class GitConfiguredCommands(GitCommands git, GitRepositoryReader
         if (arguments.Contains("mergetool") && text.Contains("is not available as", StringComparison.Ordinal))
             return new(GitCommandState.Failed, GitFailure.MergeToolUnavailable, ToolDiagnostic);
         return new(GitCommandState.Failed, GitFailure.CommandFailed, string.Create(CultureInfo.InvariantCulture,
-            $"Git failed to {action} (exit {code}). Refresh to inspect the repository."));
+            $"Git failed to {action} (exit {code}).") + (GitOperationChecks.Reason(result.Errors) is { } reason ? " " + reason : string.Empty)
+            + " Refresh to inspect the repository.");
     }
 }

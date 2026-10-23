@@ -494,8 +494,9 @@ public enum GitFailure
 }
 /// <summary>
 /// A Git operation refused or failed for the classified reason <see cref="Failure"/> names. It derives from
-/// <see cref="IOException"/>. The message is written by the host and never contains Git's output, a remote URL or a
-/// credential.
+/// <see cref="IOException"/>. The message is the library's sentence; for <see cref="GitFailure.CommandFailed"/> it also
+/// carries Git's own <c>fatal:</c> and <c>error:</c> lines. It never contains a credential: every URL in it has no user
+/// name or password.
 /// </summary>
 /// <param name="failure">Why the operation refused or failed.</param>
 /// <param name="message">A safe description of the failure.</param>

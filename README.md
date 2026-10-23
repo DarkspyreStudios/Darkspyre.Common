@@ -118,9 +118,15 @@ The `GitClient` operations check paths through the path policy, take the reposit
   `Failed` with a `GitFailure` for another exit; `Unknown` after a cancellation or a lost process, never retried. A
   porcelain `!` line is `RemoteRejected`; Git's fixed English text classifies `AuthenticationFailed` ("Authentication
   failed", "could not read Username"), `NoUpstream` ("has no upstream branch", "There is no tracking information") and
-  a merge tool that cannot start ("is not available as"); anything else is `CommandFailed` with the exit code. Resolve
-  first requires the path to be unmerged and `merge.guitool` or `merge.tool` to be set, and otherwise returns
-  `MergeToolUnavailable` without starting anything. The diagnostic is the library's sentence, never Git's output.
+  a merge tool that cannot start ("is not available as"); anything else is `CommandFailed` with the exit code and Git's
+  reason. Resolve first requires the path to be unmerged and `merge.guitool` or `merge.tool` to be set, and otherwise
+  returns `MergeToolUnavailable` without starting anything. A classified failure's diagnostic is the library's sentence.
+- A failure the library cannot handle bubbles up with Git's own reason and is never hidden. A Git exit the library does
+  not classify throws `IOException`, or `GitOperationException` with `CommandFailed` after Git may have changed the
+  repository, or returns a `CommandFailed` diagnostic. Each message names the exit code and carries up to three of the
+  `fatal:` and `error:` lines Git wrote to standard error, such as "Could not commit the staged changes: Git exit code 128.
+  fatal: bad boolean config value ...". A credential never surfaces: every URL in those lines loses its user name and
+  password, and no message holds the command line.
 - A fetch reads the commit of each `source:destination` destination with `for-each-ref` before and after
   `fetch --atomic`. `GitFetchResult.UpdatedRefs` lists each destination whose commit changed, in request order. A failed
   fetch returns its diagnostic.

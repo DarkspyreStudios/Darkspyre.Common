@@ -61,7 +61,7 @@ internal sealed partial class GitRepositoryReader(GitCommands git, IGitPathPolic
 
     /// <summary>
     /// The commit <paramref name="reference"/> resolves to, or null when it resolves to no commit. Any other Git failure
-    /// throws <see cref="IOException"/> naming the exit code only.
+    /// throws <see cref="IOException"/> naming the exit code and Git's reason.
     /// </summary>
     internal async Task<string?> TryResolveCommitAsync(string directory, string reference,
         CancellationToken cancellationToken)

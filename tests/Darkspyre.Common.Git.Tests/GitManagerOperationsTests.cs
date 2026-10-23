@@ -79,6 +79,27 @@ public sealed class GitManagerOperationsTests
         Assert.Equal("refs/heads/main\n", repository.Run("symbolic-ref", "HEAD"));
     }
 
+    /// <summary>
+    /// A failure the library does not classify carries Git's own reason, here a configuration value Git cannot read, and
+    /// the user name and password of the URL in that value never appear.
+    /// </summary>
+    [Fact]
+    public async Task UnclassifiedFailureCarriesGitsReasonWithoutCredentials()
+    {
+        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-commit-reason-");
+        repository.Write("a.txt", "staged\n");
+        repository.Run("add", "a.txt");
+        repository.Run("config", "commit.gpgsign", "https://user:secret@example.invalid/x");
+
+        GitOperationException failed = await Assert.ThrowsAsync<GitOperationException>(() =>
+            Client(repository).CommitStagedAsync(new(repository.Path, "Refused")));
+
+        Assert.Equal(GitFailure.CommandFailed, failed.Failure);
+        Assert.EndsWith("fatal: bad boolean config value 'https://example.invalid/x' for 'commit.gpgsign'", failed.Message,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("secret", failed.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>Commit Staged commits the staged bytes; an edit made after staging stays an unstaged change.</summary>
     [Fact]
     public async Task CommitStagedLeavesLaterWorkingEditUnstaged()
