@@ -425,7 +425,7 @@ A Razor class library (`net11.0`, no MAUI) of what every Darkspyre mobile app's 
 | --- | --- |
 | `MarkdownView` | Renders Markdown as HTML for transcript entries, streaming text and prompt messages |
 | `wwwroot/mobile.css` | The mobile theme: light and dark colours, `header`, dense `list` and `row`, `empty`, `card`, `button`, `input`, `icon`, `error`, the Markdown styles and the code colours |
-| `Icons/` | Lucide icons as inline SVG components (`Bell`, `Camera`, `ChevronLeft`, `ChevronRight`, `Download`, `Folder`, `Image`, `LogIn`, `MessageSquare`, `Monitor`, `Paperclip`, `RefreshCw`, `Send`, `Settings`, `TriangleAlert`, `X`) drawn in the current text colour; `Class` adds classes after `icon`. `FileKindIcon` (`Kind` of `FileKind` Image, Pdf, Office, Text or Other) draws the attachment file-kind icons from `AttachmentIconPaths`, the artwork the desktop's attachment icons use |
+| `Icons/` | Lucide icons as inline SVG components (`Bell`, `Camera`, `ChevronLeft`, `ChevronRight`, `Download`, `Folder`, `Image`, `LogIn`, `LogOut`, `MessageSquare`, `Monitor`, `Paperclip`, `RefreshCw`, `Send`, `Settings`, `TriangleAlert`, `X`) drawn in the current text colour; `Class` adds classes after `icon`. `FileKindIcon` (`Kind` of `FileKind` Image, Pdf, Office, Text or Other) draws the attachment file-kind icons from `AttachmentIconPaths`, the artwork the desktop's attachment icons use |
 | `wwwroot/highlight/` | highlight.js 11.11.1, the common-languages build, and its licence |
 | `wwwroot/markdown.js` | `highlightNew(element)` and `readMermaidTheme(element)` |
 
