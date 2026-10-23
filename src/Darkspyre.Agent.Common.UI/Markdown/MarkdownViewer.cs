@@ -12,6 +12,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Darkspyre.Agent.Common.UI.Controls;
 using Darkspyre.Common.Markdown;
 using Darkspyre.Common.Markdown.Mermaid;
 using LiveMarkdown.Avalonia;
@@ -165,7 +166,8 @@ public sealed class MarkdownViewer : TemplatedControl
         this.producer = new MarkdownUpdateProducer { Pipeline = Pipeline, MarkdownBuilder = this.builder };
         this.renderer.UpdateProducer = this.producer;
         this.renderer.LinkCommand = new LinkActivation(this.Activate);
-        this.ContextMenu = this.CreateContextMenu();
+        this.ContextFlyout = SelectionMenu.Create(() => this.CanCopy, () => _ = this.CopyAsync(), this.SelectAll);
+        this.AddHandler(PointerReleasedEvent, this.RequestContext);
         this.AddHandler(KeyDownEvent, this.HandleKeyDown, RoutingStrategies.Tunnel);
         this.AddHandler(CodeBlock.CopyingToClipboardEvent, this.CopyCode);
         this.Template = new FuncControlTemplate<MarkdownViewer>((viewer, _) => viewer.renderer);
@@ -327,15 +329,15 @@ public sealed class MarkdownViewer : TemplatedControl
         if (ReferenceEquals(sender, this.linkSource)) this.Reparse();
     });
 
-    private ContextMenu CreateContextMenu()
+    // Avalonia raises ContextRequested for a right-click only from the control under the pointer, in that control's own
+    // pointer-released handling. LiveMarkdown's text block ends that handling early inside a renderer, so a right-click on
+    // the text requests no menu. A right release that reaches the viewer unhandled raises the request from the viewer.
+    private void RequestContext(object? sender, PointerReleasedEventArgs e)
     {
-        MenuItem copy = new() { Header = "Copy" };
-        copy.Click += (_, _) => _ = this.CopyAsync();
-        MenuItem selectAll = new() { Header = "Select All" };
-        selectAll.Click += (_, _) => this.SelectAll();
-        ContextMenu menu = new() { Items = { copy, selectAll } };
-        menu.Opening += (_, _) => copy.IsEnabled = this.CanCopy;
-        return menu;
+        if (e.Handled || e.InitialPressMouseButton != MouseButton.Right) return;
+        ContextRequestedEventArgs request = new(e);
+        this.RaiseEvent(request);
+        e.Handled = request.Handled;
     }
 
     // Handled before LiveMarkdown's own key handler, which would copy the rendered text after Select All.

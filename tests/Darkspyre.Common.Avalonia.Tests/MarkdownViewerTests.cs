@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
+using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
@@ -247,34 +248,43 @@ public sealed class MarkdownViewerTests
         Assert.Equal("bold", viewer.SelectedText);
     });
 
-    /// <summary>A right-click on the text opens the viewer's menu: Copy and Select All, with Copy off until text is selected.</summary>
+    /// <summary>
+    /// A right-click on the text opens the viewer's menu: Copy and Select All, with Copy off until text is selected, and
+    /// Copy writes the selection. The click is real pointer input, so the text block under the pointer handles it.
+    /// </summary>
     [Fact]
-    public Task TheContextMenuOffersCopyAndSelectAll() => ViewSession.RunAsync(async () =>
+    public Task ARightClickOnTheTextOpensCopyAndSelectAll() => ViewSession.RunAsync(async () =>
     {
         MarkdownViewer viewer = new() { Text = "One paragraph" };
-        ViewSession.Show(viewer);
+        Window window = ViewSession.Show(viewer);
         await ViewSession.WaitForAsync(() => Text(viewer).Contains("One", StringComparison.Ordinal));
-        ContextMenu menu = Assert.IsType<ContextMenu>(viewer.ContextMenu);
+        MenuFlyout menu = Assert.IsType<MenuFlyout>(viewer.ContextFlyout);
         MenuItem[] items = [.. menu.Items.Cast<MenuItem>()];
         Assert.Equal(["Copy", "Select All"], items.Select(item => item.Header));
+        MarkdownTextBlock text = ViewSession.All<MarkdownTextBlock>(viewer).First();
+        Point point = text.TranslatePoint(new Point(10, text.Bounds.Height / 2), window)!.Value;
+        Assert.Same(text, window.InputHitTest(point));
 
         void RightClick()
         {
-            ViewSession.All<MarkdownTextBlock>(viewer).First().RaiseEvent(new ContextRequestedEventArgs());
+            window.MouseDown(point, MouseButton.Right);
+            window.MouseUp(point, MouseButton.Right);
             ViewSession.Settle();
         }
 
         RightClick();
         Assert.True(menu.IsOpen);
         Assert.False(items[0].IsEnabled);
-        menu.Close();
-
         items[1].RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+        menu.Hide();
         Assert.Equal("One paragraph", viewer.SelectedText);
+
         RightClick();
         Assert.True(menu.IsOpen);
         Assert.True(items[0].IsEnabled);
-        menu.Close();
+        items[0].RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+        await ViewSession.WaitForAsync(() => ClipboardExtensions.TryGetTextAsync(window.Clipboard!).GetAwaiter().GetResult() == "One paragraph");
+        menu.Hide();
     });
 
     /// <summary>The code-block copy button writes the code, then shows a check named Copied for two seconds.</summary>

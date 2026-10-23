@@ -266,7 +266,7 @@ Each folder is its own namespace, `Darkspyre.Agent.Common.UI.<folder>`:
 
 | Namespace | Holds |
 | --- | --- |
-| `.Controls` | `Forms` and `ButtonSize`, `Sizes`, `Badge`, `Spinner`, `LoopingAnimation`, `IconPicker`, `ColorPicker`, `StatusLight` and `StatusLightState`, `QuotaRing`, `ClipboardText`, `Watching<TShown>` and `UiChangeSubscription`, `Remount`, `KeyedViews`, `KeyedChildren`, `UiRefresh`, `ShownList` |
+| `.Controls` | `Forms` and `ButtonSize`, `Sizes`, `Badge`, `Spinner`, `LoopingAnimation`, `IconPicker`, `ColorPicker`, `StatusLight` and `StatusLightState`, `QuotaRing`, `ClipboardText`, `SelectionMenu`, `Watching<TShown>` and `UiChangeSubscription`, `Remount`, `KeyedViews`, `KeyedChildren`, `UiRefresh`, `ShownList` |
 | `.Icons` | `Icon`, `IconSource`, `AppIcons`, `ProjectIcons`, `PluginPanelIcons`, `AttachmentPreviewIcons` (built from `AttachmentIconPaths` in `Darkspyre.Common.Markdown`) |
 | `.Dialogs` | `ModalLayer`, `Sheet`, `ConfirmDialog`, `PaletteSheet`, `DialogPresenter` with `SheetRequest`, `ISheet` and `ConfirmationRequest` |
 | `.Errors` | `UiRegion`, `UiFailure`, `FailureView` |
@@ -316,6 +316,9 @@ the colour picker's templates, the palette, failure-card, quota-ring and status-
   14 px gauge whose fill and colour follow the used fraction, grey with a question mark when unknown, dimmed when stale
   and pulsing while updating. **`ClipboardText.WriteAsync`** writes literal text to the window's clipboard and returns
   false when no clipboard is available.
+- **`SelectionMenu.Create`** is the context menu of selectable text, a `MenuFlyout` the text control takes as its
+  `ContextFlyout`: Copy, enabled only while the caller's `canCopy` is true as the menu opens, and Select All. The
+  Markdown viewer and the application's prompts use it.
 
 ### Resource keys
 
@@ -369,9 +372,11 @@ and inline code and code blocks take `font-code` at `font-size-code`. LiveMarkdo
   Selection follows LiveMarkdown's renderer, which keeps a drag inside one viewer. `SelectAll` selects every block, and
   `SelectedText` is then the Markdown source (`Text`) for as long as that selection lasts; any other selection gives the
   rendered text. `CopyAsync` writes `SelectedText` to the window's clipboard and returns false when nothing is
-  selected, there is no clipboard or the write fails; it shows no toast. The context menu offers Copy (enabled only
-  while `CanCopy`) and Select All, and the platform's Copy and Select All keys run the same two actions before
-  LiveMarkdown's own key handling. Code blocks have a copy button and no syntax colouring; the viewer does the button's
+  selected, there is no clipboard or the write fails; it shows no toast. The context menu is a `SelectionMenu`: Copy
+  (enabled only while `CanCopy`) and Select All. A right-click anywhere on the viewer opens it. LiveMarkdown's text
+  block ends its pointer-released handling before Avalonia raises `ContextRequested` for a right-click on it, so the
+  viewer raises that request itself for a right release that reaches it unhandled. The platform's Copy and Select All
+  keys run the same two actions before LiveMarkdown's own key handling. Code blocks have a copy button and no syntax colouring; the viewer does the button's
   copy itself, and once the code is on the clipboard the button shows a check and is named Copied for two seconds, then
   the copy glyph and the name Copy return. A second press restarts the two seconds. While `Streaming` is true
   and the new text extends the old, only the tail is appended. A `mermaid` fence becomes a diagram drawn by
