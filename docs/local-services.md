@@ -156,10 +156,23 @@ fail. EOF and Unsubscribe revoke immediately. A timer expires leases independent
 The host reports `Draining` when admission closes; it cannot revive that epoch. Terminal notifications
 have serialized bounded writes. Failed or cancelled frame operations close the stream without replay.
 
+Both sides write one frame at a time. A frame's write must finish within five seconds; a write that takes
+longer, or fails, leaves a partial frame and closes the connection. The wait for the write path has no
+deadline of its own: the frame ahead finishes or fails within its own five seconds, and a failed frame
+closes the connection, which ends every wait. A busy connection, such as one carrying several large
+bodies at once, therefore delays a heartbeat, a Pong, a Cancel or a result without closing.
+
 `ServiceSubscription` owns the client peer after SubscribeAck. It sends heartbeats every five seconds,
 reads control responses concurrently, and closes if responses stop for twenty seconds. Disposal sends
 Unsubscribe within a bounded write, then closes and joins its receive/heartbeat loops. Its `Closed` task
-reports the safe disconnect reason. It has no reconnect, process-kill or business-replay operation.
+reports the safe disconnect reason, with no code after the subscriber's own disposal, and `CloseReason`
+says what closed it: the frame write that failed or took too long, the read that failed, the frame the
+service refused, or the service ending the subscription. A call's cancellation or deadline sends a Cancel
+and returns the service's answer for that call, as the request section below describes; it never closes
+the subscription. A call the close interrupts returns OutcomeUnknown. A closed subscription stays
+closed and refuses each later call with Unavailable before sending anything. It has no reconnect,
+process-kill or business-replay operation: its owner opens a new subscription through the connector for
+the next call, as `SearchClient` does.
 
 Connections carry control messages, business requests, results, chunks, invalidations and callbacks. `ServiceControlHost`
 does not open stores, release the family owner, dispose the listener, or mark domain cleanup complete.

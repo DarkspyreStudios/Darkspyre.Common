@@ -9,7 +9,13 @@ public sealed partial class ServiceSubscription
     /// <summary>Receives service invalidations on this subscription.</summary>
     public event Action<EventMessage>? EventReceived;
 
-    /// <summary>Submits one operation without replay. The caller retains ownership of the input stream.</summary>
+    /// <summary>
+    /// Submits one operation without replay. The caller retains ownership of the input stream. The caller's cancellation and
+    /// the deadline send a Cancel and return the service's answer for this call, such as Cancelled or a result the service
+    /// already proved; the subscription stays open. A call the subscription's close interrupts returns OutcomeUnknown.
+    /// </summary>
+    /// <gotcha>A closed subscription refuses the call with Unavailable before it sends anything, so the owner can send the same
+    /// call on a new subscription without replaying it.</gotcha>
     public async Task<ServiceCallResult> InvokeAsync(string operation, Stream body, int deadlineMilliseconds, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(operation);
@@ -29,7 +35,7 @@ public sealed partial class ServiceSubscription
                 deadlineMilliseconds, ServiceBodyTransfer.Reference(transferId)), this.stopping.Token).ConfigureAwait(false);
             using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cancellation.CancelAfter(deadlineMilliseconds);
-            Task cancel = SendCancelAsync(requestId, call.Result.Task, cancellation.Token);
+            Task cancel = SendCancelAsync(operation, requestId, call.Result.Task, cancellation.Token);
             try
             {
                 if (await call.Accepted.Task.ConfigureAwait(false))
@@ -40,13 +46,14 @@ public sealed partial class ServiceSubscription
         }
         catch (Exception error) when (error is IOException or OperationCanceledException or ObjectDisposedException)
         {
-            Finish(ServiceErrorCode.Unavailable);
+            // A failed frame write already closed the subscription with its reason; this names a failed body read.
+            Finish(ServiceErrorCode.Unavailable, $"{operation} could not be sent: {Describe(error)}");
             return UnknownResult();
         }
-        catch
+        catch (Exception error)
         {
             // A caller-owned stream failure can leave an unfinished request; close it without replay.
-            Finish(ServiceErrorCode.Unavailable);
+            Finish(ServiceErrorCode.Unavailable, $"{operation}'s request body failed: {Describe(error)}");
             throw;
         }
         finally
@@ -60,13 +67,16 @@ public sealed partial class ServiceSubscription
         }
     }
 
-    private async Task SendCancelAsync(Guid requestId, Task result, CancellationToken cancellationToken)
+    private async Task SendCancelAsync(string operation, Guid requestId, Task result, CancellationToken cancellationToken)
     {
         var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var registration = cancellationToken.Register(() => cancelled.TrySetResult());
         if (await Task.WhenAny(result, cancelled.Task).ConfigureAwait(false) != cancelled.Task || result.IsCompleted) return;
         try { await SendAsync(new CancelMessage(this.Identity.Epoch, requestId), this.stopping.Token).ConfigureAwait(false); }
-        catch (Exception error) when (error is IOException or OperationCanceledException or ObjectDisposedException) { Finish(ServiceErrorCode.Unavailable); }
+        catch (Exception error) when (error is IOException or OperationCanceledException or ObjectDisposedException)
+        {
+            Finish(ServiceErrorCode.Unavailable, $"the Cancel for {operation} could not be sent: {Describe(error)}");
+        }
     }
     private async Task ReceiveBusinessAsync(ServiceMessage message)
     {

@@ -602,6 +602,10 @@ The runtime implements the connector, subscription, request transport, launch bu
 It references Contracts. A subscriber library installs its verified package through `IServicePlatform`,
 constructs `ServiceConnector`, and owns the returned `IServiceSubscription`. The first connection launches
 the service; subsequent connections join it. The final departure starts the existing drain.
+A subscription closes only when its connection fails, the service ends it or its owner disposes it:
+one call's cancellation, deadline or wait behind other frames ends only that call. `CloseReason` names
+what closed it. A closed subscription never reconnects; its owner connects again for the next call, and a
+call the close interrupted is never sent again. `docs/local-services.md` describes the write rules.
 The application Host does not register, install or start the service.
 The package cache copies a payload into a staging folder and syncs each file with `ServiceFileSystem.SyncFile`. It then
 flushes the device once with `ServiceFileSystem.FlushDevice` and only after that publishes the build by rename. On macOS

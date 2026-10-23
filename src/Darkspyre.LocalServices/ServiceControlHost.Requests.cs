@@ -162,12 +162,8 @@ public sealed partial class ServiceControlHost
         if (await Task.WhenAny(lease.StopRequested, settled).ConfigureAwait(false) == lease.StopRequested)
             await cancellation.CancelAsync().ConfigureAwait(false);
     }
-    private static async Task SendBusinessAsync(Connection connection, ServiceMessage message, CancellationToken token)
-    {
-        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
-        deadline.CancelAfter(ServiceProtocol.HeartbeatInterval);
-        await connection.SendAsync(message, deadline.Token).ConfigureAwait(false);
-    }
+    private static Task SendBusinessAsync(Connection connection, ServiceMessage message, CancellationToken token) =>
+        connection.SendAsync(message, token);
     private sealed class IncomingRequest(ServiceBodyTransfer transfer)
     {
         internal ServiceBodyTransfer Transfer { get; } = transfer;

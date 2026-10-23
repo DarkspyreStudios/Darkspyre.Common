@@ -23,8 +23,8 @@
     <DarkspyreCommonMarkdownVersion>11.0.1.1</DarkspyreCommonMarkdownVersion>
     <DarkspyreMobileComponentsVersion>11.0.1.3</DarkspyreMobileComponentsVersion>
     <DarkspyreMobileMauiVersion>11.0.1.0</DarkspyreMobileMauiVersion>
-    <DarkspyreLocalServicesContractsVersion>11.0.10.1</DarkspyreLocalServicesContractsVersion>
-    <DarkspyreLocalServicesVersion>11.0.10.8</DarkspyreLocalServicesVersion>
+    <DarkspyreLocalServicesContractsVersion>11.0.10.2</DarkspyreLocalServicesContractsVersion>
+    <DarkspyreLocalServicesVersion>11.0.10.9</DarkspyreLocalServicesVersion>
     <DarkspyreLocalServicesPlatformMacOSVersion>11.0.10.2</DarkspyreLocalServicesPlatformMacOSVersion>
     <DarkspyreLocalServicesPlatformLinuxVersion>11.0.10.3</DarkspyreLocalServicesPlatformLinuxVersion>
     <DarkspyreLocalServicesPlatformWindowsVersion>11.0.10.2</DarkspyreLocalServicesPlatformWindowsVersion>

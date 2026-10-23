@@ -77,11 +77,7 @@ public sealed partial class ServiceControlHost : IAsyncDisposable
                         CheckEpoch(ping.Epoch);
                         SubscriberUpdate update = Change(() => this.subscribers.Heartbeat(peer.Welcome.ConnectionId));
                         if (!update.Succeeded) throw new ServiceProtocolException(ServiceErrorCode.CapabilityRevoked);
-                        using (var send = CancellationTokenSource.CreateLinkedTokenSource(connection.Stop.Token))
-                        {
-                            send.CancelAfter(ServiceProtocol.HeartbeatInterval);
-                            await connection.SendAsync(new PongMessage(this.epoch), send.Token).ConfigureAwait(false);
-                        }
+                        await connection.SendAsync(new PongMessage(this.epoch), connection.Stop.Token).ConfigureAwait(false);
                         break;
                     case RequestMessage request:
                         await DispatchAsync(connection, peer.Welcome.ConnectionId, request).ConfigureAwait(false);
@@ -236,13 +232,19 @@ public sealed partial class ServiceControlHost : IAsyncDisposable
             if (!this.Finalizing && this.Termination is null) this.Termination = Task.Run(() => NotifyAndCloseAsync(reason));
         }
 
+        // The wait for the write path has no deadline of its own: the frame ahead finishes or fails within its own deadline,
+        // and a failed frame breaks the transport, which ends the wait. Only a frame that takes longer than its deadline to
+        // write, or that fails, breaks the transport: it leaves a partial frame on the stream.
         public async Task SendAsync(ServiceMessage message, CancellationToken cancellationToken)
         {
-            await this.writes.WaitAsync(cancellationToken).ConfigureAwait(false);
+            using (var waiting = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, this.Stop.Token))
+                await this.writes.WaitAsync(waiting.Token).ConfigureAwait(false);
             try
             {
                 if (Volatile.Read(ref this.broken) != 0) throw new IOException("The control transport is closed.");
-                await ServiceFrameCodec.WriteAsync(peer.Stream, message, cancellationToken).ConfigureAwait(false);
+                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                deadline.CancelAfter(ServiceProtocol.HeartbeatInterval);
+                await ServiceFrameCodec.WriteAsync(peer.Stream, message, deadline.Token).ConfigureAwait(false);
             }
             catch { BreakTransport(); throw; }
             finally { this.writes.Release(); }

@@ -12,6 +12,9 @@ public interface IServiceSubscription : IAsyncDisposable
     /// <summary>Completes when the subscription closes, with a safe failure code when present.</summary>
     Task<ServiceErrorCode?> Closed { get; }
 
+    /// <summary>Why the subscription closed, such as a frame write that failed or the service ending it; null while it is open.</summary>
+    string? CloseReason { get; }
+
     /// <summary>Receives invalidations from the subscription's receive loop.</summary>
     event Action<EventMessage>? EventReceived;
 
@@ -20,7 +23,8 @@ public interface IServiceSubscription : IAsyncDisposable
     ServiceCallbackHandler? CallbackHandler { get; set; }
 
     /// <summary>Submits one operation within its deadline and returns its complete terminal reply.</summary>
-    /// <gotcha>The caller retains the input stream. Cancellation requests cancellation without replaying the operation.</gotcha>
+    /// <gotcha>The caller retains the input stream. Cancellation requests cancellation without replaying the operation and
+    /// leaves the subscription open. A closed subscription refuses the call with Unavailable before it sends anything.</gotcha>
     Task<ServiceCallResult> InvokeAsync(string operation, Stream body,
         int deadlineMilliseconds, CancellationToken cancellationToken = default);
 }
