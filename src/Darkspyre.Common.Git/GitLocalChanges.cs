@@ -63,7 +63,8 @@ internal sealed class GitLocalChanges(GitCommands git, GitRepositoryReader reade
 
     /// <summary>
     /// Switches to a local branch with <c>switch --no-guess</c>, or to the local branch tracking an origin branch, creating
-    /// it with <c>switch --create --track</c> when it does not exist. It never forces, resets or cleans.
+    /// it with <c>switch --create --track</c> when it does not exist. A local branch checked out in another worktree is
+    /// refused before Git runs. It never forces, resets or cleans.
     /// </summary>
     internal async Task<GitBranchResult> CheckoutAsync(GitCheckoutRequest request, CancellationToken cancellationToken = default)
     {
@@ -88,6 +89,11 @@ internal sealed class GitLocalChanges(GitCommands git, GitRepositoryReader reade
                 throw new GitOperationException(GitFailure.BranchExists,
                     $"Branch '{name}' already exists and does not track {request.BranchRef}; nothing changed.");
         }
+        // Git refuses this too, but its reason is in its output, which never leaves the library.
+        if (await this.CheckedOutInAsync(worktree, branchRef, cancellationToken).ConfigureAwait(false) is { } other
+            && this.paths.Resolve(other) != worktree)
+            throw new GitOperationException(GitFailure.BranchCheckedOut,
+                $"Branch '{name}' is checked out in another worktree; nothing changed.");
         GitRunResult switched = await this.git.RunAsync(worktree, arguments, cancellationToken).ConfigureAwait(false);
         // LC_ALL=C keeps Git's refusal text fixed.
         if (switched.Exit.ExitCode is not 0 && Encoding.UTF8.GetString(switched.Errors).Contains("would be overwritten by checkout", StringComparison.Ordinal))

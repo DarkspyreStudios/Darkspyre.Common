@@ -71,6 +71,7 @@ public sealed class GitClient
     /// </summary>
     /// <gotcha>A local branch of the same name that tracks another ref throws <see cref="GitOperationException"/> with
     /// <see cref="GitFailure.BranchExists"/>. An operation in progress throws it with <see cref="GitFailure.StaleState"/>. A
+    /// local branch checked out in another worktree throws it with <see cref="GitFailure.BranchCheckedOut"/>. A
     /// switch Git refuses because it would overwrite local changes throws it with <see cref="GitFailure.NotClean"/>; any
     /// other refusal throws it with <see cref="GitFailure.CommandFailed"/>. Nothing changes in each case.</gotcha>
     public Task<GitBranchResult> CheckoutAsync(GitCheckoutRequest request, CancellationToken cancellationToken = default) =>

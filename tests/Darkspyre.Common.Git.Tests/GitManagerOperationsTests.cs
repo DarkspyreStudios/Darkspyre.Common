@@ -56,6 +56,29 @@ public sealed class GitManagerOperationsTests
         Assert.Equal("local edit\n", File.ReadAllText(Path.Combine(repository.Path, "a.txt")));
     }
 
+    /// <summary>
+    /// A branch checked out in another worktree is refused with that reason, named as itself or as the origin branch it
+    /// tracks, and the worktree stays on its branch.
+    /// </summary>
+    [Fact]
+    public async Task CheckoutOfBranchCheckedOutElsewhereSaysSo()
+    {
+        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-checkout-elsewhere-");
+        repository.Run("worktree", "add", "-q", "-b", "topic", Path.Combine(repository.Root, "topic tree"));
+        repository.Run("push", "-q", "-u", "origin", "topic");
+        GitClient client = Client(repository);
+
+        GitOperationException local = await Assert.ThrowsAsync<GitOperationException>(() =>
+            client.CheckoutAsync(new(repository.Path, "refs/heads/topic")));
+        GitOperationException origin = await Assert.ThrowsAsync<GitOperationException>(() =>
+            client.CheckoutAsync(new(repository.Path, "refs/remotes/origin/topic")));
+
+        Assert.Equal((GitFailure.BranchCheckedOut, "Branch 'topic' is checked out in another worktree; nothing changed."),
+            (local.Failure, local.Message));
+        Assert.Equal((GitFailure.BranchCheckedOut, local.Message), (origin.Failure, origin.Message));
+        Assert.Equal("refs/heads/main\n", repository.Run("symbolic-ref", "HEAD"));
+    }
+
     /// <summary>Commit Staged commits the staged bytes; an edit made after staging stays an unstaged change.</summary>
     [Fact]
     public async Task CommitStagedLeavesLaterWorkingEditUnstaged()

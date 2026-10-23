@@ -106,7 +106,8 @@ The `GitClient` operations check paths through the path policy, take the reposit
 - `CheckoutAsync` takes a full ref from that list and never forces, resets or cleans. A local branch runs
   `switch --no-guess`. An origin branch switches to the local branch of the same name when it tracks that ref, refuses
   with `BranchExists` when it tracks another, and otherwise runs `switch --create <name> --track <ref>`. An operation in
-  progress throws `StaleState`; Git's "would be overwritten by checkout" refusal throws `NotClean`.
+  progress throws `StaleState`; a local branch checked out in another worktree throws `BranchCheckedOut` before Git runs;
+  Git's "would be overwritten by checkout" refusal throws `NotClean`.
 - `ReadFileHistoryAsync` resolves the revision once and runs `log --follow --find-renames --name-status -z` for
   `Skip + Limit + 1` commits from the start, because `--follow` cannot skip and still follow renames. Each version names
   the file's path in that commit; the history ends before the first path the path policy refuses.

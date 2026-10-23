@@ -479,7 +479,7 @@ public enum GitFailure
     CommandFailed,
     /// <summary>A branch with the requested name already exists; nothing changed.</summary>
     BranchExists,
-    /// <summary>The branch is checked out in a worktree; nothing was deleted.</summary>
+    /// <summary>The branch is checked out in a worktree a delete or checkout cannot take it from; nothing changed.</summary>
     BranchCheckedOut,
     /// <summary>No stash has the requested commit; nothing changed.</summary>
     StashNotFound,
