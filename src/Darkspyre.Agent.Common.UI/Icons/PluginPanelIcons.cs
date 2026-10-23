@@ -16,6 +16,7 @@ public static class PluginPanelIcons
         "hammer" => AppIcons.Hammer,
         "chat" => AppIcons.Chat,
         "server" => AppIcons.Server,
+        "globe" => AppIcons.Globe,
         _ => AppIcons.Panel,
     };
 }

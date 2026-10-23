@@ -219,6 +219,12 @@ public static class AppIcons
         <circle cx="4.75" cy="11.25" r=".7" fill="currentColor"/>
         """, "0 0 16 16");
 
+    /// <summary>A globe with a meridian and the equator (Lucide <c>globe</c>): the web browser.</summary>
+    public static readonly IconSource Globe = IconSource.Fill("""
+        <circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M1.8 8h12.4M8 1.8c-3.3 3.4-3.3 9 0 12.4M8 1.8c3.3 3.4 3.3 9 0 12.4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        """, "0 0 16 16");
+
     /// <summary>A plug with two prongs and its cable: a model connection whose provider has no logo of its own.</summary>
     public static readonly IconSource Connector = IconSource.Fill("""
         <path d="M6 1.5v3M10 1.5v3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
