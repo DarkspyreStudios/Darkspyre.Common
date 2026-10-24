@@ -9,6 +9,7 @@ public sealed partial class ServicePlatform
     {
         ServiceInstaller.Validate(installation);
         string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        // The installation root holds the registration, the package cache, scratch and rendezvous. The store follows the caller's data root.
         string root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Darkspyre", installation.ApplicationName);
         try
         {

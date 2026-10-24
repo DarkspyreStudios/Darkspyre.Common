@@ -16,12 +16,14 @@ internal static class ServiceInstaller
         PropertyNameCaseInsensitive = false,
     };
 
+    // The installation root holds the registration, the package cache and scratch; the store lives under the caller's data root.
     internal static async Task<ServiceRegistration> InstallAsync(ServiceFileSystem files,
-        ServicePackageInstallation installation, string dataRoot, string runtimePath, string userHome,
+        ServicePackageInstallation installation, string installationRoot, string runtimePath, string userHome,
         CancellationToken cancellationToken)
     {
-        using ServiceDirectory root = files.OpenPrivateDirectory(dataRoot);
-        string cachePath = Path.Combine(dataRoot, "packages");
+        using ServiceDirectory root = files.OpenPrivateDirectory(installationRoot);
+        string cachePath = Path.Combine(installationRoot, "packages");
+        string? storePath = installation.DataRoot is { } dataRoot ? Path.Combine(Path.GetFullPath(dataRoot), "store") : null;
         using ServicePackageCache cache = ServicePackageCache.Open(files, cachePath);
         using IServicePackageLease catalog = await cache.AcquireCatalogAsync(cancellationToken).ConfigureAwait(false);
         using ServicePackagePin pin = await cache.InstallLockedAsync(installation.PackageDirectory,
@@ -30,7 +32,8 @@ internal static class ServiceInstaller
         Registration stored;
         if (bytes is null)
         {
-            stored = new(Guid.NewGuid(), Path.Combine(dataRoot, "store"), runtimePath, cachePath, installation.LayoutId);
+            // A service whose subscribers name no data root keeps no durable data; its store folder holds only locks and staging.
+            stored = new(Guid.NewGuid(), storePath ?? Path.Combine(installationRoot, "store"), runtimePath, cachePath, installation.LayoutId);
             root.PublishPrivateFile("registration.json", JsonSerializer.SerializeToUtf8Bytes(stored, Json));
         }
         else
@@ -42,11 +45,17 @@ internal static class ServiceInstaller
                 throw new InvalidDataException("The service registration is invalid.");
             if (stored.LayoutId != installation.LayoutId)
                 throw new ServiceProtocolException(ServiceErrorCode.IncompatibleProtocol);
+            if (storePath is not null && !string.Equals(storePath, stored.StorePath, StringComparison.Ordinal))
+            {
+                // The next launch opens the store here. A running service keeps the store it opened.
+                stored = stored with { StorePath = storePath };
+                root.PublishPrivateFile("registration.json", JsonSerializer.SerializeToUtf8Bytes(stored, Json));
+            }
         }
         await cache.SetPreferredLockedAsync(pin.BuildDigest, cancellationToken).ConfigureAwait(false);
         // Builds no launch can select any more leave the cache; a running service's pinned build stays.
         cache.CollectUnpreferredLocked();
-        string scratch = Path.Combine(dataRoot, "scratch");
+        string scratch = Path.Combine(installationRoot, "scratch");
         using (files.OpenPrivateDirectory(scratch)) { }
         return new(installation.Family, stored.RuntimePath, stored.PackageCachePath, stored.StoreId,
             stored.LayoutId, installation.ClientBuildDigest, userHome, scratch, (package, attempt) =>
@@ -65,6 +74,8 @@ internal static class ServiceInstaller
             || !Enum.IsDefined(installation.Family) || string.IsNullOrWhiteSpace(installation.LayoutId)
             || installation.LayoutId.Length > 128 || installation.LayoutId.Any(char.IsControl))
             throw new ArgumentException("A service installation requires an application, family and layout identity.", nameof(installation));
+        if (installation.DataRoot is { } dataRoot && (!Path.IsPathFullyQualified(dataRoot) || dataRoot.Any(char.IsControl)))
+            throw new ArgumentException("A service data root must be an absolute path.", nameof(installation));
         ServicePackageManifest.ValidateDigest(installation.ClientBuildDigest);
     }
 

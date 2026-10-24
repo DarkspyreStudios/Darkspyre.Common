@@ -283,8 +283,16 @@ shared installer holds the existing cache catalog lock while installing, creatin
 An interrupted preferred selection reuses that registration. A different LayoutId fails explicitly.
 Installation opens no database and starts no process. Host supplies no factory or registration.
 
-The macOS driver resolves durable resources beneath the user's Library/Application Support/Darkspyre
-application directory. Rendezvous uses the shorter Library/Caches/Darkspyre application directory.
+`ServicePackageInstallation.DataRoot` names the folder of the service's durable store: the store is
+`<DataRoot>/store`. The subscriber that owns the store passes it, and the platform never chooses a durable store's
+folder. A subscriber that does not own the store passes null and gets the store the registration names. A root that
+differs from the registered one records the new store path for the next launch; it moves no data, and a running service
+keeps the store it opened. A first installation with a null root puts the store in the platform's installation folder,
+which only a service with no durable data does: its store holds just locks and staging.
+
+Each platform's installation folder holds `registration.json`, the package cache (`packages/`) and `scratch/`.
+The macOS driver keeps it in the user's Library/Application Support/Darkspyre application directory. Rendezvous uses
+the shorter Library/Caches/Darkspyre application directory.
 `TryOwnAsync` adopts the inherited package pin and acquires family ownership before store ownership.
 The returned owner prepares private store/staging directories. The backend initializes storage before
 `PublishAsync`. After admitted work and peers close, `CompleteAsync` removes discovery, records a normal
@@ -340,8 +348,8 @@ inherited package lease. The native ABI implementation supports Linux x64 and AR
 File inspection translates each architecture's `stat` layout into the same device, inode, link-count,
 mode and user fields. Directory and no-follow open flags also use the architecture's ABI values.
 
-Data uses XDG_DATA_HOME or the user’s .local/share directory. Rendezvous uses an owned
-XDG_RUNTIME_DIR when available, otherwise the private data directory. Cache, registration, launch
+The installation folder uses XDG_DATA_HOME or the user’s .local/share directory. Rendezvous uses an owned
+XDG_RUNTIME_DIR when available, otherwise the private installation directory. Cache, registration, launch
 accounting and subscriber policy use the same neutral implementations as macOS.
 
 ## Windows ownership and launch
@@ -350,7 +358,8 @@ The Windows driver uses protected current-user/SYSTEM file DACLs, rejects repars
 opened file identity. Family, store, catalog and launch ownership use LockFileEx on permanent files.
 Package pins use read handles that permit only shared reads. Collection requires write access;
 an inherited child handle therefore retains the pin after launcher exit. Adoption checks the permanent
-file identity and clears inheritance without closing and reopening the handle.
+file identity and clears inheritance without closing and reopening the handle. The installation folder is the user's
+local application-data Darkspyre application directory, and rendezvous uses its `runtime` folder.
 
 The pipe endpoint uses an explicit current-user DACL and denies network access. The server compares
 the impersonated TokenUser SID after reading the authentication prelude; the client checks the server

@@ -11,6 +11,7 @@ public sealed partial class ServicePlatform
         string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         string? xdgData = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
         string data = string.IsNullOrEmpty(xdgData) ? Path.Combine(home, ".local", "share") : xdgData;
+        // The installation root holds the registration, the package cache and scratch. The store follows the caller's data root.
         string root = Path.Combine(data, "darkspyre", installation.ApplicationName.ToLowerInvariant());
         string runtime = Path.Combine(root, "runtime");
         try

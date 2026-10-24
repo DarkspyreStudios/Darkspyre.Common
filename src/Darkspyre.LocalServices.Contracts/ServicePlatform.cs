@@ -34,8 +34,14 @@ public sealed record ServiceStart(ServiceFamily Family, Guid StoreId, string Lay
 /// <param name="PackageDirectory">The bundled immutable payload directory.</param>
 /// <param name="Manifest">The trusted payload inventory.</param>
 /// <param name="ServiceBuildDigest">The service package digest used by the installer.</param>
+/// <param name="DataRoot">The absolute folder that holds the service's durable store, as <c>&lt;DataRoot&gt;/store</c>, or null
+/// for the store the registration already names. The subscriber that owns a durable store passes it; the platform never
+/// chooses a durable store's folder. A change records the new store path for the next launch and does not move the store.</param>
+/// <gotcha>A first installation with a null root puts the store in the platform's installation folder. Only a service that
+/// keeps no durable data, whose store holds just its locks and staging, installs that way.</gotcha>
 public sealed record ServicePackageInstallation(string ApplicationName, ServiceFamily Family, string LayoutId,
-    string ClientBuildDigest, string PackageDirectory, ServicePackageManifest Manifest, string ServiceBuildDigest);
+    string ClientBuildDigest, string PackageDirectory, ServicePackageManifest Manifest, string ServiceBuildDigest,
+    string? DataRoot);
 /// <summary>Native installation, connection and ownership operations selected at build time.</summary>
 public interface IServicePlatform
 {
