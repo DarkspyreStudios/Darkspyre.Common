@@ -17,6 +17,7 @@ public static class PluginPanelIcons
         "chat" => AppIcons.Chat,
         "server" => AppIcons.Server,
         "globe" => AppIcons.Globe,
+        "tasks" => AppIcons.Check,
         _ => AppIcons.Panel,
     };
 }
