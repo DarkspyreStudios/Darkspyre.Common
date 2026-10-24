@@ -425,7 +425,8 @@ and inline code and code blocks take `font-code` at `font-size-code`. LiveMarkdo
   `IOException` whose message the viewers show.
 - **`PanelTabs<TKey>`** is one line of `ToggleButton.plugin-panel-tab` tabs, shown from `PanelTab` records (key,
   title, checked). When the titles do not fit, a tab narrower than an equal share keeps its width and the others share
-  the rest, so the row never wraps and long titles trim, with the full title as the tooltip. A click checks its tab
+  the rest, so the row never wraps and long titles trim, with the full title as the tooltip. A title that changes
+  after layout, such as a count, lays the row out again, so a tab that fits shows its whole new title. A click checks its tab
   and calls the owner, which decides the checked tab on its next `Show`. The side panel's tab row and a panel's own
   second row (class `second`) use it.
 - **`PdfViewer`** shows an `IPdfDocument` the caller opened (password included) and disposes after the viewer. It has a

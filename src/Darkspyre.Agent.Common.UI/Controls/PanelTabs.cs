@@ -14,7 +14,8 @@ public sealed record PanelTab<TKey>(TKey Key, string Title, bool Checked) where 
 /// <summary>
 /// A row of panel tabs on one line: the side panel's tab row and a panel's own second row. Each tab is a
 /// <c>ToggleButton.plugin-panel-tab</c> whose content is its title. When the titles do not fit, a tab narrower than an
-/// equal share keeps its width and the others share the rest, so the row never wraps and long titles trim. A click
+/// equal share keeps its width and the others share the rest, so the row never wraps and long titles trim. A title that
+/// changes after layout lays the row out again, so a tab that fits shows its whole new title. A click
 /// shows the clicked tab checked and calls the selection callback, also for the tab already checked. A panel's second
 /// row adds the class <c>second</c>, which sets the smaller second-row size.
 /// </summary>
@@ -89,7 +90,10 @@ public sealed class PanelTabs<TKey> : UserControl where TKey : notnull
             this.widths = Share(natural, availableSize.Width);
             for (int index = 0; index < count; index++)
             {
-                this.Children[index].Measure(new Size(this.widths[index], availableSize.Height));
+                // Only a trimmed child is measured again at its share. A child that fits keeps its unbounded measure,
+                // so a title that grows later changes its desired width and the row lays out again.
+                if (this.widths[index] < natural[index])
+                    this.Children[index].Measure(new Size(this.widths[index], availableSize.Height));
                 height = Math.Max(height, this.Children[index].DesiredSize.Height);
             }
             return new Size(this.widths.Sum(), height);

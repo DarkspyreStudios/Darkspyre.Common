@@ -28,4 +28,22 @@ public sealed class PanelTabsTests
         Assert.Equal(["files"], clicked);
         return Task.CompletedTask;
     });
+
+    /// <summary>A tab whose title grows after the row is laid out, as the Tasks tab's count does, shows its whole new title.</summary>
+    [Fact]
+    public Task ATitleThatGrowsAfterLayoutShowsInFull() => ViewSession.RunAsync(() =>
+    {
+        PanelTabs<string> row = new("Panels", _ => { });
+        row.Show([new("tasks", "Tasks", true), new("files", "Files", false), new("git", "Git", false), new("remote", "Remote", false)]);
+        ViewSession.Show(row, width: 420, height: 80);
+
+        row.Show([new("tasks", "Tasks 2", true), new("files", "Files", false), new("git", "Git", false), new("remote", "Remote", false)]);
+        ViewSession.Settle();
+
+        ToggleButton tasks = ViewSession.All<ToggleButton>(row).First();
+        TextBlock title = ViewSession.All<TextBlock>(tasks).Single();
+        Assert.Equal("Tasks 2", title.Text);
+        Assert.DoesNotContain(title.TextLayout.TextLines, line => line.HasCollapsed);
+        return Task.CompletedTask;
+    });
 }
