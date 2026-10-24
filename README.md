@@ -618,7 +618,8 @@ It references Contracts. A subscriber library installs its verified package thro
 constructs `ServiceConnector`, and owns the returned `IServiceSubscription`. The first connection launches
 the service; subsequent connections join it. The final departure starts the existing drain.
 A subscription closes only when its connection fails, the service ends it or its owner disposes it:
-one call's cancellation, deadline or wait behind other frames ends only that call. `CloseReason` names
+one call's cancellation, deadline or wait behind other frames ends only that call, and no timer closes a live
+connection on either side. The service host reports why each connection ended. `CloseReason` names
 what closed it. A closed subscription never reconnects; its owner connects again for the next call, and a
 call the close interrupted is never sent again. `docs/local-services.md` describes the write rules.
 The application Host does not register, install or start the service.

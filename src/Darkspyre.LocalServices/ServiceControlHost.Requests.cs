@@ -35,7 +35,10 @@ public sealed partial class ServiceControlHost
     private readonly ServiceRequestHandler requestHandler;
     private readonly string stagingPath;
 
-    /// <summary>Publishes an invalidation on existing subscriber transports.</summary>
+    /// <summary>
+    /// Publishes an invalidation on existing subscriber transports. A connection that ends while it is being sent the
+    /// event misses it; the others still receive it.
+    /// </summary>
     public async Task PublishEventAsync(string name, JsonElement payload, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -47,6 +50,8 @@ public sealed partial class ServiceControlHost
             try { await SendBusinessAsync(connection, message, cancellationToken).ConfigureAwait(false); }
             catch (IOException) { connection.BreakTransport(); }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { connection.BreakTransport(); }
+            // The connection finished closing during the send; it has nothing left to tell.
+            catch (ObjectDisposedException) { }
         }
     }
 

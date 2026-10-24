@@ -12,8 +12,6 @@ namespace Darkspyre.LocalServices.Contracts;
 [JsonDerivedType(typeof(WelcomeMessage), "welcome")]
 [JsonDerivedType(typeof(SubscribeMessage), "subscribe")]
 [JsonDerivedType(typeof(SubscribeAckMessage), "subscribe-ack")]
-[JsonDerivedType(typeof(PingMessage), "ping")]
-[JsonDerivedType(typeof(PongMessage), "pong")]
 [JsonDerivedType(typeof(UnsubscribeMessage), "unsubscribe")]
 [JsonDerivedType(typeof(DrainingMessage), "draining")]
 [JsonDerivedType(typeof(HealthMessage), "health")]
@@ -50,12 +48,6 @@ public sealed record SubscribeMessage(Guid Epoch) : ServiceMessage;
 /// <param name="Epoch">The service process epoch that owns this exchange.</param>
 /// <param name="ConnectionId">The server-assigned connection identity.</param>
 public sealed record SubscribeAckMessage(Guid Epoch, Guid ConnectionId) : ServiceMessage;
-/// <summary>Requests a heartbeat response for the current epoch.</summary>
-/// <param name="Epoch">The service process epoch that owns this exchange.</param>
-public sealed record PingMessage(Guid Epoch) : ServiceMessage;
-/// <summary>Acknowledges a heartbeat for the current epoch.</summary>
-/// <param name="Epoch">The service process epoch that owns this exchange.</param>
-public sealed record PongMessage(Guid Epoch) : ServiceMessage;
 /// <summary>Releases this connection’s subscriber lease.</summary>
 /// <param name="Epoch">The service process epoch that owns this exchange.</param>
 public sealed record UnsubscribeMessage(Guid Epoch) : ServiceMessage;

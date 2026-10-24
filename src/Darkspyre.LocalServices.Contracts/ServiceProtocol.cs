@@ -4,7 +4,7 @@ namespace Darkspyre.LocalServices.Contracts;
 public static class ServiceProtocol
 {
     /// <summary>The supported wire protocol version.</summary>
-    public const int Version = 3;
+    public const int Version = 4;
     /// <summary>The maximum frame payload size in bytes: the JSON message, or a chunk header and its bytes.</summary>
     public const int MaximumFrameBytes = 1024 * 1024;
     /// <summary>The maximum body chunk size in bytes: the frame payload less the 93-byte final chunk header, so one chunk fills one frame.</summary>
@@ -21,10 +21,11 @@ public static class ServiceProtocol
     public static TimeSpan FirstSubscriberDeadline => TimeSpan.FromSeconds(15);
     /// <summary>The connection and readiness deadline.</summary>
     public static TimeSpan ConnectDeadline => TimeSpan.FromSeconds(30);
-    /// <summary>The interval between subscriber heartbeats.</summary>
-    public static TimeSpan HeartbeatInterval => TimeSpan.FromSeconds(5);
-    /// <summary>The duration without a heartbeat that expires a subscriber.</summary>
-    public static TimeSpan SubscriberExpiry => TimeSpan.FromSeconds(20);
+    /// <summary>
+    /// The time allowed for the last frame written as a connection closes: the subscriber's Unsubscribe, or the service's
+    /// Draining or refusal. A live connection's frames have no deadline; only its end closes it.
+    /// </summary>
+    public static TimeSpan ClosingWriteDeadline => TimeSpan.FromSeconds(5);
     /// <summary>The grace period for admitted work during drain.</summary>
     public static TimeSpan GracefulDrainDeadline => TimeSpan.FromSeconds(10);
     /// <summary>The maximum shutdown wait.</summary>

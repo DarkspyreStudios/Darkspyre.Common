@@ -44,10 +44,9 @@ returns the resulting state and removed identities. The connection owner must re
 of every identity in `RemovedSubscribers`, including removals returned by a rejected operation.
 
 The states are Starting, Active, Draining and Exited. The first subscription must arrive within 15
-seconds. A successful first subscription enters Active. Heartbeats refresh an existing lease for 20
-seconds. Duplicate subscriptions and ordinary business admission checks do not refresh the lease.
-An expired lease cannot be revived by a heartbeat. Another surviving subscriber keeps the registry
-Active. The final removal enters Draining immediately. A new subscription cannot revive Draining or
+seconds. A successful first subscription enters Active. A subscriber stays until its connection ends; no
+timer removes a live subscriber. Duplicate subscriptions are refused. Another surviving subscriber keeps the
+registry Active. The final removal enters Draining immediately. A new subscription cannot revive Draining or
 Exited. Concurrent last-removal/admission calls serialize through the same lock.
 
 The host must call `Tick` independently of business processing. The registry uses `TimeProvider`
@@ -55,6 +54,10 @@ monotonic timestamps. Tick reports a graceful-drain deadline after 10 seconds an
 deadline after 15 seconds. It does not terminate processes or pretend cleanup completed. The host
 calls `CompleteShutdown` after cleanup and retains OS/database ownership until that cleanup ends.
 `BeginDrain` fences all subscribers when the backend cannot continue.
+
+The connection's lifetime is the subscriber's to decide: it lasts as long as the subscriber holds it, and the
+service never decides from time alone that a live subscriber is gone. On a local socket a subscriber process that
+exits closes its connection, which the service reads as EOF.
 
 ## macOS ownership
 
@@ -154,23 +157,25 @@ no databases and is not a production backend or an installed feature.
 ## Live control connections
 
 `ServiceControlHost` connects authenticated peers to one `SubscriberRegistry`. Subscribe/Ack establishes
-admission before Ping/Pong renews it. Wrong epochs, duplicate subscription and out-of-direction messages
-fail. EOF and Unsubscribe revoke immediately. A timer expires leases independently of peer receive loops.
-The host reports `Draining` when admission closes; it cannot revive that epoch. Terminal notifications
-have serialized bounded writes. Failed or cancelled frame operations close the stream without replay.
+admission. Wrong epochs, duplicate subscription and out-of-direction messages fail. EOF and Unsubscribe
+revoke immediately. The host reports `Draining` when admission closes; it cannot revive that epoch. A
+connection closes only when it ends: the subscriber closes or unsubscribes, a read or write fails, a frame
+breaks the protocol, or the service drains. No timer closes a live connection. The host passes each ended
+connection's id and reason to its `connectionEnded` callback, marking an unsubscribe or a drain as expected;
+the Search service logs the others as errors. Failed or cancelled frame operations close the stream without
+replay.
 
-Both sides write one frame at a time. A frame's write must finish within five seconds; a write that takes
-longer, or fails, leaves a partial frame and closes the connection. The wait for the write path has no
-deadline of its own: the frame ahead finishes or fails within its own five seconds, and a failed frame
-closes the connection, which ends every wait. A busy connection, such as one carrying several large
-bodies at once, therefore delays a heartbeat, a Pong, a Cancel or a result without closing.
+Both sides write one frame at a time, and a write waits as long as the other side takes to read it, so a busy
+or slow peer, such as one carrying several sessions' large bodies at once, delays a Cancel or a result
+without closing. Only the frame written as a connection closes has a deadline, `ServiceProtocol.ClosingWriteDeadline`
+(five seconds): the subscriber's Unsubscribe and the service's Draining or refusal, so a peer that never reads
+them cannot hold a close open.
 
-`ServiceSubscription` owns the client peer after SubscribeAck. It sends heartbeats every five seconds,
-reads control responses concurrently, and closes if responses stop for twenty seconds. Disposal sends
-Unsubscribe within a bounded write, then closes and joins its receive/heartbeat loops. Its `Closed` task
-reports the safe disconnect reason, with no code after the subscriber's own disposal, and `CloseReason`
-says what closed it: the frame write that failed or took too long, the read that failed, the frame the
-service refused, or the service ending the subscription. A call's cancellation or deadline sends a Cancel
+`ServiceSubscription` owns the client peer after SubscribeAck and reads the service's frames concurrently with
+its calls. Disposal sends Unsubscribe within the closing deadline, then closes and joins its receive loop. Its
+`Closed` task reports the safe disconnect reason, with no code after the subscriber's own disposal, and
+`CloseReason` says what closed it: the frame write that failed, the read that failed, the frame the service
+refused, or the service ending the subscription. A call's cancellation or deadline sends a Cancel
 and returns the service's answer for that call, as the request section below describes; it never closes
 the subscription. A call the close interrupts returns OutcomeUnknown. A closed subscription stays
 closed and refuses each later call with Unavailable before sending anything. It has no reconnect,
@@ -250,8 +255,8 @@ must dispose its lease only when work settles. Cancel does not prove rollback. A
 first signal; later revocation still invalidates publication authority independently.
 
 `ServiceControlHost.Operations` shares the lifecycle serialization lock. Subscription admits a connection;
-EOF, expiry and drain remove its authority immediately. Admission checks also advance lifecycle expiry,
-so a delayed timer cannot admit expired authority. Deadline/stop notifications use asynchronous task
+EOF, Unsubscribe and drain remove its authority immediately. Admission checks also advance the lifecycle
+deadlines, so a delayed timer cannot admit work after drain. Deadline/stop notifications use asynchronous task
 continuations and never execute a handler while the serialization lock is held.
 
 `CanPublish` is an instantaneous authority check, not a transferable permission. Final result publication
@@ -314,7 +319,7 @@ caller owns its input stream. Accepted acknowledges admission; the client then s
 Request spools live under the owner's private staging directory and are deleted when dispatch settles.
 
 The single receive loop demultiplexes control, body and request messages. Writers hold their semaphore
-for one frame, allowing heartbeat and cancellation traffic between chunks. Result chunks precede the
+for one frame, allowing cancellation traffic between chunks. Result chunks precede the
 terminal result reference. The client rejects incomplete or mismatched transfers and never returns
 partial bytes as success. Service invalidations use the same subscription's `EventReceived` event.
 

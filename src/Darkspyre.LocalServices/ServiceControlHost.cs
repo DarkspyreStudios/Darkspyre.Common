@@ -5,7 +5,9 @@ namespace Darkspyre.LocalServices;
 
 /// <summary>
 /// Owns authenticated connections, admission and request dispatch. The backend observes Draining,
-/// closes domain resources and retains native ownership until cleanup completes.
+/// closes domain resources and retains native ownership until cleanup completes. A connection stays open until it ends:
+/// the subscriber closes or unsubscribes, a read or write fails, a frame breaks the protocol, or the service drains. No
+/// timer closes a live connection.
 /// </summary>
 public sealed partial class ServiceControlHost : IAsyncDisposable
 {
@@ -16,11 +18,22 @@ public sealed partial class ServiceControlHost : IAsyncDisposable
     private readonly CancellationTokenSource stopping = new();
     private readonly TaskCompletionSource<SubscriberUpdate> draining = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly Task timer;
+    private readonly Action<Guid, string, bool>? connectionEnded;
     private Task? disposal;
 
     /// <summary>Creates the service control loop with its admitted operations and request handler.</summary>
-    public ServiceControlHost(Guid epoch, IReadOnlySet<string> operations, ServiceRequestHandler requestHandler, string stagingPath, TimeProvider? timeProvider = null, long? startupTimestamp = null)
+    /// <param name="epoch">The service process epoch.</param>
+    /// <param name="operations">The operations the service admits.</param>
+    /// <param name="requestHandler">Runs one admitted request.</param>
+    /// <param name="stagingPath">The folder for request bodies in transfer.</param>
+    /// <param name="timeProvider">The clock for lifecycle deadlines.</param>
+    /// <param name="startupTimestamp">When the process started, for the first-subscriber deadline.</param>
+    /// <param name="connectionEnded">Receives each ended connection's id, why it ended, and whether that was the
+    /// subscriber's own unsubscribe or the service's drain rather than a failure.</param>
+    public ServiceControlHost(Guid epoch, IReadOnlySet<string> operations, ServiceRequestHandler requestHandler, string stagingPath,
+        TimeProvider? timeProvider = null, long? startupTimestamp = null, Action<Guid, string, bool>? connectionEnded = null)
     {
+        this.connectionEnded = connectionEnded;
         if (epoch == Guid.Empty) throw new ArgumentException("A service epoch is required.", nameof(epoch));
         this.operations = operations.ToFrozenSet(StringComparer.Ordinal);
         this.requestHandler = requestHandler ?? throw new ArgumentNullException(nameof(requestHandler));
@@ -69,16 +82,13 @@ public sealed partial class ServiceControlHost : IAsyncDisposable
                 ServiceMessage? message = await ServiceFrameCodec.ReadAsync(peer.Stream, connection.Stop.Token).ConfigureAwait(false);
                 switch (message)
                 {
-                    case null: return;
+                    case null:
+                        connection.End("the subscriber closed the connection");
+                        return;
                     case UnsubscribeMessage unsubscribe:
                         CheckEpoch(unsubscribe.Epoch);
+                        connection.End("the subscriber unsubscribed", expected: true);
                         return;
-                    case PingMessage ping:
-                        CheckEpoch(ping.Epoch);
-                        SubscriberUpdate update = Change(() => this.subscribers.Heartbeat(peer.Welcome.ConnectionId));
-                        if (!update.Succeeded) throw new ServiceProtocolException(ServiceErrorCode.CapabilityRevoked);
-                        await connection.SendAsync(new PongMessage(this.epoch), connection.Stop.Token).ConfigureAwait(false);
-                        break;
                     case RequestMessage request:
                         await DispatchAsync(connection, peer.Welcome.ConnectionId, request).ConfigureAwait(false);
                         break;
@@ -96,11 +106,15 @@ public sealed partial class ServiceControlHost : IAsyncDisposable
                 }
             }
         }
-        catch (ServiceProtocolException error) { connection.Rejection = error.Code; }
+        catch (ServiceProtocolException error)
+        {
+            connection.End($"a frame broke the protocol: {error.Code}");
+            connection.Rejection = error.Code;
+        }
         // A failed frame operation may leave a partial frame. Close it without another protocol write.
-        catch (InvalidDataException) { connection.BreakTransport(); }
-        catch (OperationCanceledException) { connection.BreakTransport(); }
-        catch (IOException) { connection.BreakTransport(); }
+        catch (InvalidDataException error) { connection.BreakTransport($"a frame could not be read: {error.Message}"); }
+        catch (OperationCanceledException) { connection.BreakTransport("the connection was stopped"); }
+        catch (IOException error) { connection.BreakTransport($"reading failed: {error.GetType().Name}: {error.Message}"); }
         catch (ObjectDisposedException) when (connection.Stop.IsCancellationRequested) { }
         finally
         {
@@ -134,12 +148,14 @@ public sealed partial class ServiceControlHost : IAsyncDisposable
                         connection.Dispose();
                         connection.Completed.TrySetResult();
                     }
+                    (string reason, bool expected) = connection.Ending;
+                    this.connectionEnded?.Invoke(peer.Welcome.ConnectionId, reason, expected);
                 }
             }
         }
     }
 
-    /// <summary>Expires leases independently of receive/business work. Removed identities cannot be readmitted.</summary>
+    /// <summary>Enforces lifecycle deadlines independently of receive/business work.</summary>
     public SubscriberUpdate Tick() => Change(this.subscribers.Tick);
 
     /// <summary>Closes admission and publishes the drain transition.</summary>
@@ -216,7 +232,9 @@ public sealed partial class ServiceControlHost : IAsyncDisposable
     private sealed class Connection(ServicePeer peer, CancellationToken token) : IDisposable
     {
         private readonly SemaphoreSlim writes = new(1);
+        private readonly object ending = new();
         private int broken;
+        private (string Reason, bool Expected)? ended;
         public bool Subscribed { get; set; }
         public Dictionary<Guid, IncomingRequest> Requests { get; } = [];
         public Dictionary<Guid, TaskCompletionSource<ServiceCallbackResult>> Callbacks { get; } = [];
@@ -227,14 +245,26 @@ public sealed partial class ServiceControlHost : IAsyncDisposable
         public bool Finalizing { get; set; }
         public Task? Termination { get; private set; }
 
+        /// <summary>Why the connection ended, and whether that was an unsubscribe or a drain; the first reason wins.</summary>
+        public (string Reason, bool Expected) Ending
+        {
+            get { lock (this.ending) return this.ended ?? ("it ended", false); }
+        }
+
+        public void End(string reason, bool expected = false)
+        {
+            lock (this.ending) this.ended ??= (reason, expected);
+        }
+
         public void Cancel(ServiceErrorCode reason)
         {
+            End(reason == ServiceErrorCode.ServiceDraining ? "the service is draining" : $"the service revoked it: {reason}",
+                expected: reason == ServiceErrorCode.ServiceDraining);
             if (!this.Finalizing && this.Termination is null) this.Termination = Task.Run(() => NotifyAndCloseAsync(reason));
         }
 
-        // The wait for the write path has no deadline of its own: the frame ahead finishes or fails within its own deadline,
-        // and a failed frame breaks the transport, which ends the wait. Only a frame that takes longer than its deadline to
-        // write, or that fails, breaks the transport: it leaves a partial frame on the stream.
+        // A frame write waits as long as the subscriber takes to read it: a busy or slow subscriber is still connected. Only a
+        // write that fails, or one the connection's stop interrupts, breaks the transport: it may leave a partial frame.
         public async Task SendAsync(ServiceMessage message, CancellationToken cancellationToken)
         {
             using (var waiting = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, this.Stop.Token))
@@ -242,11 +272,13 @@ public sealed partial class ServiceControlHost : IAsyncDisposable
             try
             {
                 if (Volatile.Read(ref this.broken) != 0) throw new IOException("The control transport is closed.");
-                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                deadline.CancelAfter(ServiceProtocol.HeartbeatInterval);
-                await ServiceFrameCodec.WriteAsync(peer.Stream, message, deadline.Token).ConfigureAwait(false);
+                await ServiceFrameCodec.WriteAsync(peer.Stream, message, cancellationToken).ConfigureAwait(false);
             }
-            catch { BreakTransport(); throw; }
+            catch (Exception error)
+            {
+                BreakTransport($"writing a {message.GetType().Name} failed: {error.GetType().Name}: {error.Message}");
+                throw;
+            }
             finally { this.writes.Release(); }
         }
 
@@ -254,7 +286,7 @@ public sealed partial class ServiceControlHost : IAsyncDisposable
         {
             try
             {
-                using var deadline = new CancellationTokenSource(ServiceProtocol.HeartbeatInterval);
+                using var deadline = new CancellationTokenSource(ServiceProtocol.ClosingWriteDeadline);
                 ServiceMessage response = reason == ServiceErrorCode.ServiceDraining
                     ? new DrainingMessage(peer.Welcome.Epoch) : new ProtocolErrorMessage(new(reason, Guid.NewGuid()));
                 await SendAsync(response, deadline.Token).ConfigureAwait(false);
@@ -271,8 +303,9 @@ public sealed partial class ServiceControlHost : IAsyncDisposable
             this.writes.Dispose();
         }
 
-        public void BreakTransport()
+        public void BreakTransport(string? reason = null)
         {
+            if (reason is not null) End(reason);
             if (Interlocked.Exchange(ref this.broken, 1) != 0) return;
             // Only frame operations register on this internal token. No business/user callback runs here.
             this.Stop.Cancel();

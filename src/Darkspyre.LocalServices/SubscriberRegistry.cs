@@ -13,15 +13,16 @@ public sealed record SubscriberUpdate(ServiceLifecycleState State, bool Succeede
     IReadOnlyList<Guid> RemovedSubscribers, bool GracefulDeadlineReached, bool ShutdownDeadlineReached);
 
 /// <summary>
-/// Serializes subscription admission, lease expiry and last-subscriber drain. Connection identities are assigned
-/// after authentication. A host calls Tick independently of business work to expire leases and enforce deadlines.
+/// Serializes subscription admission and last-subscriber drain. Connection identities are assigned after
+/// authentication. A subscriber stays until its connection ends: no timer removes a live subscriber. A host calls Tick
+/// independently of business work to enforce the first-subscriber and drain deadlines.
 /// </summary>
 public sealed class SubscriberRegistry
 {
     private readonly object gate = new();
     private readonly TimeProvider time;
     private readonly long startedAt;
-    private readonly Dictionary<Guid, long> subscribers = [];
+    private readonly HashSet<Guid> subscribers = [];
     private ServiceLifecycleState state = ServiceLifecycleState.Starting;
     private long drainStartedAt;
 
@@ -44,27 +45,13 @@ public sealed class SubscriberRegistry
             List<Guid> removed = Advance(now);
             if (this.state is ServiceLifecycleState.Draining or ServiceLifecycleState.Exited)
                 return Result(false, removed, now);
-            if (!this.subscribers.TryAdd(connectionId, now)) return Result(false, removed, now);
+            if (!this.subscribers.Add(connectionId)) return Result(false, removed, now);
             this.state = ServiceLifecycleState.Active;
             return Result(true, removed, now);
         }
     }
 
-    /// <summary>A heartbeat renews an existing unexpired lease. It cannot restore an expired subscriber.</summary>
-    public SubscriberUpdate Heartbeat(Guid connectionId)
-    {
-        RequireIdentity(connectionId);
-        lock (this.gate)
-        {
-            long now = this.time.GetTimestamp();
-            List<Guid> removed = Advance(now);
-            bool found = this.subscribers.ContainsKey(connectionId);
-            if (found) this.subscribers[connectionId] = now;
-            return Result(found, removed, now);
-        }
-    }
-
-    /// <summary>Validates admission without extending a heartbeat lease.</summary>
+    /// <summary>Validates admission.</summary>
     public SubscriberUpdate CheckAdmission(Guid connectionId)
     {
         RequireIdentity(connectionId);
@@ -72,7 +59,7 @@ public sealed class SubscriberRegistry
         {
             long now = this.time.GetTimestamp();
             List<Guid> removed = Advance(now);
-            return Result(this.subscribers.ContainsKey(connectionId), removed, now);
+            return Result(this.subscribers.Contains(connectionId), removed, now);
         }
     }
 
@@ -91,7 +78,7 @@ public sealed class SubscriberRegistry
         }
     }
 
-    /// <summary>Expires missed heartbeats and evaluates lifecycle deadlines.</summary>
+    /// <summary>Evaluates the first-subscriber and drain deadlines.</summary>
     public SubscriberUpdate Tick()
     {
         lock (this.gate)
@@ -107,7 +94,7 @@ public sealed class SubscriberRegistry
         lock (this.gate)
         {
             long now = this.time.GetTimestamp();
-            List<Guid> removed = [.. this.subscribers.Keys];
+            List<Guid> removed = [.. this.subscribers];
             this.subscribers.Clear();
             if (this.state is ServiceLifecycleState.Starting or ServiceLifecycleState.Active) StartDrain(now);
             return Result(true, removed, now);
@@ -129,9 +116,6 @@ public sealed class SubscriberRegistry
     private List<Guid> Advance(long now)
     {
         List<Guid> removed = [];
-        foreach ((Guid id, long lastHeartbeat) in this.subscribers)
-            if (this.time.GetElapsedTime(lastHeartbeat, now) >= ServiceProtocol.SubscriberExpiry) removed.Add(id);
-        foreach (Guid id in removed) this.subscribers.Remove(id);
         if ((this.state == ServiceLifecycleState.Starting && this.time.GetElapsedTime(this.startedAt, now) >= ServiceProtocol.FirstSubscriberDeadline)
             || (this.state == ServiceLifecycleState.Active && this.subscribers.Count == 0)) StartDrain(now);
         return removed;

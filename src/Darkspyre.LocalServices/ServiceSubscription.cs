@@ -3,9 +3,10 @@ using Darkspyre.LocalServices.Contracts;
 namespace Darkspyre.LocalServices;
 
 /// <summary>
-/// An authenticated subscription with heartbeats, requests and invalidations. It owns its connection, never the backend
-/// process. One call's cancellation, deadline or wait for the write path ends only that call; the subscription closes only
-/// when its connection fails, the service ends it or the subscriber disposes it, and <see cref="CloseReason"/> says which.
+/// An authenticated subscription with requests and invalidations. It owns its connection, never the backend process. One
+/// call's cancellation, deadline or wait for the write path ends only that call; the subscription closes only when its
+/// connection fails, the service ends it or the subscriber disposes it, and <see cref="CloseReason"/> says which. No timer
+/// closes it: a busy or slow service is still connected.
 /// A closed subscription stays closed: it never reconnects or replays a request. Its owner opens a new one.
 /// </summary>
 public sealed partial class ServiceSubscription : IServiceSubscription
@@ -16,7 +17,6 @@ public sealed partial class ServiceSubscription : IServiceSubscription
     private readonly TaskCompletionSource<ServiceErrorCode?> closed = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly object gate = new();
     private readonly Task receiver;
-    private readonly Task heartbeat;
     private Task? disposal;
     private string? closeReason;
 
@@ -24,7 +24,6 @@ public sealed partial class ServiceSubscription : IServiceSubscription
     {
         this.peer = peer;
         this.receiver = ReceiveAsync();
-        this.heartbeat = HeartbeatAsync();
     }
 
     /// <summary>The authenticated service and connection identity.</summary>
@@ -61,12 +60,9 @@ public sealed partial class ServiceSubscription : IServiceSubscription
         {
             while (!this.stopping.IsCancellationRequested)
             {
-                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(this.stopping.Token);
-                deadline.CancelAfter(ServiceProtocol.SubscriberExpiry);
-                ServiceMessage? message = await ServiceFrameCodec.ReadAsync(this.peer.Stream, deadline.Token).ConfigureAwait(false);
+                ServiceMessage? message = await ServiceFrameCodec.ReadAsync(this.peer.Stream, this.stopping.Token).ConfigureAwait(false);
                 switch (message)
                 {
-                    case PongMessage pong when pong.Epoch == this.Identity.Epoch: break;
                     case DrainingMessage draining when draining.Epoch == this.Identity.Epoch:
                         Finish(ServiceErrorCode.ServiceDraining, "the service is draining");
                         return;
@@ -86,7 +82,7 @@ public sealed partial class ServiceSubscription : IServiceSubscription
                         Finish(ServiceErrorCode.Unavailable, "the service closed the connection");
                         return;
                     default:
-                        Finish(message is PongMessage or DrainingMessage ? ServiceErrorCode.WrongEpoch : ServiceErrorCode.InvalidState,
+                        Finish(message is DrainingMessage ? ServiceErrorCode.WrongEpoch : ServiceErrorCode.InvalidState,
                             $"the service sent an unexpected {message.GetType().Name}");
                         return;
                 }
@@ -95,45 +91,23 @@ public sealed partial class ServiceSubscription : IServiceSubscription
         catch (ServiceProtocolException error) { Finish(error.Code, $"a frame from the service was refused: {error.Code}"); }
         catch (InvalidDataException error) { Finish(ServiceErrorCode.InvalidFrame, $"a frame from the service could not be read: {error.Message}"); }
         catch (IOException error) { Finish(ServiceErrorCode.Unavailable, $"reading from the service failed: {Describe(error)}"); }
-        catch (OperationCanceledException)
-        {
-            Finish(ServiceErrorCode.Unavailable, $"no frame arrived from the service for {ServiceProtocol.SubscriberExpiry.TotalSeconds:0} s");
-        }
+        // Only the subscription's own close stops a read, and that close already says why.
+        catch (OperationCanceledException) when (this.stopping.IsCancellationRequested) { }
         catch (ObjectDisposedException) when (this.stopping.IsCancellationRequested) { }
         catch (Exception error) { Finish(ServiceErrorCode.Unavailable, $"the receive loop failed: {Describe(error)}"); throw; }
     }
 
-    private async Task HeartbeatAsync()
-    {
-        using var timer = new PeriodicTimer(ServiceProtocol.HeartbeatInterval);
-        try
-        {
-            while (await timer.WaitForNextTickAsync(this.stopping.Token).ConfigureAwait(false))
-                await SendAsync(new PingMessage(this.Identity.Epoch), this.stopping.Token).ConfigureAwait(false);
-        }
-        catch (Exception error) when (error is IOException or OperationCanceledException)
-        {
-            Finish(ServiceErrorCode.Unavailable, $"a heartbeat could not be sent: {Describe(error)}");
-        }
-        catch (ObjectDisposedException) when (this.stopping.IsCancellationRequested) { }
-    }
-
-    // The wait for the write path has no deadline of its own. The frame ahead finishes or fails within its own deadline, and
-    // a failed frame closes the subscription, which ends the wait. Only a frame that takes longer than its deadline to write,
-    // or that fails, closes the subscription: it leaves a partial frame on the stream.
+    // A frame write waits as long as the service takes to read it. Only a write that fails, or one the subscription's close
+    // interrupts, closes the subscription: it may leave a partial frame on the stream.
     private async Task SendAsync(ServiceMessage message, CancellationToken cancellationToken)
     {
         await this.writes.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            deadline.CancelAfter(ServiceProtocol.HeartbeatInterval);
-            try { await ServiceFrameCodec.WriteAsync(this.peer.Stream, message, deadline.Token).ConfigureAwait(false); }
+            try { await ServiceFrameCodec.WriteAsync(this.peer.Stream, message, cancellationToken).ConfigureAwait(false); }
             catch (Exception error)
             {
-                Finish(ServiceErrorCode.Unavailable, error is OperationCanceledException && !cancellationToken.IsCancellationRequested
-                    ? $"writing a {message.GetType().Name} took longer than {ServiceProtocol.HeartbeatInterval.TotalSeconds:0} s"
-                    : $"writing a {message.GetType().Name} failed: {Describe(error)}");
+                Finish(ServiceErrorCode.Unavailable, $"writing a {message.GetType().Name} failed: {Describe(error)}");
                 throw;
             }
         }
@@ -171,7 +145,12 @@ public sealed partial class ServiceSubscription : IServiceSubscription
         try
         {
             if (!this.closed.Task.IsCompleted)
-                await SendAsync(new UnsubscribeMessage(this.Identity.Epoch), this.stopping.Token).ConfigureAwait(false);
+            {
+                // The closing frame is the one write with a deadline: a service that never reads it cannot hold disposal.
+                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(this.stopping.Token);
+                deadline.CancelAfter(ServiceProtocol.ClosingWriteDeadline);
+                await SendAsync(new UnsubscribeMessage(this.Identity.Epoch), deadline.Token).ConfigureAwait(false);
+            }
         }
         catch (IOException) { }
         catch (OperationCanceledException) { }
@@ -179,7 +158,7 @@ public sealed partial class ServiceSubscription : IServiceSubscription
         finally
         {
             Finish(null, "the subscriber closed it");
-            await Task.WhenAll(this.receiver, this.heartbeat).ConfigureAwait(false);
+            await this.receiver.ConfigureAwait(false);
             Task[] calls;
             lock (this.gate) calls = [.. this.pending.Values.Select(call => call.Finished.Task), .. this.callbacks.Values.Select(callback => callback.Completion)];
             await Task.WhenAll(calls).ConfigureAwait(false);
