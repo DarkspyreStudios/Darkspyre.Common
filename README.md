@@ -409,6 +409,7 @@ and inline code and code blocks take `font-code` at `font-size-code`. LiveMarkdo
   removed line and the new number for the others, right-aligned in a column at least 34 px wide, then a 14 px mark
   column: a minus on the danger colour, a plus on the ok colour. Removed lines sit above the added lines that replace
   them, shaded with the same colours. A last line with no line break is followed by a "No final newline" note. The
+  view scrolls no further than its last row, so a diff that fits shows no scroll bar. The
   view names neither version: its caller shows which versions it compares. A null text compares as an empty file. Line
   endings take part in the comparison. Equal texts show "No text differences."; a comparison over the work limit (4
   million table cells) shows its error. `Find` marks every case-insensitive match and `FindNext` and `FindPrevious`

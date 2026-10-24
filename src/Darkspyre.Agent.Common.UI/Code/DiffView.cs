@@ -158,6 +158,8 @@ public sealed class DiffView : TemplatedControl
             this.gutter = new DiffGutter(owner, () => this.rows);
             this.editor.TextArea.LeftMargins.Insert(0, this.gutter);
             this.editor.TextArea.TextView.Margin = new Thickness(0);
+            // A diff ends at its last row: a short one shows no scroll bar, as the Git panel mockup draws it.
+            this.editor.Options.AllowScrollBelowDocument = false;
             Func<int, DiffRowKind?> kindOf = index => index < this.rows.Count ? this.rows[index].Kind : null;
             this.editor.TextArea.TextView.BackgroundRenderers.Add(new RowShading(owner, kindOf));
             this.editor.TextArea.TextView.LineTransformers.Add(new NoteColour(owner, kindOf));
