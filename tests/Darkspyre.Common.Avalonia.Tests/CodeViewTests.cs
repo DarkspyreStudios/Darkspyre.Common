@@ -42,6 +42,21 @@ public sealed class CodeViewTests
         Assert.Equal("@@ -1,2 +1,2 @@\none\ntwo\n2\nNo final newline", shown);
     });
 
+    /// <summary>Supplied hunks replace a comparison still running, which must not overwrite them when it finishes.</summary>
+    [Fact]
+    public Task DiffViewShowsSuppliedHunksOverARunningComparison() => ViewSession.RunAsync(async () =>
+    {
+        DiffView view = new() { OldText = "a\n", NewText = "b\n" };
+        ViewSession.Show(view);
+        IReadOnlyList<DiffHunk> remote = TextDiff.Compute(TextLine.Split("x\n"), TextLine.Split("y\n"));
+
+        view.ShowHunks(remote);
+        await Task.Delay(200);
+
+        Assert.Same(remote[0], Assert.Single(view.Hunks));
+        Assert.Equal("@@ -1,1 +1,1 @@\nx\ny", Assert.Single(ViewSession.All<TextEditor>(view)).Document.Text);
+    });
+
     [Fact]
     public Task DiffViewOfEqualTextsSaysSo() => ViewSession.RunAsync(async () =>
     {

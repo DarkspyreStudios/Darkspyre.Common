@@ -416,7 +416,8 @@ and inline code and code blocks take `font-code` at `font-size-code`. LiveMarkdo
   view scrolls no further than its last row, so a diff that fits shows no scroll bar. The
   view names neither version: its caller shows which versions it compares. A null text compares as an empty file. Line
   endings take part in the comparison. Equal texts show "No text differences."; a comparison over the work limit (4
-  million table cells) shows its error. `Find` marks every case-insensitive match and `FindNext` and `FindPrevious`
+  million table cells) shows its error. `ShowHunks` shows hunks computed elsewhere, such as by a remote Harness,
+  instead: it cancels a running comparison, and its headers name no section. `Find` marks every case-insensitive match and `FindNext` and `FindPrevious`
   wrap, as in `SourceView`; in both views the selected match's line sits on an accent band. `TextDiff` and its line
   types are public for callers that compare without a view.
 - **`TextFiles.Decode`** turns a text file's bytes into text for the viewers: UTF-8 with or without a byte order mark,

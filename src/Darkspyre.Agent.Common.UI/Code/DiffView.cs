@@ -75,6 +75,21 @@ public sealed class DiffView : TemplatedControl
     /// <summary>The one-based index of the selected match, or 0 when none is selected.</summary>
     public int CurrentMatch => this.unified.Finder.CurrentMatch;
 
+    /// <summary>
+    /// Shows <paramref name="hunks"/> computed elsewhere, such as on another machine, instead of comparing
+    /// <see cref="OldText"/> and <see cref="NewText"/>. A comparison still running is cancelled. The headers name no
+    /// section, because the lines above a hunk are not part of it.
+    /// </summary>
+    /// <gotcha>Setting <see cref="OldText"/> or <see cref="NewText"/> afterwards compares those texts again and replaces
+    /// these hunks.</gotcha>
+    public void ShowHunks(IReadOnlyList<DiffHunk> hunks)
+    {
+        ArgumentNullException.ThrowIfNull(hunks);
+        this.computing?.Cancel();
+        this.computing = null;
+        this.Show([.. hunks.Select(hunk => (hunk, (string?)null))], null);
+    }
+
     /// <summary>The hunks shown, after the latest comparison finished.</summary>
     public IReadOnlyList<DiffHunk> Hunks { get; private set; } = [];
 
