@@ -97,6 +97,18 @@ public sealed class GitWorkflowReadTests
         Assert.Equal(new GitUpstream("refs/remotes/origin/topic", null, null, null), gone.Upstream);
     }
 
+    /// <summary>An untracked nested repository, which Git prints with a trailing slash, is one untracked change.</summary>
+    [Fact]
+    public async Task StatusReportsANestedRepositoryAsOneUntrackedChange()
+    {
+        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-status-nested-");
+        repository.Run("init", "-q", "nested");
+
+        GitStatusSnapshot status = (await repository.First.StatusAsync(repository.Path))!;
+
+        Assert.Equal(new GitChange("nested", null, '?', '?'), Assert.Single(status.Changes));
+    }
+
     /// <summary>
     /// Status and diff leave out a path the path policy refuses, with its name and changes; a history filter on a
     /// refused path is refused before Git reads the history.

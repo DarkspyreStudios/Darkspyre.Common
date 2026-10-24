@@ -129,7 +129,8 @@ internal sealed partial class GitRepositoryReader
     /// Parses <c>status --porcelain=v2 --branch -z</c>. Headers give HEAD, the branch, the upstream and its counts; a header
     /// this parser does not know is skipped, as Git documents. Records are <c>1</c>, <c>2</c> with its original path in the
     /// next field, <c>u</c>, which is also a conflicted path, and <c>?</c>. A path is the rest of its record after the fixed
-    /// fields, so it may contain spaces. Any other record is <see cref="InvalidDataException"/>.
+    /// fields, so it may contain spaces. Git ends an untracked nested repository's path with <c>/</c>; it is one untracked
+    /// change named without the slash. Any other record is <see cref="InvalidDataException"/>.
     /// </summary>
     private static PorcelainStatus ParsePorcelainStatus(byte[] output, GitObjectFormat format)
     {
@@ -170,7 +171,7 @@ internal sealed partial class GitRepositoryReader
                     break;
                 }
                 case '?':
-                    status.Changes.Add(new(RequirePath(record[2..]), null, '?', '?'));
+                    status.Changes.Add(new(RequirePath(record.EndsWith('/') ? record[2..^1] : record[2..]), null, '?', '?'));
                     break;
                 default:
                     throw InvalidStatus();
