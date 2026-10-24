@@ -295,7 +295,20 @@
   </Style>
 
   <!-- Panel tabs: a row of toggle buttons with muted text; the checked one has the text colour and a 2 px accent
-       underline. The right dock's panel tabs and a panel's own tabs, such as the File Viewer Git manager's, use it. -->
+       underline. The side panel's tab row and a panel's own second row, both PanelTabs, use it; the second row adds
+       the class second. A row sits on the background colour over a 1 px line; a long title trims. -->
+  <Style Selector=":is(UserControl).plugin-panel-tabs">
+    <Setter Property="Background" Value="{DynamicResource bg.brush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource line.brush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+  </Style>
+  <Style Selector="ToggleButton.plugin-panel-tab /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+  </Style>
+  <Style Selector=".plugin-panel-tabs.second ToggleButton.plugin-panel-tab">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Padding" Value="12,5" />
+  </Style>
   <Style Selector="ToggleButton.plugin-panel-tab">
     <Setter Property="Padding" Value="12,7" />
     <Setter Property="CornerRadius" Value="0" />

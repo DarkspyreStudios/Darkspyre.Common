@@ -273,13 +273,13 @@ Each folder is its own namespace, `Darkspyre.Agent.Common.UI.<folder>`:
 
 | Namespace | Holds |
 | --- | --- |
-| `.Controls` | `Forms` and `ButtonSize`, `Sizes`, `Badge`, `Spinner`, `LoopingAnimation`, `IconPicker`, `ColorPicker`, `StatusLight` and `StatusLightState`, `QuotaRing`, `ClipboardText`, `SelectionMenu`, `Watching<TShown>` and `UiChangeSubscription`, `Remount`, `KeyedViews`, `KeyedChildren`, `UiRefresh`, `ShownList` |
-| `.Icons` | `Icon`, `IconSource`, `AppIcons`, `ProjectIcons`, `PluginPanelIcons`, `AttachmentPreviewIcons` (built from `AttachmentIconPaths` in `Darkspyre.Common.Markdown`) |
+| `.Controls` | `Forms` and `ButtonSize`, `Sizes`, `Badge`, `Spinner`, `LoopingAnimation`, `IconPicker`, `ColorPicker`, `StatusLight` and `StatusLightState`, `QuotaRing`, `ClipboardText`, `SelectionMenu`, `Watching<TShown>` and `UiChangeSubscription`, `Remount`, `KeyedViews`, `KeyedChildren`, `UiRefresh`, `ShownList`, `PanelTabs` and `PanelTab` |
+| `.Icons` | `Icon`, `IconSource`, `AppIcons` (including `Refresh` and `Search` for a panel bar's icon buttons), `ProjectIcons`, `PluginPanelIcons`, `AttachmentPreviewIcons` (built from `AttachmentIconPaths` in `Darkspyre.Common.Markdown`) |
 | `.Dialogs` | `ModalLayer`, `Sheet`, `ConfirmDialog`, `PaletteSheet`, `DialogPresenter` with `SheetRequest`, `ISheet` and `ConfirmationRequest` |
 | `.Errors` | `UiRegion`, `UiFailure`, `FailureView` |
 | `.Composition` | `CompositionTarget`, `CompositionSlot`, `ICompositionPresenter`, `SurfaceScopeContext`, `AppearanceSection`, `IAppearanceSectionRegistry` |
 | `.Themes` | `CommonTheme`, holding `ControlStyles` |
-| `.Code` | `SourceView`, `DiffView`, `DiffViewMode`, and `TextDiff` with its line types |
+| `.Code` | `SourceView`, `DiffView`, `TextDiff` with its line types, and `TextFiles` |
 | `.Markdown` | `MarkdownViewer`, `CopyFeedback` |
 | `.Pdf` | `PdfViewer`, `PdfZoom` |
 | `.Terminal` | `TerminalView` |
@@ -290,7 +290,9 @@ application's copy (agent-ds `SharedLibraries.props` excludes its runtime assets
 ### Starting it
 
 An application adds `new CommonTheme()` to its styles before its own. `CommonTheme` holds the common control styles,
-including the panel tab (`ToggleButton.plugin-panel-tab`: muted text, and an accent underline on the checked tab),
+including the panel tab (`ToggleButton.plugin-panel-tab`: muted text, and an accent underline on the checked tab;
+a long title trims), the `PanelTabs` row (the background colour over a 1 px line) and its smaller second-row size
+(class `second`: 12 px text, 12×5 px padding),
 the colour picker's templates, AvaloniaEdit's Fluent templates for the `TextEditor` that `SourceView` and `DiffView`
 draw with, the palette, failure-card, quota-ring and status-light styles, and the
 `CompositionTarget` template. Three static hooks connect the library to its application, each set once at startup:
@@ -401,19 +403,25 @@ and inline code and code blocks take `font-code` at `font-size-code`. LiveMarkdo
   scrolls to a line; asked for before the text is set, it applies when the text arrives. A new `Text` keeps the
   scroll position. The highlighter exists only while the view is in a window.
 - **`DiffView`** compares `OldText` and `NewText` with `TextDiff` off the UI thread, once per pair of texts, with three
-  lines of context. `ViewMode` chooses the layout. `Unified` (the default) shows a header per hunk, old and new line
-  numbers and plus and minus marks in one column. `SideBySide` shows the old text on the left and the new text on the
-  right, aligned row for row: context on both sides, the removed and added lines between two context lines paired by
-  position, and empty filler rows on the shorter side. Each column has its own line numbers, and scrolling one scrolls
-  the other to the same row. Both layouts shade added and removed rows and show a "No final newline" note. `OldLabel`
-  and `NewLabel` name the two sides: they head the two columns side by side, and form one "old → new" line above a
-  unified diff. A null text is an absent side and an empty string an empty file: side by side, an absent side shows its
-  label and "File is absent in this version." instead of rows; unified, both compare as empty. Line endings take part
-  in the comparison. Equal texts show "No text differences."; a comparison over the work limit (4 million table cells)
-  shows its error. Changing `ViewMode` redraws the last comparison without computing it again. `Find` marks every
-  case-insensitive match and `FindNext` and `FindPrevious` wrap, as in `SourceView`. Side by side, one match list runs
-  over the rows in order, the old side's matches before the new side's, and a row both columns show identically
-  counts its matches once. `TextDiff` and its line types are public for callers that compare without a view.
+  lines of context, as one unified column. Each hunk starts with a header on the background colour, `@@ -a,b +c,d @@`
+  and the section it is in: the nearest old line above the hunk that starts with a letter, an underscore or a dollar
+  sign, as git names it, or a Markdown heading without its hashes. Each line has one line number, the old number for a
+  removed line and the new number for the others, right-aligned in a column at least 34 px wide, then a 14 px mark
+  column: a minus on the danger colour, a plus on the ok colour. Removed lines sit above the added lines that replace
+  them, shaded with the same colours. A last line with no line break is followed by a "No final newline" note. The
+  view names neither version: its caller shows which versions it compares. A null text compares as an empty file. Line
+  endings take part in the comparison. Equal texts show "No text differences."; a comparison over the work limit (4
+  million table cells) shows its error. `Find` marks every case-insensitive match and `FindNext` and `FindPrevious`
+  wrap, as in `SourceView`; in both views the selected match's line sits on an accent band. `TextDiff` and its line
+  types are public for callers that compare without a view.
+- **`TextFiles.Decode`** turns a text file's bytes into text for the viewers: UTF-8 with or without a byte order mark,
+  UTF-16 or UTF-32 with one, up to `TextFiles.MaximumBytes` (8 MiB). Larger, undecodable or NUL-holding bytes throw an
+  `IOException` whose message the viewers show.
+- **`PanelTabs<TKey>`** is one line of `ToggleButton.plugin-panel-tab` tabs, shown from `PanelTab` records (key,
+  title, checked). When the titles do not fit, a tab narrower than an equal share keeps its width and the others share
+  the rest, so the row never wraps and long titles trim, with the full title as the tooltip. A click checks its tab
+  and calls the owner, which decides the checked tab on its next `Show`. The side panel's tab row and a panel's own
+  second row (class `second`) use it.
 - **`PdfViewer`** shows an `IPdfDocument` the caller opened (password included) and disposes after the viewer. It has a
   toolbar (side panel, zoom out, zoom list, zoom in, page status) and a side panel with thumbnails and bookmarks.
   Pages are drawn in tiles of up to 1024 device pixels, two at a time, only near the visible area. A zoom change

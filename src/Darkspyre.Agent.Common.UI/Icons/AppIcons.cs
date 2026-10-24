@@ -111,6 +111,17 @@ public static class AppIcons
         <circle cx="11.5" cy="2.6" r="1.4" fill="none" stroke="currentColor" stroke-width="1.2"/>
         """, "0 0 16 16");
 
+    /// <summary>A circular arrow: read again.</summary>
+    public static readonly IconSource Refresh = IconSource.Fill("""
+        <path d="M13 8a5 5 0 1 1-1.46-3.54M13 2.5V5h-2.5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+        """, "0 0 16 16");
+
+    /// <summary>A magnifying glass: find text.</summary>
+    public static readonly IconSource Search = IconSource.Fill("""
+        <circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M10.4 10.4L14 14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        """, "0 0 16 16");
+
     /// <summary>A filled right-pointing triangle: send the message.</summary>
     public static readonly IconSource Send = IconSource.Fill("""
         <path d="M6 4.5l5 3.5-5 3.5z"/>

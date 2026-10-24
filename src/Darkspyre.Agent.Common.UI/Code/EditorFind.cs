@@ -4,7 +4,10 @@ using AvaloniaEdit;
 
 namespace Darkspyre.Agent.Common.UI.Code;
 
-/// <summary>Find in a read-only editor: every case-insensitive match marked, the selected one stronger, wrapping in both directions.</summary>
+/// <summary>
+/// Find in a read-only editor: every case-insensitive match marked, the selected one stronger and its line on an accent
+/// band, wrapping in both directions.
+/// </summary>
 internal sealed class EditorFind
 {
     private readonly TextEditor editor;
@@ -17,6 +20,7 @@ internal sealed class EditorFind
         this.editor = editor;
         this.owner = owner;
         editor.TextArea.TextView.BackgroundRenderers.Add(new RangeMarks(this.Marks));
+        editor.TextArea.TextView.BackgroundRenderers.Add(new CurrentLine(this));
     }
 
     /// <summary>The one-based index of the selected match, or 0 when none is selected.</summary>
@@ -41,6 +45,7 @@ internal sealed class EditorFind
         }
         if (this.matches.Count > 0) this.Select(0);
         this.editor.TextArea.TextView.InvalidateLayer(AvaloniaEdit.Rendering.KnownLayer.Selection);
+        this.editor.TextArea.TextView.InvalidateLayer(AvaloniaEdit.Rendering.KnownLayer.Background);
         return this.matches.Count;
     }
 
@@ -62,6 +67,7 @@ internal sealed class EditorFind
         AvaloniaEdit.Document.TextLocation location = this.editor.Document.GetLocation(offset);
         this.editor.ScrollTo(location.Line, location.Column);
         this.editor.TextArea.TextView.InvalidateLayer(AvaloniaEdit.Rendering.KnownLayer.Selection);
+        this.editor.TextArea.TextView.InvalidateLayer(AvaloniaEdit.Rendering.KnownLayer.Background);
     }
 
     private IReadOnlyList<(int Offset, int Length, IBrush Brush)> Marks()
@@ -70,5 +76,21 @@ internal sealed class EditorFind
         IBrush match = CodeEditors.Brush(this.owner, "accent.brush.20", new SolidColorBrush(Colors.Gold, 0.35));
         IBrush selected = CodeEditors.Brush(this.owner, "accent.brush.50", new SolidColorBrush(Colors.Orange, 0.6));
         return [.. this.matches.Select((item, index) => (item.Offset, item.Length, index == this.current ? selected : match))];
+    }
+
+    /// <summary>Draws the selected match's line on the accent colour across the editor's width.</summary>
+    private sealed class CurrentLine(EditorFind find) : AvaloniaEdit.Rendering.IBackgroundRenderer
+    {
+        public AvaloniaEdit.Rendering.KnownLayer Layer => AvaloniaEdit.Rendering.KnownLayer.Background;
+
+        public void Draw(AvaloniaEdit.Rendering.TextView textView, DrawingContext drawingContext)
+        {
+            if (find.current < 0 || find.current >= find.matches.Count || !textView.VisualLinesValid) return;
+            int number = find.editor.Document.GetLineByOffset(find.matches[find.current].Offset).LineNumber;
+            if (textView.GetVisualLine(number) is not { } line) return;
+            IBrush band = CodeEditors.Brush(find.owner, "accent.brush.20", new SolidColorBrush(Colors.DodgerBlue, 0.25));
+            double width = Math.Max(textView.Bounds.Width, ((Avalonia.Controls.Primitives.IScrollable)textView).Extent.Width);
+            drawingContext.FillRectangle(band, new Avalonia.Rect(0, line.VisualTop - textView.VerticalOffset, width, line.Height));
+        }
     }
 }

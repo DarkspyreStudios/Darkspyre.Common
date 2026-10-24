@@ -3,10 +3,10 @@ using Xunit;
 namespace Darkspyre.Common.Git.Tests;
 
 /// <summary>
-/// DSA-1078: the File Viewer Git manager's operations through <see cref="GitClient"/>, against real repositories with a
+/// DSA-1078: the Git panel's operations through <see cref="GitClient"/>, against real repositories with a
 /// bare <c>origin</c>. The only stand-in is the merge tool, a shell command, because a real editor needs a person.
 /// </summary>
-public sealed class GitManagerOperationsTests
+public sealed class GitPanelOperationsTests
 {
     /// <summary>Local and origin branches come with a local branch's upstream and checked-out worktree; origin/HEAD does not.</summary>
     [Fact]
