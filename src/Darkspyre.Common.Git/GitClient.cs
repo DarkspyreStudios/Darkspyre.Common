@@ -44,6 +44,15 @@ public sealed class GitClient
         this.reader.InspectAsync(directory, cancellationToken);
 
     /// <summary>
+    /// Locates the working tree containing <paramref name="directory"/> with <c>rev-parse</c> alone, or returns null when it
+    /// is not inside a Git repository. It reads no status, so it takes the same few Git runs in any working tree.
+    /// </summary>
+    /// <gotcha>A bare repository, or an object format the library does not support, throws <see cref="NotSupportedException"/>, as
+    /// <see cref="InspectAsync"/> does.</gotcha>
+    public Task<GitRepositoryLocation?> LocateAsync(string directory, CancellationToken cancellationToken = default) =>
+        this.reader.LocateWorktreeAsync(directory, cancellationToken);
+
+    /// <summary>
     /// Lists registered worktrees, including detached and unavailable locations, leaving out paths the policy refuses.
     /// It never prunes entries, changes a checkout or contacts a remote. A failed inventory throws.
     /// </summary>

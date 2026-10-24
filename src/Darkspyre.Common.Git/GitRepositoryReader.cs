@@ -27,11 +27,26 @@ internal sealed partial class GitRepositoryReader(GitCommands git, IGitPathPolic
         if (branch.Exit.ExitCode != 1) Check(branch, "read branch");
         byte[] status = await this.ReadAsync(layout.WorktreePath,
             ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--ignored=traditional"], cancellationToken).ConfigureAwait(false);
-        string administrative = this.paths.Resolve(Text(await this.ReadAsync(layout.WorktreePath,
-            ["rev-parse", "--absolute-git-dir"], cancellationToken).ConfigureAwait(false)));
+        string administrative = await this.AdministrativeDirectoryAsync(layout.WorktreePath, cancellationToken).ConfigureAwait(false);
         return new(layout.CommonDirectory, layout.WorktreePath, layout.HeadCommit,
             branch.Exit.ExitCode == 0 ? Line(branch.Output) : null, ParseStatus(status), administrative) { ObjectFormat = layout.ObjectFormat };
     }
+
+    /// <summary>
+    /// The working tree containing <paramref name="directory"/> with its administrative and common directories, from
+    /// <c>rev-parse</c> alone, or null when it is in no repository. It reads no status.
+    /// </summary>
+    internal async Task<GitRepositoryLocation?> LocateWorktreeAsync(string directory, CancellationToken cancellationToken)
+    {
+        GitLayout? layout = await this.LocateAsync(directory, cancellationToken).ConfigureAwait(false);
+        if (layout is null) return null;
+        string administrative = await this.AdministrativeDirectoryAsync(layout.WorktreePath, cancellationToken).ConfigureAwait(false);
+        return new(layout.WorktreePath, administrative, layout.CommonDirectory);
+    }
+
+    // The working tree's own administrative directory, which holds its HEAD and index.
+    private async Task<string> AdministrativeDirectoryAsync(string worktree, CancellationToken cancellationToken) =>
+        this.paths.Resolve(Text(await this.ReadAsync(worktree, ["rev-parse", "--absolute-git-dir"], cancellationToken).ConfigureAwait(false)));
 
     /// <summary>
     /// The working tree containing <paramref name="directory"/>, each step run there: whether it is in a work tree; the

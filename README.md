@@ -136,6 +136,10 @@ The `GitClient` operations check paths through the path policy, take the reposit
   with staged changes, such as one a hook caused, stays stopped. Skipped commits are named by stable patch ID.
 - `InspectAsync` identifies both the common directory and the individual worktree administrative directory.
   A caller can watch that worktree's HEAD/index without inferring an administrative name from its absolute checkout path.
+  Its status lists untracked and ignored files one by one, so in a worktree with large ignored build output it is slow.
+- `LocateAsync` returns a `GitRepositoryLocation`: the worktree root and its administrative and common directories,
+  from `rev-parse` alone, or null outside a repository. It reads no status, so it takes the same few Git runs in any
+  worktree. A caller that needs only where a repository is uses it.
 - `ReadWorktreesAsync` lists registered worktrees, their observed HEAD and branch, including unavailable locations.
   Paths the caller's policy refuses are omitted. `ReadLocalBranchesAsync` lists local branch refs and exact commit IDs.
   Neither read contacts a remote or changes Git. A failed read throws and never represents an empty inventory.

@@ -22,6 +22,11 @@ public sealed record GitRepositorySnapshot(string CommonDirectory, string Worktr
     /// <summary>The repository's object format, which sets the width of its object IDs.</summary>
     public GitObjectFormat ObjectFormat { get; init; }
 }
+/// <summary>Where one Git working tree is, read without its status.</summary>
+/// <param name="WorktreePath">The absolute root of the working tree.</param>
+/// <param name="GitDirectory">The absolute administrative directory containing this working tree's HEAD and index.</param>
+/// <param name="CommonDirectory">The absolute Git common directory shared by all worktrees of the repository.</param>
+public sealed record GitRepositoryLocation(string WorktreePath, string GitDirectory, string CommonDirectory);
 /// <summary>A request to clone a remote repository.</summary>
 /// <param name="RemoteUrl">The URL Git clones from.</param>
 /// <param name="DestinationPath">The absolute destination. It must not already exist.</param>
