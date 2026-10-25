@@ -242,4 +242,32 @@ public static class AppIcons
         <path d="M4 4.5h8v3a4 4 0 01-8 0z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
         <path d="M8 11.5v3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
         """, "0 0 16 16");
+
+    /// <summary>Three rings around one centre (Lucide <c>target</c>): a goal.</summary>
+    public static readonly IconSource Goal = IconSource.Fill("""
+        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="12" cy="12" r="2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        """, "0 0 24 24");
+
+    /// <summary>A lidded bin with two slats (Lucide <c>trash-2</c>): clear or delete.</summary>
+    public static readonly IconSource Trash = IconSource.Fill("""
+        <path d="M10 11v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M14 11v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M3 6h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        """, "0 0 24 24");
+
+    /// <summary>Two bars in a circle (Lucide <c>circle-pause</c>): pause.</summary>
+    public static readonly IconSource Pause = IconSource.Fill("""
+        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M10 15V9M14 15V9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        """, "0 0 24 24");
+
+    /// <summary>A right-pointing triangle in a circle (Lucide <c>circle-play</c>): resume.</summary>
+    public static readonly IconSource Resume = IconSource.Fill("""
+        <path d="M9 9.003a1 1 0 0 1 1.517-.859l4.997 2.997a1 1 0 0 1 0 1.718l-4.997 2.997A1 1 0 0 1 9 14.996z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        """, "0 0 24 24");
 }

@@ -278,7 +278,7 @@ Each folder is its own namespace, `Darkspyre.Agent.Common.UI.<folder>`:
 | Namespace | Holds |
 | --- | --- |
 | `.Controls` | `Forms` and `ButtonSize`, `Sizes`, `Badge`, `Spinner`, `LoopingAnimation`, `IconPicker`, `ColorPicker`, `StatusLight` and `StatusLightState`, `QuotaRing`, `ClipboardText`, `SelectionMenu`, `Watching<TShown>` and `UiChangeSubscription`, `Remount`, `KeyedViews`, `KeyedChildren`, `UiRefresh`, `ShownList`, `PanelTabs` and `PanelTab` |
-| `.Icons` | `Icon`, `IconSource`, `AppIcons` (including `Refresh` and `Search` for a panel bar's icon buttons), `ProjectIcons`, `PluginPanelIcons`, `AttachmentPreviewIcons` (built from `AttachmentIconPaths` in `Darkspyre.Common.Markdown`) |
+| `.Icons` | `Icon`, `IconSource`, `AppIcons` (including `Refresh` and `Search` for a panel bar's icon buttons, and the Lucide `Goal` (`target`), `Trash` (`trash-2`), `Pause` (`circle-pause`) and `Resume` (`circle-play`) in `ViewBox` `0 0 24 24`), `ProjectIcons`, `PluginPanelIcons`, `AttachmentPreviewIcons` (built from `AttachmentIconPaths` in `Darkspyre.Common.Markdown`) |
 | `.Dialogs` | `ModalLayer`, `Sheet`, `ConfirmDialog`, `PaletteSheet`, `DialogPresenter` with `SheetRequest`, `ISheet` and `ConfirmationRequest`, `DialogSize` and `DialogSizes` |
 | `.Errors` | `UiRegion`, `UiFailure`, `FailureView` |
 | `.Composition` | `CompositionTarget`, `CompositionSlot`, `ICompositionPresenter`, `SurfaceScopeContext`, `AppearanceSection`, `IAppearanceSectionRegistry` |
