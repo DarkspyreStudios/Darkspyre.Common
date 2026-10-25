@@ -407,6 +407,11 @@ the `<prefix>.LayoutId` and `<prefix>.ClientBuildDigest` assembly metadata. The 
 the hashes of the subscriber's compile inputs and references. The payload is copied to `<folder>/payload/` and the
 manifest to `<folder>/manifest.json` beside the subscriber, for builds and no-build publishes.
 
+The payload defaults to the built service assembly's directory. A subscriber can set `LocalServicePayloadRoot` to an
+absolute folder or a folder relative to that directory when its service stages a different layout. Chromium uses
+`payload/` for its macOS application bundle, whose entry point sits under `Contents/MacOS` and whose framework and
+helpers sit under `Contents/Frameworks`. Capture still inventories the complete staged tree.
+
 A repository whose projects reference a service's libraries or receive a subscriber's payload imports
 `build/LocalServices/LocalServiceConsumer.targets` once, from its `Directory.Build.targets`. Agent-ds, AgentDSPlugins,
 Inference and Search do, and Darkspyre.Common does for its own libraries' references. The file applies to every project

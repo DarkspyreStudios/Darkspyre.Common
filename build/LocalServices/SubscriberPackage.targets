@@ -5,6 +5,7 @@
       LocalServiceEntryPoint      the service executable's name, without the Windows .exe extension
       LocalServiceMetadataPrefix  the prefix of the generated <prefix>.LayoutId and <prefix>.ClientBuildDigest metadata
       LocalServiceLayoutId        the installed package layout identity
+      LocalServicePayloadRoot     optional payload folder, absolute or relative to the built service assembly folder
       LocalServicePackageFolder   the folder beside the subscriber that holds manifest.json and payload/; its last
                                   segment must be "service", which the signing manifest refresh looks for
     The repository imports LocalServiceConsumer.targets from its Directory.Build.targets, which keeps the payload folders
@@ -35,6 +36,8 @@
     </MSBuild>
     <PropertyGroup>
       <_LocalServiceOutput>@(_LocalServiceAssembly->'%(RootDir)%(Directory)')</_LocalServiceOutput>
+      <_LocalServiceOutput Condition="'$(LocalServicePayloadRoot)' != ''">$([System.IO.Path]::GetFullPath($([System.IO.Path]::Combine('$(_LocalServiceOutput)', '$(LocalServicePayloadRoot)'))))</_LocalServiceOutput>
+      <_LocalServiceOutput>$([MSBuild]::EnsureTrailingSlash('$(_LocalServiceOutput)'))</_LocalServiceOutput>
       <_LocalServicePackageOutput>$(IntermediateOutputPath)subscriber/</_LocalServicePackageOutput>
     </PropertyGroup>
   </Target>
