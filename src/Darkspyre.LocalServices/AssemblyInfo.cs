@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Darkspyre.Agent.Plugins.Memory.Tests")]
 [assembly: InternalsVisibleTo("Darkspyre.Agent.Plugins.AgenticTools.SandboxTests")]
 [assembly: InternalsVisibleTo("Darkspyre.Agent.Plugins.Memory.SandboxTests")]
+[assembly: InternalsVisibleTo("Darkspyre.Chromium.SandboxTests")]
 
 [assembly: InternalsVisibleTo("Darkspyre.Search.Tests")]
 

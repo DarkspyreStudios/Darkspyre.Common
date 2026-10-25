@@ -651,6 +651,8 @@ launch. It references Contracts and Runtime. `build/LocalServices/ServicePlatfor
 implementation from the target RID. The runtime and contracts contain no platform selection.
 The libraries build from Common without Harness build imports. The disposable fixture executable lives
 in `tests/Darkspyre.LocalServices.TestBackend`; AgentDSPlugins retains its existing lifecycle tests.
+The Chromium sandbox tests share the isolated installation fixture through friend access to the runtime and platform
+libraries. They never install into the application's per-user service cache.
 The Linux implementation supports glibc on x64 and ARM64. It selects the architecture's file-status
 layout and directory/no-follow open flags inside the Linux library. Consumers use the same contracts.
 

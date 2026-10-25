@@ -25,9 +25,9 @@
     <DarkspyreMobileComponentsVersion>11.0.1.4</DarkspyreMobileComponentsVersion>
     <DarkspyreMobileMauiVersion>11.0.1.0</DarkspyreMobileMauiVersion>
     <DarkspyreLocalServicesContractsVersion>11.0.10.6</DarkspyreLocalServicesContractsVersion>
-    <DarkspyreLocalServicesVersion>11.0.10.13</DarkspyreLocalServicesVersion>
-    <DarkspyreLocalServicesPlatformMacOSVersion>11.0.10.5</DarkspyreLocalServicesPlatformMacOSVersion>
-    <DarkspyreLocalServicesPlatformLinuxVersion>11.0.10.6</DarkspyreLocalServicesPlatformLinuxVersion>
-    <DarkspyreLocalServicesPlatformWindowsVersion>11.0.10.5</DarkspyreLocalServicesPlatformWindowsVersion>
+    <DarkspyreLocalServicesVersion>11.0.10.14</DarkspyreLocalServicesVersion>
+    <DarkspyreLocalServicesPlatformMacOSVersion>11.0.10.6</DarkspyreLocalServicesPlatformMacOSVersion>
+    <DarkspyreLocalServicesPlatformLinuxVersion>11.0.10.7</DarkspyreLocalServicesPlatformLinuxVersion>
+    <DarkspyreLocalServicesPlatformWindowsVersion>11.0.10.6</DarkspyreLocalServicesPlatformWindowsVersion>
   </PropertyGroup>
 </Project>
