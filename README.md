@@ -281,7 +281,7 @@ Each folder is its own namespace, `Darkspyre.Agent.Common.UI.<folder>`:
 
 | Namespace | Holds |
 | --- | --- |
-| `.Controls` | `Forms` and `ButtonSize`, `Sizes`, `Badge`, `Spinner`, `LoopingAnimation`, `IconPicker`, `ColorPicker`, `StatusLight` and `StatusLightState`, `QuotaRing`, `ClipboardText`, `SelectionMenu`, `Watching<TShown>` and `UiChangeSubscription`, `Remount`, `KeyedViews`, `KeyedChildren`, `UiRefresh`, `ShownList`, `PanelTabs` and `PanelTab` |
+| `.Controls` | `Forms` and `ButtonSize`, `Sizes`, `Badge`, `Spinner`, `LoopingAnimation`, `IconPicker`, `ColorPicker`, `StatusLight` and `StatusLightState`, `QuotaRing`, `ClipboardText`, `SelectionMenu`, `Watching<TShown>` and `UiChangeSubscription`, `Remount`, `KeyedViews`, `KeyedChildren`, `UiRefresh`, `ShownList`, `PanelTabs`, `PanelTab` and `PanelTabsOverflow`, `PanelParts` |
 | `.Icons` | `Icon`, `IconSource`, `AppIcons` (including `Refresh` and `Search` for a panel bar's icon buttons, and the Lucide `Goal` (`target`), `Trash` (`trash-2`), `Pause` (`circle-pause`) and `Resume` (`circle-play`) in `ViewBox` `0 0 24 24`), `ProjectIcons`, `PluginPanelIcons`, `AttachmentPreviewIcons` (built from `AttachmentIconPaths` in `Darkspyre.Common.Markdown`) |
 | `.Dialogs` | `ModalLayer`, `Sheet`, `ConfirmDialog`, `PaletteSheet`, `DialogPresenter` with `SheetRequest`, `ISheet` and `ConfirmationRequest`, `DialogSize` and `DialogSizes` |
 | `.Errors` | `UiRegion`, `UiFailure`, `FailureView` |
@@ -298,9 +298,10 @@ application's copy (agent-ds `SharedLibraries.props` excludes its runtime assets
 ### Starting it
 
 An application adds `new CommonTheme()` to its styles before its own. `CommonTheme` holds the common control styles,
-including the panel tab (`ToggleButton.plugin-panel-tab`: muted text, and an accent underline on the checked tab;
-a long title trims), the `PanelTabs` row (the background colour over a 1 px line) and its smaller second-row size
-(class `second`: 12 px text, 12×5 px padding),
+including the panel tab (`ToggleButton.plugin-panel-tab`: muted text, an accent underline on the checked tab, the
+faint colour on a disabled tab; a long title trims), the `PanelTabs` row (the background colour over a 1 px line), its
+second-row size (class `second`: the Secondary text entry, 12×5 px padding), the scrolling row's text (class `scroll`:
+the Titles entry), the side panel parts that `PanelParts` builds (the `panel-*` classes below),
 the colour picker's templates, AvaloniaEdit's Fluent templates for the `TextEditor` that `SourceView` and `DiffView`
 draw with, the palette, failure-card, quota-ring and status-light styles, and the
 `CompositionTarget` template. Three static hooks connect the library to its application, each set once at startup:
@@ -341,6 +342,32 @@ draw with, the palette, failure-card, quota-ring and status-light styles, and th
   14 px gauge whose fill and colour follow the used fraction, grey with a question mark when unknown, dimmed when stale
   and pulsing while updating. **`ClipboardText.WriteAsync`** writes literal text to the window's clipboard and returns
   false when no clipboard is available.
+- **`PanelTabs<TKey>`** is a row of panel tabs, shown from `PanelTab<TKey>` records (`Key`, `Title`, `Checked`, and
+  `Enabled`, default true; a disabled tab takes no click). `PanelTabsOverflow` sets what a row does when its titles do
+  not fit. `Trim`, the default, keeps one line and trims long titles: a panel's second row. `Scroll` adds the class
+  `scroll`, keeps every title whole in a sideways `ScrollViewer` with a hidden scrollbar, and moves the row sideways for
+  a vertical mouse wheel (50 px a notch) as well as a trackpad's sideways scroll. `BringCheckedIntoView` scrolls a
+  Scroll row to its checked tab after the next layout, and `Show` calls it when the checked tab changes; a Trim row
+  does nothing. A row with no tab holds one invisible, unfocusable `placeholder` tab, so it keeps one tab's height at
+  any text size.
+- **`PanelParts`** builds a side panel's parts in the Git panel's look: `Bar`, `Section` and `ShowSection`,
+  `CollapsibleSection` (an `Expander.panel-section` whose header keeps no fill while hovered or open; `plain-when-open`
+  hides its chevron while open), `Row`, `FlatRow`, `TextButton` (24 px at the default size, taller with its text;
+  primary and destructive keep their fill, every other variant is drawn as secondary), `RowButton`, `IconButton`,
+  `Note`, `Status`, `Detail`, `Name` and `Tag` (tones `ok`, `warn`, `danger`). Each part's text follows one entry of
+  its typography section:
+
+  | Entry | Classes |
+  | --- | --- |
+  | Titles (`font-title`, `font-size-title`) | `panel-title`, `panel-selector` and its items, `panel-search`, `panel-text`, `panel-button`, `panel-row`, `panel-name`, `panel-check` (a `ToggleSwitch` or `CheckBox`), and a `scroll` row's tabs |
+  | Secondary (`font-secondary`, `font-size-secondary`) | `panel-detail`, `panel-note`, `panel-status`, `panel-button.in-row`, the message of a `panel-failure` card, and a `second` row's tabs |
+  | Small (`font-small`, `font-size-small`) | `panel-section-title`, `panel-count`, `panel-tag` |
+
+  The selector, search box and text button hold the extra-small control height (`control-h-xs`) as a minimum and grow
+  with their text; `panel-text` takes its height from its own `MinLines` and `MaxLines`. Layout-only classes are
+  `panel-bar`, `panel-section`, `panel-flat-row`, `panel-icon` (22 px), `panel-buttons` (a `StackPanel` or `WrapPanel`
+  6 px apart) and `panel-failure`, the frame a `FailureView` takes with `kind: "panel-failure"`: no box, its message
+  read as a note.
 - **`SelectionMenu.Create`** is the context menu of selectable text, a `MenuFlyout` the text control takes as its
   `ContextFlyout`: Copy, enabled only while the caller's `canCopy` is true as the menu opens, and Select All. The
   Markdown viewer and the application's prompts use it.
@@ -352,7 +379,7 @@ change restyles at once. agent-ds's theme supplies all of them.
 
 | Keys | Type |
 | --- | --- |
-| accent.brush, bg.brush, color-accent-foreground.brush, color-accent.brush, color-background.brush, color-border.brush, color-border.brush.40, color-border.brush.60, color-destructive.brush, color-destructive.brush.90, color-foreground.brush, color-info.brush, color-input.brush, color-muted-foreground.brush, color-muted.brush, color-popover-foreground.brush, color-popover.brush, color-primary-foreground.brush, color-primary.brush, color-primary.brush.20, color-primary.brush.90, color-ring.brush, color-secondary-foreground.brush, color-secondary.brush, color-secondary.brush.80, color-success.brush, color-warning.brush, danger.brush, faint.brush, line.brush, muted.brush, panel.brush, raised.brush, text.brush, text.brush.3 | `IBrush` |
+| accent.brush, accent.brush.10, accent.brush.30, bg.brush, color-accent-foreground.brush, color-accent.brush, color-background.brush, color-border.brush, color-border.brush.40, color-border.brush.60, color-destructive.brush, color-destructive.brush.90, color-foreground.brush, color-info.brush, color-input.brush, color-muted-foreground.brush, color-muted.brush, color-popover-foreground.brush, color-popover.brush, color-primary-foreground.brush, color-primary.brush, color-primary.brush.20, color-primary.brush.90, color-ring.brush, color-secondary-foreground.brush, color-secondary.brush, color-secondary.brush.80, color-success.brush, color-warning.brush, danger.brush, faint.brush, line.brush, muted.brush, ok.brush, panel.brush, raised.brush, text.brush, text.brush.3, warn.brush | `IBrush` |
 | danger, faint, line, ok, warn (`QuotaRing`) | `Color` |
 | control-h, control-h-lg, control-h-sm, control-h-xs, font-size-body, font-size-code, font-size-control, font-size-heading-1 to font-size-heading-5, font-size-secondary, font-size-small, font-size-title | `double` |
 | font-body, font-code, font-control, font-heading-1 to font-heading-5, font-secondary, font-small, font-title | `FontFamily` |

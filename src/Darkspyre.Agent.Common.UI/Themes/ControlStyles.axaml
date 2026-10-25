@@ -295,8 +295,10 @@
   </Style>
 
   <!-- Panel tabs: a row of toggle buttons with muted text; the checked one has the text colour and a 2 px accent
-       underline. The side panel's tab row and a panel's own second row, both PanelTabs, use it; the second row adds
-       the class second. A row sits on the background colour over a 1 px line; a long title trims. -->
+       underline, a disabled one the faint colour. The side panel's tab row and a panel's own second row, both PanelTabs,
+       use it; the second row adds the class second and takes the Secondary text entry. A scrolling row (class scroll)
+       takes the Titles entry. A row sits on the background colour over a 1 px line; a long title trims. An empty row
+       holds one invisible placeholder tab, so it keeps one tab's height. -->
   <Style Selector=":is(UserControl).plugin-panel-tabs">
     <Setter Property="Background" Value="{DynamicResource bg.brush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource line.brush}" />
@@ -305,8 +307,13 @@
   <Style Selector="ToggleButton.plugin-panel-tab /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="TextTrimming" Value="CharacterEllipsis" />
   </Style>
+  <Style Selector=".plugin-panel-tabs.scroll ToggleButton.plugin-panel-tab">
+    <Setter Property="FontFamily" Value="{DynamicResource font-title}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-title}" />
+  </Style>
   <Style Selector=".plugin-panel-tabs.second ToggleButton.plugin-panel-tab">
-    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-secondary}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-secondary}" />
     <Setter Property="Padding" Value="12,5" />
   </Style>
   <Style Selector="ToggleButton.plugin-panel-tab">
@@ -324,6 +331,247 @@
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="Foreground" Value="{DynamicResource text.brush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource accent.brush}" />
+  </Style>
+  <Style Selector="ToggleButton.plugin-panel-tab:disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{DynamicResource faint.brush}" />
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="ToggleButton.plugin-panel-tab.placeholder">
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="IsHitTestVisible" Value="False" />
+  </Style>
+
+  <!--
+    Side panel parts: the Git panel's look for every side panel, built by PanelParts. Each part's text follows a Tools
+    section entry: names, rows, selectors, boxes and text buttons the Titles entry; details, notes, status lines and
+    in-row buttons the Secondary entry; section titles, counts and tags the Small entry. These styles follow the base
+    Button, ComboBox and TextBox styles, so their setters win. A part that grows with its text clears the base style's
+    fixed Height and keeps the extra-small control height as its MinHeight.
+  -->
+  <Style Selector="Border.panel-bar">
+    <Setter Property="Padding" Value="8,6" />
+    <Setter Property="BorderThickness" Value="0,0,0,1" />
+    <Setter Property="BorderBrush" Value="{DynamicResource line.brush}" />
+  </Style>
+  <Style Selector="TextBlock.panel-title">
+    <Setter Property="FontFamily" Value="{DynamicResource font-title}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-title}" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="ComboBox.panel-selector">
+    <Setter Property="Height" Value="NaN" />
+    <Setter Property="MinHeight" Value="{DynamicResource control-h-xs}" />
+    <Setter Property="Padding" Value="8,0,4,0" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-title}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-title}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-sm}" />
+    <Setter Property="Background" Value="{DynamicResource raised.brush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource line.brush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="ComboBox.panel-selector:dropdownopen">
+    <Setter Property="BorderBrush" Value="{DynamicResource accent.brush}" />
+  </Style>
+  <Style Selector="ComboBox.panel-selector /template/ Border#PopupBorder">
+    <Setter Property="Background" Value="{DynamicResource raised.brush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource line.brush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+  </Style>
+  <Style Selector="ComboBox.panel-selector ComboBoxItem">
+    <Setter Property="FontFamily" Value="{DynamicResource font-title}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-title}" />
+  </Style>
+  <Style Selector="TextBox.panel-search">
+    <Setter Property="MinHeight" Value="{DynamicResource control-h-xs}" />
+    <Setter Property="Padding" Value="8,3" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-title}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-title}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-sm}" />
+    <Setter Property="Background" Value="{DynamicResource bg.brush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource line.brush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <!-- MinHeight 0 cancels the multi-line box's 64 px; the box's own MinLines and MaxLines set its height. -->
+  <Style Selector="TextBox.panel-text">
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Margin" Value="10,6" />
+    <Setter Property="Padding" Value="6" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-title}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-title}" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-sm}" />
+    <Setter Property="Background" Value="{DynamicResource bg.brush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource line.brush}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <Style Selector="Button.panel-icon">
+    <Setter Property="Width" Value="22" />
+    <Setter Property="Height" Value="22" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource muted.brush}" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Button.panel-icon.active">
+    <Setter Property="Foreground" Value="{DynamicResource accent.brush}" />
+  </Style>
+  <Style Selector="Button.panel-button">
+    <Setter Property="Height" Value="NaN" />
+    <Setter Property="MinHeight" Value="{DynamicResource control-h-xs}" />
+    <Setter Property="Padding" Value="9,0" />
+    <Setter Property="CornerRadius" Value="{DynamicResource radius-sm}" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-title}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-title}" />
+    <Setter Property="FontWeight" Value="Normal" />
+  </Style>
+  <Style Selector="Button.panel-button.secondary /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="BorderBrush" Value="{DynamicResource line.brush}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="Button.panel-button.in-row">
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Padding" Value="6,1" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-secondary}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-secondary}" />
+  </Style>
+  <Style Selector="Button.panel-row">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="Padding" Value="10,3" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-title}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-title}" />
+  </Style>
+  <Style Selector="Button.panel-row:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource accent.brush.10}" />
+  </Style>
+  <Style Selector="Button.panel-row.selected /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource accent.brush.30}" />
+  </Style>
+  <Style Selector="DockPanel.panel-flat-row">
+    <Setter Property="Margin" Value="10,3" />
+  </Style>
+  <Style Selector="TextBlock.panel-name">
+    <Setter Property="FontFamily" Value="{DynamicResource font-title}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-title}" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="TextBlock.panel-detail">
+    <Setter Property="FontFamily" Value="{DynamicResource font-secondary}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-secondary}" />
+    <Setter Property="Foreground" Value="{DynamicResource muted.brush}" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="TextBlock.panel-detail.wrap">
+    <Setter Property="TextTrimming" Value="None" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <Style Selector="DockPanel.panel-section">
+    <Setter Property="Margin" Value="10,6,10,3" />
+  </Style>
+  <Style Selector="TextBlock.panel-section-title, TextBlock.panel-count">
+    <Setter Property="FontFamily" Value="{DynamicResource font-small}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-small}" />
+    <Setter Property="Foreground" Value="{DynamicResource muted.brush}" />
+    <Setter Property="LetterSpacing" Value="0.44" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <!-- A collapsible section: the header in the section header's inset with an 8 px chevron, and no fill while hovered or
+       open, which cancels the base ToggleButton's raised content fill and the expander header's hover fill. -->
+  <Style Selector="Expander.panel-section">
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+  </Style>
+  <Style Selector="Expander.panel-section /template/ ToggleButton#ExpanderHeader">
+    <Setter Property="Padding" Value="10,6,10,3" />
+    <Setter Property="CornerRadius" Value="0" />
+  </Style>
+  <Style Selector="Expander.panel-section /template/ ToggleButton#ExpanderHeader:pointerover">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Expander.panel-section /template/ ToggleButton#ExpanderHeader:pointerover /template/ ContentPresenter#PART_ContentPresenter, Expander.panel-section /template/ ToggleButton#ExpanderHeader:checked /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Expander.panel-section /template/ ToggleButton#ExpanderHeader /template/ Viewbox#ExpanderChevron">
+    <Setter Property="Width" Value="8" />
+    <Setter Property="Height" Value="8" />
+    <Setter Property="Margin" Value="0,0,6,0" />
+  </Style>
+  <Style Selector="Expander.panel-section.plain-when-open:expanded /template/ ToggleButton#ExpanderHeader /template/ Viewbox#ExpanderChevron">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <Style Selector="Border.panel-tag">
+    <Setter Property="BorderBrush" Value="{DynamicResource muted.brush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="3" />
+    <Setter Property="Padding" Value="4,0" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Border.panel-tag TextBlock">
+    <Setter Property="FontFamily" Value="{DynamicResource font-small}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-small}" />
+    <Setter Property="Foreground" Value="{DynamicResource muted.brush}" />
+  </Style>
+  <Style Selector="Border.panel-tag.ok">
+    <Setter Property="BorderBrush" Value="{DynamicResource ok.brush}" />
+  </Style>
+  <Style Selector="Border.panel-tag.ok TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource ok.brush}" />
+  </Style>
+  <Style Selector="Border.panel-tag.warn">
+    <Setter Property="BorderBrush" Value="{DynamicResource warn.brush}" />
+  </Style>
+  <Style Selector="Border.panel-tag.warn TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource warn.brush}" />
+  </Style>
+  <Style Selector="Border.panel-tag.danger">
+    <Setter Property="BorderBrush" Value="{DynamicResource danger.brush}" />
+  </Style>
+  <Style Selector="Border.panel-tag.danger TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource danger.brush}" />
+  </Style>
+  <Style Selector="StackPanel.panel-buttons">
+    <Setter Property="Orientation" Value="Horizontal" />
+    <Setter Property="Spacing" Value="6" />
+    <Setter Property="Margin" Value="10,4" />
+  </Style>
+  <Style Selector="WrapPanel.panel-buttons">
+    <Setter Property="Orientation" Value="Horizontal" />
+    <Setter Property="ItemSpacing" Value="6" />
+    <Setter Property="LineSpacing" Value="6" />
+    <Setter Property="Margin" Value="10,4" />
+  </Style>
+  <Style Selector="TextBlock.panel-note, Border.panel-failure TextBlock.surface-failure-sentence">
+    <Setter Property="FontFamily" Value="{DynamicResource font-secondary}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-secondary}" />
+    <Setter Property="Foreground" Value="{DynamicResource muted.brush}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <Style Selector="TextBlock.panel-note">
+    <Setter Property="Margin" Value="12,20" />
+  </Style>
+  <Style Selector="Border.panel-failure">
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="Padding" Value="12,20,12,12" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="CornerRadius" Value="0" />
+  </Style>
+  <Style Selector="TextBlock.panel-status">
+    <Setter Property="FontFamily" Value="{DynamicResource font-secondary}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-secondary}" />
+    <Setter Property="Foreground" Value="{DynamicResource muted.brush}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="Margin" Value="10,4" />
+  </Style>
+  <Style Selector="TextBlock.panel-note.error, TextBlock.panel-status.error">
+    <Setter Property="Foreground" Value="{DynamicResource danger.brush}" />
   </Style>
 
   <!-- List: rows divided by a faint line inside a bordered, rounded box. -->
@@ -518,6 +766,12 @@
     <Setter Property="FontFamily" Value="{DynamicResource font-control}" />
     <Setter Property="FontSize" Value="{DynamicResource font-size-control}" />
     <Setter Property="MinHeight" Value="0" />
+  </Style>
+  <!-- A side panel's switch or check box takes the Titles entry, as the panel's other labels do. These follow the base
+       CheckBox and ToggleSwitch styles, so they win. -->
+  <Style Selector="ToggleSwitch.panel-check, CheckBox.panel-check">
+    <Setter Property="FontFamily" Value="{DynamicResource font-title}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-title}" />
   </Style>
 
   <!-- Popovers, menus and tooltips: the popover surface with a border and the medium radius. -->
