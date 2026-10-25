@@ -10,8 +10,9 @@
     <Deterministic>true</Deterministic>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
-    <Copyright>Copyright © 2026 Brandon Mathis. All rights reserved.</Copyright>
-    <Company>Mathis</Company>
+    <Copyright>Copyright (c) 2026 Darkspyre Studios, LLC</Copyright>
+    <Company>Darkspyre Studios</Company>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <!-- Library versions: <net>.<major>.<minor>.<build>. The first part is the .NET major version the libraries target
          (net11.0). The last part goes up by one when the library's code changes. Each library's csproj sets
          <Version> from its property. -->

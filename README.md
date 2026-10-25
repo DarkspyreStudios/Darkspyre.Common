@@ -8,6 +8,10 @@ Darkspyre.Common checkout and imports `eng/SourceReferences.targets` from its `D
 `Darkspyre.Common.*`, `Darkspyre.Agent.Common.UI` and `Darkspyre.Mobile.*` `PackageReference` then becomes a
 `ProjectReference` with its asset metadata kept. No package is published.
 
+Licensed under the [MIT License](LICENSE.md). Copyright (c) 2026 Darkspyre Studios, LLC. Contributions are subject to
+the Contributor Assignment Agreement in [CONTRIBUTING.md](CONTRIBUTING.md). Third-party material carries its own notices
+in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
 `Darkspyre.Common.slnx` builds every library except `Darkspyre.Mobile.Maui`, on macOS, Linux and Windows, from this
 repository alone. `Darkspyre.Mobile.slnx` builds `Darkspyre.Mobile.Maui`; it needs the .NET MAUI iOS workload and the
 sibling `oauth-broker` and `SecureStore` worktrees, which only that project imports. Missing source fails its build.
