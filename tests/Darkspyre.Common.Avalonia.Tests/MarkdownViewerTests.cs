@@ -341,6 +341,50 @@ public sealed class MarkdownViewerTests
         Assert.Equal(["Program.cs"], activated);
     });
 
+    /// <summary>
+    /// DSA-1270: a link source change that changes no link leaves the shown text as it is drawn. A long transcript's file
+    /// index changes once for every file it names, and each change drew every message again on the UI thread.
+    /// </summary>
+    [Fact]
+    public Task ALinkSourceChangeThatChangesNoLinkDrawsNothingAgain() => ViewSession.RunAsync(async () =>
+    {
+        ChangingFiles source = new() { Known = "Program.cs" };
+        MarkdownViewer viewer = new() { LinkSource = source, Text = "Changed Program.cs today." };
+        ViewSession.Show(viewer);
+        await ViewSession.WaitForAsync(() => Links(viewer).Count == 1);
+        MarkdownRenderer renderer = Assert.Single(ViewSession.All<MarkdownRenderer>(viewer));
+        int drawn = 0;
+        renderer.PropertyChanged += (_, change) =>
+        {
+            if (change.Property == MarkdownRenderer.DocumentUpdateProperty) drawn++;
+        };
+        int searched = source.Searches;
+
+        source.Raise();
+        await ViewSession.WaitForAsync(() => source.Searches > searched);
+        await Task.Delay(500);
+        ViewSession.Settle();
+
+        Assert.Equal(0, drawn);
+        Assert.Single(Links(viewer));
+    });
+
+    /// <summary>A link source change that adds a link shows it.</summary>
+    [Fact]
+    public Task ALinkSourceChangeThatAddsALinkShowsIt() => ViewSession.RunAsync(async () =>
+    {
+        ChangingFiles source = new();
+        MarkdownViewer viewer = new() { LinkSource = source, Text = "Changed Program.cs today." };
+        ViewSession.Show(viewer);
+        await ViewSession.WaitForAsync(() => Text(viewer).Contains("today", StringComparison.Ordinal));
+        Assert.Empty(Links(viewer));
+
+        source.Known = "Program.cs";
+        source.Raise();
+
+        await ViewSession.WaitForAsync(() => Links(viewer).Count == 1);
+    });
+
     /// <summary>Without the host's link resources a link keeps the accent colour and no underline.</summary>
     [Fact]
     public Task WithoutLinkResourcesALinkIsAccentColouredAndNotUnderlined() => ViewSession.RunAsync(async () =>
@@ -408,6 +452,31 @@ public sealed class MarkdownViewerTests
             for (int start = text.IndexOf(name, StringComparison.Ordinal); start >= 0; start = text.IndexOf(name, start + name.Length, StringComparison.Ordinal))
                 yield return start;
         }
+    }
+
+    /// <summary>A link source that links one known name once it is set, and counts its searches.</summary>
+    private sealed class ChangingFiles : IMarkdownLinkSource
+    {
+        private volatile string? known;
+        private int searches;
+
+        public event EventHandler? Changed;
+
+        public string? Known { set => this.known = value; }
+
+        public int Searches => Volatile.Read(ref this.searches);
+
+        public IReadOnlyList<MarkdownLinkSpan> Find(string text)
+        {
+            Interlocked.Increment(ref this.searches);
+            if (this.known is not { } name) return [];
+            int start = text.IndexOf(name, StringComparison.Ordinal);
+            return start < 0 ? [] : [new(start, name.Length, name)];
+        }
+
+        public bool Accepts(string target) => target == this.known;
+
+        public void Raise() => this.Changed?.Invoke(this, EventArgs.Empty);
     }
 
     private static List<Link> Links(MarkdownViewer viewer) => [.. ViewSession.All<MarkdownTextBlock>(viewer).SelectMany(block => LinksIn(block.Inlines))];

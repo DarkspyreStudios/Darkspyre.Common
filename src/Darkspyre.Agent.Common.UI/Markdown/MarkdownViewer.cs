@@ -94,6 +94,9 @@ public sealed class MarkdownViewer : TemplatedControl
     private string shown = string.Empty;
     private (string Key, Color Colour)[] palette = [];
     private bool linkUnderline;
+    // Whether a relink is parsing, and whether the link source changed again meanwhile. Used only on the UI thread.
+    private bool relinking;
+    private bool relinkAgain;
 
     // The rendered text Select All selected, while that selection lasts; null after any other selection.
     private string? selectedAll;
@@ -209,7 +212,9 @@ public sealed class MarkdownViewer : TemplatedControl
     /// <remarks>
     /// While a source is set, an http, https or mailto target is still checked by <see cref="MarkdownSafety.IsAllowedTarget"/>, and
     /// every other target is a link only when <see cref="IMarkdownLinkSource.Accepts"/> is true. When the source raises
-    /// <see cref="IMarkdownLinkSource.Changed"/>, the whole text is parsed again on the UI thread.
+    /// <see cref="IMarkdownLinkSource.Changed"/>, the whole text is parsed again on a worker thread. The renderer draws the
+    /// result on the UI thread only when its links differ from the drawn document's and that text is still the one shown.
+    /// Changes that arrive during that parse cause one more.
     /// </remarks>
     public IMarkdownLinkSource? LinkSource
     {
@@ -326,8 +331,58 @@ public sealed class MarkdownViewer : TemplatedControl
 
     private void LinkSourceChanged(object? sender, EventArgs e) => Dispatcher.UIThread.Post(() =>
     {
-        if (ReferenceEquals(sender, this.linkSource)) this.Reparse();
+        if (!ReferenceEquals(sender, this.linkSource)) return;
+        if (this.relinking) this.relinkAgain = true;
+        else _ = this.RelinkAsync();
     });
+
+    // A link source can change once for every file a long transcript names, and most changes change no link in this text.
+    // The parse and the comparison with the drawn document run off the UI thread, and the UI thread draws only a document
+    // whose links changed. The pipeline stays the same: its link extension asks the source again on every parse.
+    private async Task RelinkAsync()
+    {
+        this.relinking = true;
+        try
+        {
+            do
+            {
+                this.relinkAgain = false;
+                string text = this.shown;
+                long version = this.builder.Version;
+                MarkdownPipeline pipeline = this.pipeline;
+                MarkdownDocument? drawn = this.renderer.DocumentUpdate?.Document;
+                MarkdownDocument? document;
+                try { document = await Task.Run(() => Relinked(text, pipeline, drawn)); }
+                catch (Exception error) when (error is not OutOfMemoryException) { continue; }
+                if (document is not null && text == this.shown && version == this.builder.Version && ReferenceEquals(pipeline, this.pipeline))
+                    this.renderer.DocumentUpdate = new MarkdownDocumentUpdate.Full(document, version);
+            }
+            while (this.relinkAgain);
+        }
+        finally { this.relinking = false; }
+    }
+
+    // The text parsed again, or null when it has the drawn document's links. A published document is never changed, so
+    // this reads the drawn one off the UI thread.
+    private static MarkdownDocument? Relinked(string text, MarkdownPipeline pipeline, MarkdownDocument? drawn)
+    {
+        MarkdownDocument document = Markdig.Markdown.Parse(text, pipeline);
+        return drawn is not null && LinksOf(document).SequenceEqual(LinksOf(drawn)) ? null : document;
+    }
+
+    // Every link of the document in order, with its source span and target.
+    private static IEnumerable<(int Start, int End, string? Url)> LinksOf(MarkdownDocument document) =>
+        document.Descendants<LeafBlock>().SelectMany(block => block.Inline is { } inline ? LinksIn(inline) : []);
+
+    private static IEnumerable<(int Start, int End, string? Url)> LinksIn(ContainerInline container)
+    {
+        for (Inline? child = container.FirstChild; child is not null; child = child.NextSibling)
+        {
+            if (child is LinkInline link) yield return (link.Span.Start, link.Span.End, link.Url);
+            if (child is ContainerInline nested)
+                foreach ((int Start, int End, string? Url) inner in LinksIn(nested)) yield return inner;
+        }
+    }
 
     // Avalonia raises ContextRequested for a right-click only from the control under the pointer, in that control's own
     // pointer-released handling. LiveMarkdown's text block ends that handling early inside a renderer, so a right-click on

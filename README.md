@@ -392,8 +392,11 @@ and inline code and code blocks take `font-code` at `font-size-code`. LiveMarkdo
   source's `Accepts` is true, and a refused link shows as its own text, not as an inert link. The source also adds
   links: each span its `Find` returns in plain text outside links, with adjacent literals searched as one text, and
   each code span whose whole trimmed text it accepts. `Find` and `Accepts` may run off the UI thread; a click on a link
-  that is not a web or mail address activates only when `Accepts` is true for its target. Setting the source, or the
-  source raising `Changed`, parses the whole text again. Without a source, links follow the allow-list alone.
+  that is not a web or mail address activates only when `Accepts` is true for its target. Setting the source parses the
+  whole text again. When the source raises `Changed`, the viewer parses the shown text again on a worker thread and
+  compares its links with the drawn document's there; the UI thread draws the new document only when a link changed and
+  the text is still the one shown. A change that arrives during that parse causes one more. Without a source, links
+  follow the allow-list alone.
   Selection follows LiveMarkdown's renderer, which keeps a drag inside one viewer. `SelectAll` selects every block, and
   `SelectedText` is then the Markdown source (`Text`) for as long as that selection lasts; any other selection gives the
   rendered text. `CopyAsync` writes `SelectedText` to the window's clipboard and returns false when nothing is
