@@ -6,11 +6,16 @@ namespace Darkspyre.LocalServices;
 public sealed partial class ServiceSubscription
 {
     private readonly Dictionary<Guid, PendingCall> pending = [];
+    // The connection's admission slots: a call holds one from before it is sent until its result arrives, so the service
+    // never refuses it for the connection's request limit.
+    private readonly SemaphoreSlim slots = new(ServiceProtocol.MaximumConnectionRequests);
     /// <summary>Receives service invalidations on this subscription.</summary>
     public event Action<EventMessage>? EventReceived;
 
     /// <summary>
-    /// Submits one operation without replay. The caller retains ownership of the input stream. The caller's cancellation and
+    /// Submits one operation without replay. The caller retains ownership of the input stream. A call waits for one of the
+    /// connection's <see cref="ServiceProtocol.MaximumConnectionRequests"/> request slots before it is sent; a call that
+    /// gets none within its deadline returns Failed with Busy and was never sent. The caller's cancellation and the rest of
     /// the deadline send a Cancel and return the service's answer for this call, such as Cancelled or a result the service
     /// already proved; the subscription stays open. A call the subscription's close interrupts returns OutcomeUnknown.
     /// </summary>
@@ -22,6 +27,20 @@ public sealed partial class ServiceSubscription
         ArgumentNullException.ThrowIfNull(body);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(deadlineMilliseconds);
         cancellationToken.ThrowIfCancellationRequested();
+        long waiting = System.Diagnostics.Stopwatch.GetTimestamp();
+        if (!await this.slots.WaitAsync(deadlineMilliseconds, cancellationToken).ConfigureAwait(false))
+            return new(ServiceResultStatus.Failed, null, null, new(ServiceErrorCode.Busy, Guid.NewGuid(),
+                $"{operation} waited its whole {deadlineMilliseconds} ms deadline for one of the connection's {ServiceProtocol.MaximumConnectionRequests} request slots"));
+        try
+        {
+            int remaining = deadlineMilliseconds - (int)System.Diagnostics.Stopwatch.GetElapsedTime(waiting).TotalMilliseconds;
+            return await SendRequestAsync(operation, body, Math.Max(1, remaining), cancellationToken).ConfigureAwait(false);
+        }
+        finally { this.slots.Release(); }
+    }
+
+    private async Task<ServiceCallResult> SendRequestAsync(string operation, Stream body, int deadlineMilliseconds, CancellationToken cancellationToken)
+    {
         Guid requestId = Guid.NewGuid(), transferId = Guid.NewGuid();
         var call = new PendingCall();
         lock (this.gate)

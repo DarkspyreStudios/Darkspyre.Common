@@ -138,6 +138,9 @@ public sealed partial class ServiceControlHost
                 }
                 // Connection revocation closes the transport; cancellation alone cannot erase a proven domain result.
                 if (!lease.CanPublish) return;
+                // The slot frees before the result is sent: a subscriber that waits for a free slot sends its next request
+                // once it reads this result, and that request must not find the slot still taken.
+                lease.Dispose();
                 await SendBusinessAsync(connection, new ResultMessage(this.epoch, lease.Request.RequestId,
                     result.Status, result.Revision, reference, result.Error), connection.Stop.Token).ConfigureAwait(false);
             }

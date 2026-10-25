@@ -252,7 +252,10 @@ creates no timer and changes neither cancellation nor publication authority.
 Admission fails Busy at 32 active requests per connection or 256 per family. Cancel, deadline, context
 revocation and connection closure signal cooperative stop without releasing a work slot. The dispatcher
 must dispose its lease only when work settles. Cancel does not prove rollback. A stop reason records the
-first signal; later revocation still invalidates publication authority independently.
+first signal; later revocation still invalidates publication authority independently. A subscriber never meets the
+per-connection limit: `ServiceSubscription.InvokeAsync` holds one of the connection's 32 slots from before it sends a
+request until its result arrives, and a call that gets no slot within its deadline returns Failed with Busy without
+sending anything.
 
 `ServiceControlHost.Operations` shares the lifecycle serialization lock. Subscription admits a connection;
 EOF, Unsubscribe and drain remove its authority immediately. Admission checks also advance the lifecycle
@@ -336,7 +339,8 @@ that stops after entry without a proven result returns OutcomeUnknown; when it t
 exception's type and message. A proven domain result remains
 valid after caller cancellation. Lost transport reports an unknown submitted outcome; read adapters
 interpret that transport failure as unavailable. There is no automatic business replay. The registry
-slot remains occupied until the handler, body transfer and cleanup finish. Connection disposal joins
+slot remains occupied until the handler and the result body's transfer finish, and it is released before the Result
+frame is sent, so a subscriber that reads the result finds the slot free. Connection disposal joins
 that work before native ownership can be released.
 
 ## Linux ownership and launch

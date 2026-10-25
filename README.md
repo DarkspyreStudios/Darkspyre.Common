@@ -629,7 +629,10 @@ A subscription closes only when its connection fails, the service ends it or its
 one call's cancellation, deadline or wait behind other frames ends only that call, and no timer closes a live
 connection on either side. The service host reports why each connection ended. `CloseReason` names
 what closed it. A closed subscription never reconnects; its owner connects again for the next call, and a
-call the close interrupted is never sent again. `docs/local-services.md` describes the write rules.
+call the close interrupted is never sent again. The service admits at most
+`ServiceProtocol.MaximumConnectionRequests` requests per connection and frees a request's slot before it sends the
+result. A subscription call waits for one of those slots before it is sent; a call that gets none within its deadline
+returns Failed with Busy and was never sent. `docs/local-services.md` describes the write rules.
 The application Host does not register, install or start the service.
 The package cache copies a payload into a staging folder and syncs each file with `ServiceFileSystem.SyncFile`. It then
 flushes the device once with `ServiceFileSystem.FlushDevice` and only after that publishes the build by rename. On macOS
