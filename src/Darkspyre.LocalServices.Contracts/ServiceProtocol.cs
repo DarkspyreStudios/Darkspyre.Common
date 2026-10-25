@@ -41,6 +41,8 @@ public enum ServiceFamily
     Tickets,
     /// <summary>The host-tools service family, which routes MCP tool calls from agent CLIs to the host session that owns them.</summary>
     HostTools,
+    /// <summary>The Chromium service family, which runs the panel browser's CEF engine for the Chromium plugin.</summary>
+    Chromium,
 }
 
 /// <summary>The service process lifecycle.</summary>
