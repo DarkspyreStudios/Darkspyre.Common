@@ -129,6 +129,8 @@ Payloads are independent copies, not hardlinks to plugin files. Existing builds 
 never repaired in place. An explicit collector removes abandoned staging under the catalog lease.
 Windows creates each resource with its owner and protected DACL. Sealing and collection change only
 the DACL. A sealed owner's right to change its DACL does not grant permission to rewrite ownership.
+On Windows the executable flag marks `.exe` and `.dll` files, which seal to read-and-execute; other files seal to read.
+The loader maps a native DLL as an image, so a read-only DLL fails the service's start with access denied.
 
 The catalog lease serializes install, selection, pin acquisition and collection. A shared permanent
 per-build lease pins a verified payload. Collection requires its exclusive counterpart and refuses

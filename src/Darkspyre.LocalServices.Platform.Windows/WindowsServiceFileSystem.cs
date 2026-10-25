@@ -12,7 +12,9 @@ internal sealed class WindowsServiceFileSystem : ServiceFileSystem
     internal override ServiceDirectory OpenPrivateDirectory(string path) => WindowsPrivateDirectory.OpenOrCreate(path);
     internal override SafeFileHandle Open(string path, bool directory) => WindowsPrivateDirectory.OpenPath(path, directory);
     internal override void InspectPrivate(SafeFileHandle handle, bool directory, bool readOnly = false, bool executable = false) => WindowsFileSecurity.Inspect(handle, directory, readOnly, executable);
-    internal override bool IsExecutable(string path) => Path.GetExtension(path).Equals(".exe", StringComparison.OrdinalIgnoreCase);
+    // The loader maps a native DLL as an image, which needs execute access as the program itself does.
+    internal override bool IsExecutable(string path) => Path.GetExtension(path) is var extension
+        && (extension.Equals(".exe", StringComparison.OrdinalIgnoreCase) || extension.Equals(".dll", StringComparison.OrdinalIgnoreCase));
     internal override FileStream CreateFile(string path) => new(WindowsPrivateDirectory.OpenNative(path, WindowsNative.Write, 0, 1, directory: false), FileAccess.Write);
     // FlushFileBuffers also flushes the device write cache, so no separate device flush remains.
     internal override void SyncFile(FileStream file) => file.Flush(flushToDisk: true);
