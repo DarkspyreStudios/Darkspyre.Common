@@ -12,7 +12,7 @@ namespace Darkspyre.Agent.Common.UI.Dialogs;
 /// </summary>
 public sealed class ModalLayer : Panel
 {
-    private readonly List<(Control Backdrop, IModal Dialog)> open = [];
+    private readonly List<(Border Backdrop, IModal Dialog)> open = [];
 
     /// <summary>Creates the layer, which takes no space and no input while no dialog is open.</summary>
     public ModalLayer()
@@ -42,6 +42,23 @@ public sealed class ModalLayer : Panel
         this.Children.Add(backdrop);
         this.IsHitTestVisible = true;
         content.AttachedToVisualTree += (_, _) => (content as InputElement)?.Focus();
+    }
+
+    /// <summary>
+    /// Caps each open dialog's width at the room the layer leaves it, before the dialogs are measured. A dialog's size
+    /// class sets an exact width, which Avalonia keeps even when the window is narrower; the cap narrows it to the layer
+    /// less the backdrop's padding and the dialog's own margin.
+    /// </summary>
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        foreach ((Border backdrop, IModal dialog) in this.open)
+        {
+            if (dialog.FillsWindow) continue;
+            Control view = dialog.View;
+            double room = availableSize.Width - backdrop.Padding.Left - backdrop.Padding.Right - view.Margin.Left - view.Margin.Right;
+            view.MaxWidth = Math.Max(0, room);
+        }
+        return base.MeasureOverride(availableSize);
     }
 
     /// <summary>Removes <paramref name="dialog"/>; a dialog already gone is ignored.</summary>

@@ -279,7 +279,7 @@ Each folder is its own namespace, `Darkspyre.Agent.Common.UI.<folder>`:
 | --- | --- |
 | `.Controls` | `Forms` and `ButtonSize`, `Sizes`, `Badge`, `Spinner`, `LoopingAnimation`, `IconPicker`, `ColorPicker`, `StatusLight` and `StatusLightState`, `QuotaRing`, `ClipboardText`, `SelectionMenu`, `Watching<TShown>` and `UiChangeSubscription`, `Remount`, `KeyedViews`, `KeyedChildren`, `UiRefresh`, `ShownList`, `PanelTabs` and `PanelTab` |
 | `.Icons` | `Icon`, `IconSource`, `AppIcons` (including `Refresh` and `Search` for a panel bar's icon buttons), `ProjectIcons`, `PluginPanelIcons`, `AttachmentPreviewIcons` (built from `AttachmentIconPaths` in `Darkspyre.Common.Markdown`) |
-| `.Dialogs` | `ModalLayer`, `Sheet`, `ConfirmDialog`, `PaletteSheet`, `DialogPresenter` with `SheetRequest`, `ISheet` and `ConfirmationRequest` |
+| `.Dialogs` | `ModalLayer`, `Sheet`, `ConfirmDialog`, `PaletteSheet`, `DialogPresenter` with `SheetRequest`, `ISheet` and `ConfirmationRequest`, `DialogSize` and `DialogSizes` |
 | `.Errors` | `UiRegion`, `UiFailure`, `FailureView` |
 | `.Composition` | `CompositionTarget`, `CompositionSlot`, `ICompositionPresenter`, `SurfaceScopeContext`, `AppearanceSection`, `IAppearanceSectionRegistry` |
 | `.Themes` | `CommonTheme`, holding `ControlStyles` |
@@ -325,6 +325,13 @@ draw with, the palette, failure-card, quota-ring and status-light styles, and th
   window's `ModalLayer`, from any thread. The returned `ISheet` closes when disposed; its `Completion` is true only
   after `Complete()`. A confirmation answers true only for an explicit confirm; a cancelled token closes it and answers
   false. `ConfirmDialog.AskAsync` takes the same cancellation token.
+- **`DialogSize`** sets a dialog's width: `Narrow` 512 px, `Medium` 720 px, `Wide` 960 px. `Sheet` and
+  `SheetRequest.Size` default to `Medium`; `ConfirmDialog.AskAsync` and `ConfirmationRequest.Size` default to `Narrow`.
+  `DialogSizes.StyleClass` gives the size's style class (`dialog-narrow`, `dialog-medium`, `dialog-wide`), which sets
+  an exact `Width` on a `Border.sheet` or `Border.alert-dialog`; a dialog that builds its own `Border.alert-dialog`
+  adds that class itself. The backdrop's 24 px padding and the dialog's 24 px margin keep a dialog 48 px inside each
+  window edge. `ModalLayer` caps each open dialog's `MaxWidth` at that room, so a narrower window narrows the dialog
+  and its content scrolls inside. `Border.system-dashboard` keeps its own 1120 px and `Border.palette` its 560 px.
 - **`StatusLight`** is a round light for a `StatusLightState`, pulsing at a pace and offset derived from its key, with
   style classes `light-active`, `light-off`, `light-failed`, `light-fallback` and `light-busy`. **`QuotaRing`** is a
   14 px gauge whose fill and colour follow the used fraction, grey with a question mark when unknown, dimmed when stale

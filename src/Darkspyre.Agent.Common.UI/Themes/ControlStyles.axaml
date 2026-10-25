@@ -677,7 +677,9 @@
   </Style>
 
   <!-- Dialogs: the background surface, a border, the large radius, 24 px padding and 16 px between parts; the
-       backdrop is black at half opacity. A dialog stays inside the window less 48 px and scrolls inside. -->
+       backdrop is black at half opacity. A dialog's size class (DialogSizes.StyleClass) sets its exact width: Narrow
+       512, Medium 720, Wide 960. The backdrop's 24 px padding and the dialog's 24 px margin keep it 48 px inside the
+       window on every side; in a window with less room, ModalLayer caps its MaxWidth and its content scrolls inside. -->
   <Style Selector="Border.modal-backdrop">
     <Setter Property="Background" Value="#80000000" />
   </Style>
@@ -688,12 +690,21 @@
     <Setter Property="CornerRadius" Value="{DynamicResource radius-lg}" />
     <Setter Property="Padding" Value="24" />
     <Setter Property="BoxShadow" Value="0 10 15 -3 #1A000000, 0 4 6 -4 #1A000000" />
-    <Setter Property="MaxWidth" Value="512" />
     <Setter Property="Margin" Value="24" />
   </Style>
+  <Style Selector="Border.sheet.dialog-narrow, Border.alert-dialog.dialog-narrow">
+    <Setter Property="Width" Value="512" />
+  </Style>
+  <Style Selector="Border.sheet.dialog-medium, Border.alert-dialog.dialog-medium">
+    <Setter Property="Width" Value="720" />
+  </Style>
+  <Style Selector="Border.sheet.dialog-wide, Border.alert-dialog.dialog-wide">
+    <Setter Property="Width" Value="960" />
+  </Style>
+  <!-- The System Dashboard is wider than Wide. This style follows the size styles so its width wins over the sheet's
+       size class. -->
   <Style Selector="Border.system-dashboard">
     <Setter Property="Width" Value="1120" />
-    <Setter Property="MaxWidth" Value="1120" />
   </Style>
   <Style Selector="TextBlock.dialog-title">
     <Setter Property="FontSize" Value="{DynamicResource font-size-heading-3}" />
@@ -1024,7 +1035,6 @@
   <!-- The command palette: 560 px on the panel colour with a 12 px radius and a deep shadow, raised above centre. -->
   <Style Selector="Border.palette">
     <Setter Property="Width" Value="560" />
-    <Setter Property="MaxWidth" Value="560" />
     <Setter Property="Padding" Value="0" />
     <Setter Property="Margin" Value="24,0,24,120" />
     <Setter Property="Background" Value="{DynamicResource panel.brush}" />

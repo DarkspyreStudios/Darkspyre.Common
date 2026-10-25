@@ -10,7 +10,12 @@ namespace Darkspyre.Agent.Common.UI.Dialogs;
 /// <param name="Description">A line under the title, or null.</param>
 /// <param name="CanDismiss">Asked before Escape, the close button or a click outside closes the sheet; false keeps it open, such as for unsaved edits. Null always allows it.</param>
 public sealed record SheetRequest(string Title, Control Content, Control? Footer = null,
-    string? Description = null, Func<bool>? CanDismiss = null);
+    string? Description = null, Func<bool>? CanDismiss = null)
+{
+    /// <summary>The sheet's width. Defaults to <see cref="DialogSize.Medium"/>.</summary>
+    /// <gotcha>Hosts older than SDK 0.14.1 do not have it; a plugin that sets it needs minimumHostSdkVersion 0.14.1.</gotcha>
+    public DialogSize Size { get; init; } = DialogSize.Medium;
+}
 
 /// <summary>One open sheet. Disposing it closes the sheet.</summary>
 public interface ISheet : IAsyncDisposable
@@ -32,7 +37,12 @@ public interface ISheet : IAsyncDisposable
 /// <param name="Destructive">True when going ahead loses something: the button takes the destructive style.</param>
 /// <param name="Details">A control under the message, such as an input the answer uses, or null.</param>
 public sealed record ConfirmationRequest(string Title, string Message, string Confirmation = "Delete",
-    bool Destructive = true, Control? Details = null);
+    bool Destructive = true, Control? Details = null)
+{
+    /// <summary>The confirmation's width. Defaults to <see cref="DialogSize.Narrow"/>.</summary>
+    /// <gotcha>Hosts older than SDK 0.14.1 do not have it; a plugin that sets it needs minimumHostSdkVersion 0.14.1.</gotcha>
+    public DialogSize Size { get; init; } = DialogSize.Narrow;
+}
 
 /// <summary>Presents sheets and confirmations in one window's modal layer.</summary>
 /// <gotcha>Every call may come from any thread; the dialogs are built and shown on the UI thread.</gotcha>
@@ -61,7 +71,8 @@ public sealed class DialogPresenter(ModalLayer layer)
         try
         {
             (bool confirmed, _) = await Dispatcher.UIThread.InvokeAsync(() => ConfirmDialog.AskAsync(layer, request.Title,
-                request.Message, request.Details, request.Confirmation, request.Destructive, cancellationToken: cancellationToken));
+                request.Message, request.Details, request.Confirmation, request.Destructive, size: request.Size,
+                cancellationToken: cancellationToken));
             return confirmed;
         }
         catch (OperationCanceledException) { return false; }
@@ -77,7 +88,8 @@ public sealed class DialogPresenter(ModalLayer layer)
 
         public void Show(ModalLayer layer, SheetRequest request)
         {
-            this.sheet = new Sheet(layer, request.Title, request.Content, request.Description, footer: request.Footer)
+            this.sheet = new Sheet(layer, request.Title, request.Content, request.Description, footer: request.Footer,
+                size: request.Size)
             {
                 CanDismiss = request.CanDismiss,
                 Dismissed = () =>

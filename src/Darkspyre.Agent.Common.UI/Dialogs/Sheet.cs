@@ -24,9 +24,11 @@ public sealed class Sheet : IModal
     /// <summary>
     /// Creates a sheet titled <paramref name="title"/> in <paramref name="layer"/>. Call <see cref="Show"/> to open it.
     /// <paramref name="kind"/> holds the view's style classes, separated by spaces, such as "sheet provider-editor".
+    /// <paramref name="size"/> sets its width; it stays inside the window less the margins.
     /// </summary>
     public Sheet(ModalLayer layer, string title, Control? content = null, string? description = null, Control? leading = null,
-        Control? footer = null, string kind = "sheet", string targetName = "dialog", SurfaceScopeContext? scope = null)
+        Control? footer = null, string kind = "sheet", string targetName = "dialog", SurfaceScopeContext? scope = null,
+        DialogSize size = DialogSize.Medium)
     {
         this.layer = layer;
         StackPanel heading = new() { Spacing = 4 };
@@ -77,6 +79,7 @@ public sealed class Sheet : IModal
         // Each class is added on its own. One class named "sheet provider-editor" matches no Border.sheet style, and the
         // dialog then has no background, width limit or padding.
         this.view.Classes.AddRange(kind.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        this.view.Classes.Add(size.StyleClass());
     }
 
     /// <inheritdoc />
