@@ -316,7 +316,9 @@ draw with, the palette, failure-card, quota-ring and status-light styles, and th
 | `UiRegion.Log` (`Action<UiFailure>`) | Every failure a region shows, and every `UiRegion.Report` no region encloses (`UiRegion.NoRegion`) | Nothing is logged |
 
 `ModalLayer.Attach(window)` makes Escape dismiss the topmost dialog of that window. `ModalLayer.Show` puts each
-dialog's view in its own `TextSelectionScope` and focuses the view, so a drag and Select All in a dialog stay in it.
+dialog's view in its own `TextSelectionScope` and focuses the view, so a drag and Select All in a dialog stay in it. It
+first clears the window's selection: the window's adorner layer, which draws plain text's highlight, sits above the
+modal layer, so a highlight left behind would draw over the dialog.
 
 The application's clipboard service handles `TextCopy.RequestedEvent` at each window: it writes the text with
 `TextCopy.WriteAsync`, sets the request's `Completion` and shows the one "Copied" feedback. Without a handler, every

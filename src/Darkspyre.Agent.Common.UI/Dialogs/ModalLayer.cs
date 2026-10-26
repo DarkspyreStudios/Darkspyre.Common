@@ -11,6 +11,7 @@ namespace Darkspyre.Agent.Common.UI.Dialogs;
 /// The window's layer for sheets and confirmations, above the shell. Each open dialog shows over a backdrop; Escape or a
 /// click on the backdrop dismisses the topmost one. The shell view places the layer; any view opens a dialog here. Each
 /// dialog's view sits in its own <see cref="TextSelectionScope"/>, so a drag and Select All in it stay in the dialog.
+/// Opening a dialog clears the window's selection, so no highlight of the text behind it draws over the dialog.
 /// </summary>
 public sealed class ModalLayer : Panel
 {
@@ -23,10 +24,12 @@ public sealed class ModalLayer : Panel
         this.Classes.Add("modal-layer");
     }
 
-    /// <summary>Shows <paramref name="dialog"/> over everything opened before it.</summary>
+    /// <summary>Shows <paramref name="dialog"/> over everything opened before it, and clears the window's selection.</summary>
     public void Show(IModal dialog)
     {
         ArgumentNullException.ThrowIfNull(dialog);
+        // The window's adorner layer, which draws plain text's highlight, sits above this layer.
+        if (TopLevel.GetTopLevel(this) is { } window) TextSelection.ClearWindow(window);
         // A dialog stays 24 px inside the window on every side; content that does not fit scrolls inside the dialog. A
         // layer that fills the window takes all of it. The backdrop's dimming brush comes from the modal-backdrop style; a
         // local brush here would override it.
