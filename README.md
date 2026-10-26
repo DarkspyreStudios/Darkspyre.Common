@@ -115,6 +115,9 @@ The `GitClient` operations check paths through the path policy, take the reposit
 - `ReadFileHistoryAsync` resolves the revision once and runs `log --follow --find-renames --name-status -z` for
   `Skip + Limit + 1` commits from the start, because `--follow` cannot skip and still follow renames. Each version names
   the file's path in that commit; the history ends before the first path the path policy refuses.
+- `ReadCommitMessageAsync` resolves the commit and runs `show -s --format=%B`: the commit's full message, subject, blank
+  line and body as Git stores it, without the trailing line break. A commit that does not resolve throws
+  `RevisionNotFound`.
 - `FetchConfiguredAsync`, `PullConfiguredAsync` (`pull --no-edit`), `PushConfiguredAsync` (`push --porcelain`) and
   `ResolveConflictAsync` (`mergetool --gui --no-prompt`) live in the internal `GitConfiguredCommands`. They run under
   the repository gate through `GitCommands.RunAsync` with no timeout, so Git's remotes, refspecs, upstreams, pull policy,
@@ -281,16 +284,16 @@ Each folder is its own namespace, `Darkspyre.Agent.Common.UI.<folder>`:
 
 | Namespace | Holds |
 | --- | --- |
-| `.Controls` | `Forms` and `ButtonSize`, `Sizes`, `Badge`, `Spinner`, `LoopingAnimation`, `IconPicker`, `ColorPicker`, `StatusLight` and `StatusLightState`, `QuotaRing`, `ClipboardText`, `SelectionMenu`, `Watching<TShown>` and `UiChangeSubscription`, `Remount`, `KeyedViews`, `KeyedChildren`, `UiRefresh`, `ShownList`, `PanelTabs`, `PanelTab` and `PanelTabsOverflow`, `PanelParts` |
+| `.Controls` | `Forms` and `ButtonSize`, `Sizes`, `Badge`, `Spinner`, `LoopingAnimation`, `IconPicker`, `ColorPicker`, `StatusLight` and `StatusLightState`, `QuotaRing`, `TextCopy` and `CopyRequestedEventArgs`, `CopyFeedback`, `TextSelection`, `TextSelectionMode`, `TextSelectionScope`, `SelectionMenu`, `EditCommand`, `IEditCommandTarget`, `ITextEditTarget`, `EditRouting`, `RowCopy`, `Watching<TShown>` and `UiChangeSubscription`, `Remount`, `KeyedViews`, `KeyedChildren`, `UiRefresh`, `ShownList`, `PanelTabs`, `PanelTab` and `PanelTabsOverflow`, `PanelParts` |
 | `.Icons` | `Icon`, `IconSource`, `AppIcons` (including `Refresh` and `Search` for a panel bar's icon buttons, and the Lucide `Goal` (`target`), `Trash` (`trash-2`), `Pause` (`circle-pause`) and `Resume` (`circle-play`) in `ViewBox` `0 0 24 24`), `ProjectIcons`, `PluginPanelIcons`, `AttachmentPreviewIcons` (built from `AttachmentIconPaths` in `Darkspyre.Common.Markdown`) |
 | `.Dialogs` | `ModalLayer`, `Sheet`, `ConfirmDialog`, `PaletteSheet`, `DialogPresenter` with `SheetRequest`, `ISheet` and `ConfirmationRequest`, `DialogSize` and `DialogSizes` |
 | `.Errors` | `UiRegion`, `UiFailure`, `FailureView` |
 | `.Composition` | `CompositionTarget`, `CompositionSlot`, `ICompositionPresenter`, `SurfaceScopeContext`, `AppearanceSection`, `IAppearanceSectionRegistry` |
 | `.Themes` | `CommonTheme`, holding `ControlStyles` |
 | `.Code` | `SourceView`, `DiffView`, `TextDiff` with its line types, and `TextFiles` |
-| `.Markdown` | `MarkdownViewer`, `CopyFeedback` |
+| `.Markdown` | `MarkdownViewer` |
 | `.Pdf` | `PdfViewer`, `PdfZoom` |
-| `.Terminal` | `TerminalView` |
+| `.Terminal` | `TerminalView`, `TerminalKeys` |
 
 agent-ds's `Darkspyre.Agent.Plugin` references the library, so a plugin compiles against it and loads the
 application's copy (agent-ds `SharedLibraries.props` excludes its runtime assets from plugin packages).
@@ -312,7 +315,13 @@ draw with, the palette, failure-card, quota-ring and status-light styles, and th
 | `AppearanceSection.Registry` (`IAppearanceSectionRegistry`) | Each control joining or leaving a typography section | A section changes no font |
 | `UiRegion.Log` (`Action<UiFailure>`) | Every failure a region shows, and every `UiRegion.Report` no region encloses (`UiRegion.NoRegion`) | Nothing is logged |
 
-`ModalLayer.Attach(window)` makes Escape dismiss the topmost dialog of that window.
+`ModalLayer.Attach(window)` makes Escape dismiss the topmost dialog of that window. `ModalLayer.Show` puts each
+dialog's view in its own `TextSelectionScope` and focuses the view, so a drag and Select All in a dialog stay in it.
+
+The application's clipboard service handles `TextCopy.RequestedEvent` at each window: it writes the text with
+`TextCopy.WriteAsync`, sets the request's `Completion` and shows the one "Copied" feedback. Without a handler, every
+copy request completes false and writes nothing. The first `TextSelectionScope` the application creates installs the
+window handlers of "Selection and copy" below.
 
 ### Controls and dialogs
 
@@ -340,8 +349,7 @@ draw with, the palette, failure-card, quota-ring and status-light styles, and th
 - **`StatusLight`** is a round light for a `StatusLightState`, pulsing at a pace and offset derived from its key, with
   style classes `light-active`, `light-off`, `light-failed`, `light-fallback` and `light-busy`. **`QuotaRing`** is a
   14 px gauge whose fill and colour follow the used fraction, grey with a question mark when unknown, dimmed when stale
-  and pulsing while updating. **`ClipboardText.WriteAsync`** writes literal text to the window's clipboard and returns
-  false when no clipboard is available.
+  and pulsing while updating.
 - **`PanelTabs<TKey>`** is a row of panel tabs, shown from `PanelTab<TKey>` records (`Key`, `Title`, `Checked`, and
   `Enabled`, default true; a disabled tab takes no click). `PanelTabsOverflow` sets what a row does when its titles do
   not fit. `Trim`, the default, keeps one line and trims long titles: a panel's second row. `Scroll` adds the class
@@ -368,9 +376,57 @@ draw with, the palette, failure-card, quota-ring and status-light styles, and th
   `panel-bar`, `panel-section`, `panel-flat-row`, `panel-icon` (22 px), `panel-buttons` (a `StackPanel` or `WrapPanel`
   6 px apart) and `panel-failure`, the frame a `FailureView` takes with `kind: "panel-failure"`: no box, its message
   read as a note.
-- **`SelectionMenu.Create`** is the context menu of selectable text, a `MenuFlyout` the text control takes as its
-  `ContextFlyout`: Copy, enabled only while the caller's `canCopy` is true as the menu opens, and Select All. The
-  Markdown viewer and the application's prompts use it.
+- **`RowCopy`** puts the Copy items at the top of a row's `ContextMenu`: `Add` inserts Copy (the row's text,
+  `TextOf`: its visible text blocks in reading order, joined by one space), then the caller's items such as Copy path,
+  then a separator when the menu already had items. `Menu` builds a menu of the Copy items alone. Each item requests
+  its copy from the row; a value that is null or empty copies nothing, and one that throws shows in the row's region.
+
+### Selection and copy
+
+Every copy leaves the library as one request: **`TextCopy.RequestAsync(source, text)`** raises
+`TextCopy.RequestedEvent` from the control the text came from and returns true once the text is on the clipboard. The
+window's handler, the application's clipboard service, calls **`TextCopy.WriteAsync`**. **`CopyFeedback.CopyAsync`**
+requests a copy from a button and, when it succeeds, `CopyFeedback.Show` puts a check in place of the button's icon
+(`AppIcons.Check`), its label ("Copied") or the code block's glyph for two seconds (`CopyFeedback.Duration`), named
+Copied; a second copy restarts the two seconds.
+
+**`TextSelectionScope`** is the root of one surface, a `Decorator` that owns the selection of every text inside it that
+no inner scope owns. A left press on text clears the window's selection, anchors a new one and focuses the scope; a drag
+of 4 px or more extends it across every text that joins, in the depth-first order of the visual tree. A drag held within
+24 px of the top or bottom edge of the scroll viewer the anchor sits in scrolls it 20 px per move. A double click on
+plain text selects a word, a triple click its whole text. Over text that joins, the pointer is the text pointer. A press
+on a control, or on a skipped container, starts no selection and keeps the selection. Text joins unless it sits inside
+a button, menu item, combo box or its item, tab, list or tree item, text box or tooltip, or is empty or not visible; the
+nearest element whose attached `TextSelection.Mode` is not `Auto` decides instead: `Skip` keeps it out, `Include`
+brings it in while a press on it still goes to its control. A plain `TextBlock` stays a `TextBlock`: the scope draws its
+range in an adorner in `color-primary.brush.40`. A `SelectableTextBlock`, such as the Markdown viewer's text, shows its
+range through its own selection, and gets it back when it clears it itself outside a press. `SelectedText` is the text as
+shown: Markdown text gives its rendered words, a line break separates two texts, and a blank line separates texts
+whose nearest containers marked `TextSelection.IsBlock` differ. A window holds one selection:
+`TextSelection.CurrentScope(window)` is the scope that holds it. A scope is not focusable until a press that starts a
+selection focuses it, and stops being focusable when it loses focus, so a press on empty space leaves a focused text
+box focused.
+
+**`EditRouting.Run(window, command)`** sends an `EditCommand` to one place: the focused `TextBox` takes every command;
+else the nearest view on the focus path that implements `IEditCommandTarget` (not a scope) takes Copy and Select All,
+and Cut and Paste when it is an `ITextEditTarget`; else Copy goes to the window's selection. Select All goes to the
+nearest scope of the focused element, or else to the window's selection only when it lies in the top open dialog, or in
+the window when no dialog is open. The window handlers the first scope installs are: the platform's Copy and Select All
+keys, through `EditRouting.Run`, while no text box or `IEditCommandTarget` other than a scope is focused; a text box's own
+copy and cut, through the copy request (a box with a `PasswordChar` copies and cuts nothing, revealed or not); and a
+selectable text block's own copy, which copies the window's selection.
+
+**`SelectionMenu`** holds the three shared right-click menus, set by style in `ControlStyles`, each item showing the
+platform's key:
+
+| Menu | Set on | Items |
+| --- | --- | --- |
+| `SelectionMenu.Text` | every `SelectableTextBlock` and `TextSelectionScope`, and the code views' editors | Copy (enabled while the window has a selection) and Select All (the scope it opened in). Opened on a view that copies its own text, both act on that view |
+| `SelectionMenu.TextBox` | every `TextBox` | Cut, Copy, Paste and Select All from the box's `CanCut`, `CanCopy` and `CanPaste`; Cut and Copy are off in a secret box. Shown at an `ITextEditTarget`, it acts on that target |
+| `SelectionMenu.Terminal` | the terminal | Copy, Paste and Select All, with the terminal's own keys |
+
+The `SelectableTextBlock` style also sets its `SelectionBrush` to `color-primary.brush.40`, so both kinds of text
+highlight alike.
 
 ### Resource keys
 
@@ -379,7 +435,7 @@ change restyles at once. agent-ds's theme supplies all of them.
 
 | Keys | Type |
 | --- | --- |
-| accent.brush, accent.brush.10, accent.brush.30, bg.brush, color-accent-foreground.brush, color-accent.brush, color-background.brush, color-border.brush, color-border.brush.40, color-border.brush.60, color-destructive.brush, color-destructive.brush.90, color-foreground.brush, color-info.brush, color-input.brush, color-muted-foreground.brush, color-muted.brush, color-popover-foreground.brush, color-popover.brush, color-primary-foreground.brush, color-primary.brush, color-primary.brush.20, color-primary.brush.90, color-ring.brush, color-secondary-foreground.brush, color-secondary.brush, color-secondary.brush.80, color-success.brush, color-warning.brush, danger.brush, faint.brush, line.brush, muted.brush, ok.brush, panel.brush, raised.brush, text.brush, text.brush.3, warn.brush | `IBrush` |
+| accent.brush, accent.brush.10, accent.brush.30, bg.brush, color-accent-foreground.brush, color-accent.brush, color-background.brush, color-border.brush, color-border.brush.40, color-border.brush.60, color-destructive.brush, color-destructive.brush.90, color-foreground.brush, color-info.brush, color-input.brush, color-muted-foreground.brush, color-muted.brush, color-popover-foreground.brush, color-popover.brush, color-primary-foreground.brush, color-primary.brush, color-primary.brush.20, color-primary.brush.40, color-primary.brush.90, color-ring.brush, color-secondary-foreground.brush, color-secondary.brush, color-secondary.brush.80, color-success.brush, color-warning.brush, danger.brush, faint.brush, line.brush, muted.brush, ok.brush, panel.brush, raised.brush, text.brush, text.brush.3, warn.brush | `IBrush` |
 | danger, faint, line, ok, warn (`QuotaRing`) | `Color` |
 | control-h, control-h-lg, control-h-sm, control-h-xs, font-size-body, font-size-code, font-size-control, font-size-heading-1 to font-size-heading-5, font-size-secondary, font-size-small, font-size-title | `double` |
 | font-body, font-code, font-control, font-heading-1 to font-heading-5, font-secondary, font-small, font-title | `FontFamily` |
@@ -424,16 +480,13 @@ and inline code and code blocks take `font-code` at `font-size-code`. LiveMarkdo
   compares its links with the drawn document's there; the UI thread draws the new document only when a link changed and
   the text is still the one shown. A change that arrives during that parse causes one more. Without a source, links
   follow the allow-list alone.
-  Selection follows LiveMarkdown's renderer, which keeps a drag inside one viewer. `SelectAll` selects every block, and
-  `SelectedText` is then the Markdown source (`Text`) for as long as that selection lasts; any other selection gives the
-  rendered text. `CopyAsync` writes `SelectedText` to the window's clipboard and returns false when nothing is
-  selected, there is no clipboard or the write fails; it shows no toast. The context menu is a `SelectionMenu`: Copy
-  (enabled only while `CanCopy`) and Select All. A right-click anywhere on the viewer opens it. LiveMarkdown's text
-  block ends its pointer-released handling before Avalonia raises `ContextRequested` for a right-click on it, so the
-  viewer raises that request itself for a right release that reaches it unhandled. The platform's Copy and Select All
-  keys run the same two actions before LiveMarkdown's own key handling. Code blocks have a copy button and no syntax colouring; the viewer does the button's
-  copy itself, and once the code is on the clipboard the button shows a check and is named Copied for two seconds, then
-  the copy glyph and the name Copy return. A second press restarts the two seconds. While `Streaming` is true
+  Selection, copy, the right-click menu and the Copy and Select All keys come from the enclosing
+  `TextSelectionScope`, whose drag crosses from one viewer into the text around it; copied text is the rendered
+  text. LiveMarkdown's text block ends its pointer-released handling before Avalonia raises `ContextRequested` for a
+  right-click on it, so the viewer raises that request itself for a right release that reaches it unhandled, and the
+  request reaches the scope's menu. Code blocks have a copy button and no syntax colouring; the button copies the code
+  through `CopyFeedback.CopyAsync`, so once the code is on the clipboard it shows a check and is named Copied for two
+  seconds, then the copy glyph and the name Copy return. A second press restarts the two seconds. While `Streaming` is true
   and the new text extends the old, only the tail is appended. A `mermaid` fence becomes a diagram drawn by
   `IMermaidRenderer` from `Darkspyre.Common.Markdown.Mermaid` (default `MermaiderRenderer`), rasterized with Svg.Skia. The
   viewer converts its `panel`, `text`, `line` and `accent` colours and `font-body` family to a `MermaidTheme`. A fence the
@@ -446,7 +499,9 @@ and inline code and code blocks take `font-code` at `font-size-code`. LiveMarkdo
 - **`SourceView`** shows read-only text in AvaloniaEdit with line numbers and TextMate highlighting chosen by file
   extension or language id. `Find` marks every case-insensitive match; `FindNext` and `FindPrevious` wrap. `GoToLine`
   scrolls to a line; asked for before the text is set, it applies when the text arrives. A new `Text` keeps the
-  scroll position. The highlighter exists only while the view is in a window.
+  scroll position. The highlighter exists only while the view is in a window. The view is an `IEditCommandTarget`: the
+  platform's Copy key copies the selected text through the copy request, ahead of the editor's own copy, Select All
+  selects the whole file, and the right-click menu is `SelectionMenu.Text`.
 - **`DiffView`** compares `OldText` and `NewText` with `TextDiff` off the UI thread, once per pair of texts, with three
   lines of context, as one unified column. Each hunk starts with a header on the background colour, `@@ -a,b +c,d @@`
   and the section it is in: the nearest old line above the hunk that starts with a letter, an underscore or a dollar
@@ -459,8 +514,9 @@ and inline code and code blocks take `font-code` at `font-size-code`. LiveMarkdo
   endings take part in the comparison. Equal texts show "No text differences."; a comparison over the work limit (4
   million table cells) shows its error. `ShowHunks` shows hunks computed elsewhere, such as by a remote Harness,
   instead: it cancels a running comparison, and its headers name no section. `Find` marks every case-insensitive match and `FindNext` and `FindPrevious`
-  wrap, as in `SourceView`; in both views the selected match's line sits on an accent band. `TextDiff` and its line
-  types are public for callers that compare without a view.
+  wrap, as in `SourceView`; in both views the selected match's line sits on an accent band. Copy, Select All and the
+  menu work as in `SourceView`; the gutter draws the numbers and marks, so copied lines hold neither. `TextDiff` and its
+  line types are public for callers that compare without a view.
 - **`TextFiles.Decode`** turns a text file's bytes into text for the viewers: UTF-8 with or without a byte order mark,
   UTF-16 or UTF-32 with one, up to `TextFiles.MaximumBytes` (8 MiB). Larger, undecodable or NUL-holding bytes throw an
   `IOException` whose message the viewers show.
@@ -475,14 +531,21 @@ and inline code and code blocks take `font-code` at `font-size-code`. LiveMarkdo
   Pages are drawn in tiles of up to 1024 device pixels, two at a time, only near the visible area. A zoom change
   redraws the tiles; a resize that leaves the scale as it was keeps them. Find highlights are redrawn only when the
   matches, the shown match or a page's text layer change. Each page's text is
-  read once in the background into transparent, selectable lines over the page; internal links scroll to their
+  read once in the background into transparent text lines over the page, which the surface's selection scope selects
+  across; internal links scroll to their
   target. `Find`, `FindNext` and `FindPrevious` search the text read so far; `CurrentMatch` is the shown match. `Zoom` is a percentage from 50 to 400,
   fit width or fit page.
 - **`TerminalView`** is a VT screen over RoyalTerminal with no process of its own. `Write` feeds the process's output
   in; the person's keystrokes come out of `InputReceived` already encoded, and `ScreenSizeChanged` reports the cell
   size when the view is resized. Both run through a transport the view owns, so RoyalTerminal starts no shell. The
   screen's background and text colours follow `panel` and `text`, and a resource pass that leaves a colour as it was
-  sets nothing. The owner disposes the view when its panel closes.
+  sets nothing. The owner disposes the view when its panel closes. `TerminalView.KeysFor` gives the Copy, Paste and
+  Select All keys from the platform's command modifier: Cmd+C, Cmd+V and Cmd+A with Meta, and Ctrl+Shift+C, Ctrl+Shift+V
+  and Ctrl+Shift+A with Control, so Ctrl+C, Ctrl+V and Ctrl+A reach the program. RoyalTerminal keeps only Paste; the view
+  runs Copy and Select All itself. Copy goes through the copy request and copies nothing with nothing selected; after
+  Select All it copies the whole buffer, scrollback included, until the next press or another key. A modifier pressed
+  alone keeps the Select All. `Paste` sends the clipboard's text to the program. The right-click menu is
+  `SelectionMenu.Terminal`.
 
 ## Darkspyre.Mobile.Components
 
