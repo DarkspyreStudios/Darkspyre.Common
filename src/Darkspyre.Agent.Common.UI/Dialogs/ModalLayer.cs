@@ -41,10 +41,11 @@ public sealed class ModalLayer : Panel
         content.VerticalAlignment = dialog.FillsWindow ? VerticalAlignment.Stretch : VerticalAlignment.Center;
         // The scope has no background, so a press beside a centred dialog still reaches the backdrop.
         backdrop.Child = new TextSelectionScope { Child = content };
+        // Subscribed before the backdrop joins the layer: on a layer already in a window, adding it attaches the view at once.
+        content.AttachedToVisualTree += (_, _) => (content as InputElement)?.Focus();
         this.open.Add((backdrop, dialog));
         this.Children.Add(backdrop);
         this.IsHitTestVisible = true;
-        content.AttachedToVisualTree += (_, _) => (content as InputElement)?.Focus();
     }
 
     /// <summary>

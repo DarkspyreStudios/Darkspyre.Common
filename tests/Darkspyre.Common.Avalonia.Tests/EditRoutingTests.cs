@@ -43,7 +43,7 @@ public sealed class EditRoutingTests
         Assert.True(EditRouting.Run(window, EditCommand.Copy));
         await ViewSession.WaitForAsync(() => CopyHandlerFixture.ClipboardAsync(window).Result == "source");
 
-        window.Focus();
+        window.FocusManager!.Focus(null);
         Assert.True(EditRouting.Run(window, EditCommand.Copy));
         await ViewSession.WaitForAsync(() => CopyHandlerFixture.ClipboardAsync(window).Result == "Window text");
 

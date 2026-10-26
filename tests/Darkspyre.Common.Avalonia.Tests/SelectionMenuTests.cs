@@ -29,6 +29,8 @@ public sealed class SelectionMenuTests
         MarkdownViewer reply = new() { Text = "Reply text here" };
         TextSelectionScope scope = new() { Child = new StackPanel { Children = { plain, reply } } };
         Window window = ViewSession.Show(scope);
+        SolidColorBrush expected = new(Colors.DodgerBlue, 0.4);
+        window.Resources["color-primary.brush.40"] = expected;
         await ViewSession.WaitForAsync(() => window.GetVisualDescendants().OfType<MarkdownTextBlock>().Any(block => block.Inlines?.Text is { Length: > 0 }));
         MarkdownTextBlock markdown = window.GetVisualDescendants().OfType<MarkdownTextBlock>().First(block => block.Inlines?.Text is { Length: > 0 });
         MenuFlyout menu = SelectionMenu.Text;
@@ -54,7 +56,6 @@ public sealed class SelectionMenuTests
         Assert.Equal(selected, scope.SelectedText);
         menu.Hide();
 
-        IBrush expected = Assert.IsAssignableFrom<IBrush>(window.FindResource("color-primary.brush.40"));
         Assert.Same(expected, markdown.SelectionBrush);
         Assert.Same(expected, Assert.IsType<TextHighlight>(AdornerLayer.GetAdorner(plain)).Brush);
     });
