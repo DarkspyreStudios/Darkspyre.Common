@@ -222,82 +222,28 @@ public sealed class MarkdownViewerTests
     });
 
     /// <summary>
-    /// The Select All key selects the whole message, and its copy is the Markdown source, the text the message copy
-    /// button copies; a partial selection copies the rendered text.
+    /// The code-block copy button copies the code through the copy request, then shows a check named Copied for two
+    /// seconds; a refused copy shows no check.
     /// </summary>
-    [Fact]
-    public Task SelectAllGivesTheSourceAndAPartialSelectionTheRenderedText() => ViewSession.RunAsync(async () =>
-    {
-        const string Source = "Some **bold** text\n\nA second paragraph";
-        MarkdownViewer viewer = new() { Text = Source };
-        Window window = ViewSession.Show(viewer);
-        await ViewSession.WaitForAsync(() => Text(viewer).Contains("second", StringComparison.Ordinal));
-        KeyGesture selectAll = Application.Current!.PlatformSettings!.HotkeyConfiguration.SelectAll[0];
-
-        viewer.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = selectAll.Key, KeyModifiers = selectAll.KeyModifiers });
-
-        Assert.True(viewer.CanCopy);
-        Assert.Equal(Source, viewer.SelectedText);
-        Assert.True(await viewer.CopyAsync());
-        Assert.Equal(Source, await ClipboardExtensions.TryGetTextAsync(window.Clipboard!));
-
-        Assert.Single(ViewSession.All<MarkdownRenderer>(viewer)).ClearSelection();
-        MarkdownTextBlock first = ViewSession.All<MarkdownTextBlock>(viewer).First();
-        first.SelectionStart = 5;
-        first.SelectionEnd = 9;
-        Assert.Equal("bold", viewer.SelectedText);
-    });
-
-    /// <summary>
-    /// A right-click on the text opens the viewer's menu: Copy and Select All, with Copy off until text is selected, and
-    /// Copy writes the selection. The click is real pointer input, so the text block under the pointer handles it.
-    /// </summary>
-    [Fact]
-    public Task ARightClickOnTheTextOpensCopyAndSelectAll() => ViewSession.RunAsync(async () =>
-    {
-        MarkdownViewer viewer = new() { Text = "One paragraph" };
-        Window window = ViewSession.Show(viewer);
-        await ViewSession.WaitForAsync(() => Text(viewer).Contains("One", StringComparison.Ordinal));
-        MenuFlyout menu = Assert.IsType<MenuFlyout>(viewer.ContextFlyout);
-        MenuItem[] items = [.. menu.Items.Cast<MenuItem>()];
-        Assert.Equal(["Copy", "Select All"], items.Select(item => item.Header));
-        MarkdownTextBlock text = ViewSession.All<MarkdownTextBlock>(viewer).First();
-        Point point = text.TranslatePoint(new Point(10, text.Bounds.Height / 2), window)!.Value;
-        Assert.Same(text, window.InputHitTest(point));
-
-        void RightClick()
-        {
-            window.MouseDown(point, MouseButton.Right);
-            window.MouseUp(point, MouseButton.Right);
-            ViewSession.Settle();
-        }
-
-        RightClick();
-        Assert.True(menu.IsOpen);
-        Assert.False(items[0].IsEnabled);
-        items[1].RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
-        menu.Hide();
-        Assert.Equal("One paragraph", viewer.SelectedText);
-
-        RightClick();
-        Assert.True(menu.IsOpen);
-        Assert.True(items[0].IsEnabled);
-        items[0].RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
-        await ViewSession.WaitForAsync(() => ClipboardExtensions.TryGetTextAsync(window.Clipboard!).GetAwaiter().GetResult() == "One paragraph");
-        menu.Hide();
-    });
-
-    /// <summary>The code-block copy button writes the code, then shows a check named Copied for two seconds.</summary>
     [Fact]
     public Task CodeBlockCopyWritesTheCodeAndShowsACheckForTwoSeconds() => ViewSession.RunAsync(async () =>
     {
         MarkdownViewer viewer = new() { Text = "```\nlet x = 1;\n```" };
         Window window = ViewSession.Show(viewer);
+        CopyHandlerFixture copies = CopyHandlerFixture.Attach(window);
         await ViewSession.WaitForAsync(() => ViewSession.All<Button>(viewer).Any(button => button.Name == "PART_CopyButton"));
         Button copy = ViewSession.All<Button>(viewer).Single(button => button.Name == "PART_CopyButton");
         global::Avalonia.Controls.Shapes.Path glyph = Assert.IsType<global::Avalonia.Controls.Shapes.Path>(Assert.IsType<Viewbox>(copy.Content).Child);
         Geometry? copyGlyph = glyph.Data;
 
+        copies.Refuse = true;
+        copy.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        await ViewSession.WaitForAsync(() => copies.Requests.Count == 1);
+        ViewSession.Settle();
+        Assert.Same(copyGlyph, glyph.Data);
+        Assert.NotEqual("Copied", AutomationProperties.GetName(copy));
+
+        copies.Refuse = false;
         Stopwatch shown = Stopwatch.StartNew();
         copy.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         await ViewSession.WaitForAsync(() => AutomationProperties.GetName(copy) == "Copied");

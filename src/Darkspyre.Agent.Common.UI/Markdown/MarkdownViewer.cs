@@ -40,8 +40,9 @@ public sealed class MarkdownLinkEventArgs(string target) : EventArgs
 /// <remarks>
 /// Links, attributes, media and raw HTML follow <see cref="MarkdownSafety"/>. With a <see cref="LinkSource"/>, the
 /// source also adds links to plain text and code spans. Code blocks carry a copy
-/// button that shows a check for two seconds after it copies, and no syntax colouring. The context menu offers Copy and
-/// Select All; the platform's Copy and Select All keys do the same. A <c>mermaid</c> fence is drawn by
+/// button that copies through <see cref="TextCopy"/> and shows a check for two seconds after the copy, and no syntax
+/// colouring. Selection, the right-click menu and the Copy and Select All keys come from the enclosing
+/// <see cref="TextSelectionScope"/>; a right-click on the text requests that menu. A <c>mermaid</c> fence is drawn by
 /// <see cref="MermaidRenderer"/>; when that draws nothing, the fence stays a code block. Colours come from the theme token resources and follow them when they change:
 /// inline code has no fill of its own and its text is <c>code-inline</c>, code blocks and quotes sit on <c>raised</c>, code
 /// block text is <c>text</c>, a code block's header and border, table
@@ -97,9 +98,6 @@ public sealed class MarkdownViewer : TemplatedControl
     // Whether a relink is parsing, and whether the link source changed again meanwhile. Used only on the UI thread.
     private bool relinking;
     private bool relinkAgain;
-
-    // The rendered text Select All selected, while that selection lasts; null after any other selection.
-    private string? selectedAll;
 
     static MarkdownViewer() => MarkdownNode.Register<MermaidNode>();
 
@@ -169,9 +167,7 @@ public sealed class MarkdownViewer : TemplatedControl
         this.producer = new MarkdownUpdateProducer { Pipeline = Pipeline, MarkdownBuilder = this.builder };
         this.renderer.UpdateProducer = this.producer;
         this.renderer.LinkCommand = new LinkActivation(this.Activate);
-        this.ContextFlyout = SelectionMenu.Create(() => this.CanCopy, () => _ = this.CopyAsync(), this.SelectAll);
         this.AddHandler(PointerReleasedEvent, this.RequestContext);
-        this.AddHandler(KeyDownEvent, this.HandleKeyDown, RoutingStrategies.Tunnel);
         this.AddHandler(CodeBlock.CopyingToClipboardEvent, this.CopyCode);
         this.Template = new FuncControlTemplate<MarkdownViewer>((viewer, _) => viewer.renderer);
         this.ActualThemeVariantChanged += (_, _) =>
@@ -229,36 +225,11 @@ public sealed class MarkdownViewer : TemplatedControl
         }
     }
 
-    /// <summary>True while the viewer has a selection Copy can write.</summary>
-    public bool CanCopy => this.renderer.CanCopy;
-
-    /// <summary>The selected text. Directly after SelectAll, unchanged, it is Text, the source the message copy button
-    /// copies; otherwise the rendered selection.</summary>
-    public string SelectedText
-    {
-        get
-        {
-            string rendered = this.renderer.SelectedText;
-            return this.selectedAll is not null && rendered == this.selectedAll ? this.Text ?? string.Empty : rendered;
-        }
-    }
-
     /// <summary>Raised when the user activates an allowed link.</summary>
     public event EventHandler<MarkdownLinkEventArgs>? LinkActivated;
 
     /// <summary>Raised when the theme variant or a theme resource changes, so diagrams are drawn again.</summary>
     internal event EventHandler? ThemeChanged;
-
-    /// <summary>Selects every block and remembers the rendered text of that selection.</summary>
-    public void SelectAll()
-    {
-        this.renderer.SelectAll();
-        this.selectedAll = this.renderer.SelectedText;
-    }
-
-    /// <summary>Writes SelectedText to the window's clipboard. False when nothing is selected, there is no clipboard or the
-    /// write fails.</summary>
-    public Task<bool> CopyAsync() => this.WriteAsync(this.SelectedText);
 
     /// <inheritdoc />
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -311,7 +282,6 @@ public sealed class MarkdownViewer : TemplatedControl
     private void Show(string text)
     {
         if (text == this.shown) return;
-        this.selectedAll = null;
         if (this.Streaming && text.StartsWith(this.shown, StringComparison.Ordinal)) this.builder.Append(text[this.shown.Length..]);
         else
         {
@@ -395,45 +365,15 @@ public sealed class MarkdownViewer : TemplatedControl
         e.Handled = request.Handled;
     }
 
-    // Handled before LiveMarkdown's own key handler, which would copy the rendered text after Select All.
-    private void HandleKeyDown(object? sender, KeyEventArgs e)
-    {
-        if (Application.Current?.PlatformSettings?.HotkeyConfiguration is not { } keys) return;
-        if (keys.Copy.Any(gesture => gesture.Matches(e)))
-        {
-            _ = this.CopyAsync();
-            e.Handled = true;
-        }
-        else if (keys.SelectAll.Any(gesture => gesture.Matches(e)))
-        {
-            this.SelectAll();
-            e.Handled = true;
-        }
-    }
-
     // LiveMarkdown raises this before its code-block button copies and skips its own copy when it is handled.
     private void CopyCode(object? sender, RoutedEventArgs e)
     {
         if (e.Source is not CodeBlock block) return;
         e.Handled = true;
-        _ = this.CopyCodeAsync(block);
-    }
-
-    private async Task CopyCodeAsync(CodeBlock block)
-    {
-        if (await this.WriteAsync(block.Code) && block.GetVisualDescendants().OfType<Button>().FirstOrDefault(button => button.Name == "PART_CopyButton") is { } copy)
-            CopyFeedback.Show(copy);
-    }
-
-    private async Task<bool> WriteAsync(string? text)
-    {
-        if (string.IsNullOrEmpty(text) || TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard) return false;
-        try
-        {
-            await clipboard.SetTextAsync(text);
-            return true;
-        }
-        catch (Exception error) when (error is not OutOfMemoryException) { return false; }
+        string code = block.Code ?? string.Empty;
+        if (block.GetVisualDescendants().OfType<Button>().FirstOrDefault(button => button.Name == "PART_CopyButton") is { } copy)
+            _ = CopyFeedback.CopyAsync(copy, code);
+        else _ = TextCopy.RequestAsync(block, code);
     }
 
     private void Activate(object? parameter)

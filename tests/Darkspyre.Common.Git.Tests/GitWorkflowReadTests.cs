@@ -41,6 +41,18 @@ public sealed class GitWorkflowReadTests
         Assert.False(unrelated.LeftContainsRight || unrelated.RightContainsLeft);
     }
 
+    /// <summary>A commit's full message reads back whole: subject, blank line and a two-paragraph body.</summary>
+    [Fact]
+    public async Task ReadCommitMessageGivesSubjectAndBody()
+    {
+        const string Message = "Subject line\n\nThe first paragraph\nruns over two lines.\n\nThe second paragraph.";
+        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-message-");
+        repository.Write("a.txt", "a\n");
+        string commit = repository.Commit(Message);
+
+        Assert.Equal(Message, await repository.First.Reader.ReadCommitMessageAsync(repository.Path, commit, default));
+    }
+
     /// <summary>G12: each operation's kind and conflicted paths.</summary>
     [Theory]
     [InlineData("rebase")]

@@ -163,6 +163,15 @@
     <Setter Property="BorderBrush" Value="{DynamicResource color-input.brush}" />
     <Setter Property="Foreground" Value="{DynamicResource text.brush}" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="ContextFlyout" Value="{x:Static controls:SelectionMenu.TextBox}" />
+  </Style>
+  <!-- Text a surface's selection scope owns: one selection menu and one highlight brush for every text. -->
+  <Style Selector="SelectableTextBlock">
+    <Setter Property="ContextFlyout" Value="{x:Static controls:SelectionMenu.Text}" />
+    <Setter Property="SelectionBrush" Value="{DynamicResource color-primary.brush.40}" />
+  </Style>
+  <Style Selector="controls|TextSelectionScope">
+    <Setter Property="ContextFlyout" Value="{x:Static controls:SelectionMenu.Text}" />
   </Style>
   <Style Selector="TextBox /template/ Border#PART_BorderElement">
     <Setter Property="MinHeight" Value="0" />
@@ -1326,7 +1335,7 @@
   <Style Selector="TextBlock.surface-failure-error">
     <Setter Property="Foreground" Value="{DynamicResource danger.brush}" />
   </Style>
-  <Style Selector="SelectableTextBlock.surface-failure-stack">
+  <Style Selector="TextBlock.surface-failure-stack">
     <Setter Property="Background" Value="{DynamicResource bg.brush}" />
     <Setter Property="Foreground" Value="{DynamicResource faint.brush}" />
     <Setter Property="FontFamily" Value="{DynamicResource font-secondary}" />

@@ -1,7 +1,10 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media;
+using Darkspyre.Agent.Common.UI.Controls;
 using AvaloniaEdit;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Rendering;
@@ -32,6 +35,27 @@ internal static class CodeEditors
         Bind(editor, TemplatedControl.BackgroundProperty, "panel.brush");
         Bind(editor, TextEditor.LineNumbersForegroundProperty, "muted.brush");
         return editor;
+    }
+
+    /// <summary>Gives <paramref name="editor"/> the selection menu and sends the platform's Copy and Select All keys to
+    /// <paramref name="view"/>, ahead of the editor's own copy, which writes the clipboard itself.</summary>
+    public static void RouteEdits(TextEditor editor, IEditCommandTarget view)
+    {
+        editor.ContextFlyout = SelectionMenu.Text;
+        editor.AddHandler(InputElement.KeyDownEvent, (_, e) =>
+        {
+            if (EditRouting.Keys is not { } keys) return;
+            if (keys.Copy.Any(gesture => gesture.Matches(e)))
+            {
+                view.Copy();
+                e.Handled = true;
+            }
+            else if (keys.SelectAll.Any(gesture => gesture.Matches(e)))
+            {
+                view.SelectAll();
+                e.Handled = true;
+            }
+        }, RoutingStrategies.Tunnel);
     }
 
     /// <summary>Follows the resource <paramref name="key"/> for <paramref name="property"/> while one is supplied.</summary>

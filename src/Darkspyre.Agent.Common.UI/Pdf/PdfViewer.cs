@@ -653,20 +653,19 @@ public sealed class PdfViewer : TemplatedControl, IDisposable
             });
         }
 
-        // Each line is a selectable, transparent text block over the drawn page, stretched to the width of its box.
+        // Each line is a transparent text block over the drawn page, stretched to the width of its box; the surface's
+        // selection scope selects across the lines.
         public void ShowText(IReadOnlyList<PdfTextLine>? lines, double scale)
         {
             if (lines is null || this.textScale == scale) return;
             this.textScale = scale;
             this.text.Children.Clear();
-            IBrush selection = this.owner.Brush("accent.brush.40", new SolidColorBrush(Colors.DodgerBlue, 0.4));
             foreach (PdfTextLine line in lines)
             {
-                SelectableTextBlock block = new()
+                TextBlock block = new()
                 {
                     Text = line.Text,
                     Foreground = Brushes.Transparent,
-                    SelectionBrush = selection,
                     FontSize = Math.Max(1, line.Box.Height * scale * 0.85),
                     RenderTransformOrigin = RelativePoint.TopLeft,
                 };

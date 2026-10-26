@@ -3,12 +3,14 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Darkspyre.Agent.Common.UI.Controls;
 
 namespace Darkspyre.Agent.Common.UI.Dialogs;
 
 /// <summary>
 /// The window's layer for sheets and confirmations, above the shell. Each open dialog shows over a backdrop; Escape or a
-/// click on the backdrop dismisses the topmost one. The shell view places the layer; any view opens a dialog here.
+/// click on the backdrop dismisses the topmost one. The shell view places the layer; any view opens a dialog here. Each
+/// dialog's view sits in its own <see cref="TextSelectionScope"/>, so a drag and Select All in it stay in the dialog.
 /// </summary>
 public sealed class ModalLayer : Panel
 {
@@ -37,7 +39,8 @@ public sealed class ModalLayer : Panel
         Control content = dialog.View;
         content.HorizontalAlignment = dialog.FillsWindow ? HorizontalAlignment.Stretch : HorizontalAlignment.Center;
         content.VerticalAlignment = dialog.FillsWindow ? VerticalAlignment.Stretch : VerticalAlignment.Center;
-        backdrop.Child = content;
+        // The scope has no background, so a press beside a centred dialog still reaches the backdrop.
+        backdrop.Child = new TextSelectionScope { Child = content };
         this.open.Add((backdrop, dialog));
         this.Children.Add(backdrop);
         this.IsHitTestVisible = true;
@@ -60,6 +63,9 @@ public sealed class ModalLayer : Panel
         }
         return base.MeasureOverride(availableSize);
     }
+
+    /// <summary>The backdrop of the topmost open dialog, or null when none is open.</summary>
+    internal Control? TopDialog => this.open.Count > 0 ? this.open[^1].Backdrop : null;
 
     /// <summary>Removes <paramref name="dialog"/>; a dialog already gone is ignored.</summary>
     public void Close(IModal dialog)

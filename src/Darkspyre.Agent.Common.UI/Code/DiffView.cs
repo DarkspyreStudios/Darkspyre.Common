@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Media;
+using Darkspyre.Agent.Common.UI.Controls;
 using Avalonia.Threading;
 using AvaloniaEdit;
 using AvaloniaEdit.Document;
@@ -19,11 +20,12 @@ namespace Darkspyre.Agent.Common.UI.Code;
 /// danger colour sit above the added lines that replace them, on its ok colour. A hunk header names the section it is in
 /// after the line ranges: the nearest line above the hunk that starts with a letter, an underscore or a dollar sign, or a
 /// Markdown heading without its hashes. A last line with no line break is followed by a "No final newline" note. Line
-/// breaks take part in the comparison.
+/// breaks take part in the comparison. Copy gives the selected lines without their numbers or marks, which the gutter
+/// draws; the right-click menu is <see cref="SelectionMenu.Text"/>.
 /// </summary>
 /// <gotcha>A null text compares as an empty file. The view names neither version; its caller shows which versions it
 /// compares and names an absent one, such as "Not in the last commit".</gotcha>
-public sealed class DiffView : TemplatedControl
+public sealed class DiffView : TemplatedControl, IEditCommandTarget
 {
     /// <summary>The old text, or null for none.</summary>
     public static readonly StyledProperty<string?> OldTextProperty = AvaloniaProperty.Register<DiffView, string?>(nameof(OldText));
@@ -41,6 +43,7 @@ public sealed class DiffView : TemplatedControl
     {
         this.status.Classes.Add("diff-status");
         this.unified = new Unified(this);
+        CodeEditors.RouteEdits(this.unified.Editor, this);
         this.root.Child = this.unified.View;
         Panel content = new();
         content.Children.Add(this.root);
@@ -74,6 +77,15 @@ public sealed class DiffView : TemplatedControl
 
     /// <summary>The one-based index of the selected match, or 0 when none is selected.</summary>
     public int CurrentMatch => this.unified.Finder.CurrentMatch;
+
+    /// <summary>True while lines are selected.</summary>
+    public bool CanCopy => this.unified.Editor.SelectionLength > 0;
+
+    /// <summary>Copies the selected lines through <see cref="TextCopy"/>.</summary>
+    public void Copy() => _ = TextCopy.RequestAsync(this, this.unified.Editor.SelectedText);
+
+    /// <summary>Selects the whole diff.</summary>
+    public void SelectAll() => this.unified.Editor.SelectAll();
 
     /// <summary>
     /// Shows <paramref name="hunks"/> computed elsewhere, such as on another machine, instead of comparing
@@ -184,6 +196,8 @@ public sealed class DiffView : TemplatedControl
         }
 
         public Control View { get; }
+
+        public TextEditor Editor => this.editor;
 
         public EditorFind Finder { get; }
 

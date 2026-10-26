@@ -125,6 +125,20 @@ internal sealed partial class GitRepositoryReader(GitCommands git, IGitPathPolic
     }
 
     /// <summary>
+    /// The full message of <paramref name="commit"/> in the caller's authorized directory, as Git stores it, without the
+    /// trailing line break. A commit that does not resolve throws <see cref="GitOperationException"/> with
+    /// <see cref="GitFailure.RevisionNotFound"/>.
+    /// </summary>
+    internal async Task<string> ReadCommitMessageAsync(string directory, string commit, CancellationToken cancellationToken)
+    {
+        GitLayout layout = await this.OpenAsync(directory, cancellationToken).ConfigureAwait(false);
+        string resolved = await this.ResolveCommitAsync(layout.WorktreePath, commit, cancellationToken).ConfigureAwait(false);
+        byte[] message = await this.ReadAsync(layout.WorktreePath,
+            ["show", "-s", "--no-color", "--no-show-signature", "--format=%B", resolved], cancellationToken).ConfigureAwait(false);
+        return Encoding.UTF8.GetString(message).TrimEnd('\n');
+    }
+
+    /// <summary>
     /// Whether the path policy permits reading <paramref name="absolutePath"/>: it refuses or not. A path with no file now
     /// is still readable, so a historical path under a grant reads. Other failures propagate.
     /// </summary>

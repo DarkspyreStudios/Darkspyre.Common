@@ -174,6 +174,15 @@ public sealed class GitClient
     public Task<GitCommitResolution> ResolveCommitAsync(string directory, string reference, CancellationToken cancellationToken = default) =>
         this.reader.ResolveExactCommitAsync(directory, reference, cancellationToken);
 
+    /// <summary>
+    /// The full message of <paramref name="commit"/> in the repository at <paramref name="directory"/>: subject, blank line
+    /// and body, as Git stores it, without the trailing line break.
+    /// </summary>
+    /// <gotcha>A commit that does not resolve throws <see cref="GitOperationException"/> with
+    /// <see cref="GitFailure.RevisionNotFound"/>.</gotcha>
+    public Task<string> ReadCommitMessageAsync(string directory, string commit, CancellationToken cancellationToken = default) =>
+        this.reader.ReadCommitMessageAsync(directory, commit, cancellationToken);
+
     /// <summary>Reads the changed files and raw patch for a comparison.</summary>
     public Task<GitDiffResult> ReadDiffAsync(GitDiffRequest request, CancellationToken cancellationToken = default) =>
         this.reader.ReadDiffAsync(request, cancellationToken);

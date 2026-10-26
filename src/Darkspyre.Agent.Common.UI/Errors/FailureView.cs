@@ -68,7 +68,7 @@ public sealed class FailureView : UserControl
             table.RowDefinitions.Add(new(GridLength.Auto));
             TextBlock name = Forms.Text(rows[row].Label, "surface-failure-label");
             Grid.SetRow(name, row);
-            SelectableTextBlock content = new() { Text = rows[row].Value, TextWrapping = TextWrapping.Wrap };
+            TextBlock content = new() { Text = rows[row].Value, TextWrapping = TextWrapping.Wrap };
             Grid.SetRow(content, row);
             Grid.SetColumn(content, 1);
             table.Children.Add(name);
@@ -77,7 +77,7 @@ public sealed class FailureView : UserControl
         details.Children.Add(table);
         if (stack is { Length: > 0 })
         {
-            SelectableTextBlock trace = new() { Text = stack, TextWrapping = TextWrapping.Wrap };
+            TextBlock trace = new() { Text = stack, TextWrapping = TextWrapping.Wrap };
             trace.Classes.Add("surface-failure-stack");
             details.Children.Add(trace);
         }

@@ -6,17 +6,19 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using AvaloniaEdit;
 using AvaloniaEdit.TextMate;
+using Darkspyre.Agent.Common.UI.Controls;
 using TextMateSharp.Grammars;
 
 namespace Darkspyre.Agent.Common.UI.Code;
 
 /// <summary>
 /// A read-only source file: line numbers, TextMate highlighting for the file's language, find with every match marked,
-/// and a target line it scrolls to. A new text keeps the scroll position.
+/// and a target line it scrolls to. A new text keeps the scroll position. Copy gives the selected lines without line
+/// numbers; the right-click menu is <see cref="SelectionMenu.Text"/>.
 /// </summary>
 /// <gotcha>The highlighter is installed while the view is in a window and removed when it leaves, so a view that is
 /// never shown holds no TextMate state.</gotcha>
-public sealed class SourceView : TemplatedControl
+public sealed class SourceView : TemplatedControl, IEditCommandTarget
 {
     /// <summary>The text shown.</summary>
     public static readonly StyledProperty<string?> TextProperty = AvaloniaProperty.Register<SourceView, string?>(nameof(Text));
@@ -35,6 +37,7 @@ public sealed class SourceView : TemplatedControl
     public SourceView()
     {
         this.finder = new EditorFind(this.editor, this);
+        CodeEditors.RouteEdits(this.editor, this);
         this.Template = new FuncControlTemplate<SourceView>((view, _) => view.editor);
         global::Avalonia.Automation.AutomationProperties.SetName(this.editor, "Source");
         this.ActualThemeVariantChanged += (_, _) =>
@@ -80,6 +83,15 @@ public sealed class SourceView : TemplatedControl
 
     /// <summary>The one-based index of the selected match, or 0 when none is selected.</summary>
     public int CurrentMatch => this.finder.CurrentMatch;
+
+    /// <summary>True while text is selected.</summary>
+    public bool CanCopy => this.editor.SelectionLength > 0;
+
+    /// <summary>Copies the selected text through <see cref="TextCopy"/>.</summary>
+    public void Copy() => _ = TextCopy.RequestAsync(this, this.editor.SelectedText);
+
+    /// <summary>Selects the whole file.</summary>
+    public void SelectAll() => this.editor.SelectAll();
 
     /// <inheritdoc />
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
