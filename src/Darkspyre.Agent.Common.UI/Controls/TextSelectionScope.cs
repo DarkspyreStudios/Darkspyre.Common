@@ -96,6 +96,15 @@ public sealed class TextSelectionScope : Decorator, IEditCommandTarget
     /// <summary>Raised when the selection changes, including when it clears.</summary>
     public event EventHandler? SelectionChanged;
 
+    /// <summary>True while some of the selected text lies in <paramref name="within"/> or inside it, such as one row of
+    /// the surface.</summary>
+    /// <param name="within">A visual in this scope.</param>
+    public bool HasSelectionIn(Visual within)
+    {
+        ArgumentNullException.ThrowIfNull(within);
+        return this.ranges.Keys.Any(leaf => ReferenceEquals(leaf, within) || within.IsVisualAncestorOf(leaf));
+    }
+
     /// <summary>Requests the copy of <see cref="SelectedText"/> through <see cref="TextCopy"/>.</summary>
     public void Copy()
     {

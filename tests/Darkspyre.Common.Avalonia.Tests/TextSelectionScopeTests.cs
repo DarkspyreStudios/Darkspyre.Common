@@ -118,6 +118,24 @@ public sealed class TextSelectionScopeTests
         Assert.Equal("Result\nIt is done.\nlet x = 1;", await CopyHandlerFixture.ClipboardAsync(window));
     });
 
+    /// <summary>A drag inside one row: the scope says its selection lies in that row and not in the other.</summary>
+    [Fact]
+    public Task HasSelectionInNamesTheRowTheSelectionLiesIn() => ViewSession.RunAsync(() =>
+    {
+        TextBlock first = new() { Text = "First row text" }, second = new() { Text = "Second row text" };
+        StackPanel firstRow = new() { Children = { first } }, secondRow = new() { Children = { second } };
+        TextSelectionScope scope = new() { Child = new StackPanel { Children = { firstRow, secondRow } } };
+        Window window = ViewSession.Show(scope);
+        Assert.False(scope.HasSelectionIn(secondRow));
+
+        Input.Drag(window, Input.At(second, window, 1), Input.At(second, window, 40));
+
+        Assert.True(scope.HasSelectionIn(secondRow));
+        Assert.True(scope.HasSelectionIn(second));
+        Assert.False(scope.HasSelectionIn(firstRow));
+        return Task.CompletedTask;
+    });
+
     private static Border Block(Control content)
     {
         Border block = new() { Child = content };

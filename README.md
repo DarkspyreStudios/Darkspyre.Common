@@ -405,7 +405,8 @@ range in an adorner in `color-primary.brush.40`. A `SelectableTextBlock`, such a
 range through its own selection, and gets it back when it clears it itself outside a press. `SelectedText` is the text as
 shown: Markdown text gives its rendered words, a line break separates two texts, and a blank line separates texts
 whose nearest containers marked `TextSelection.IsBlock` differ. A window holds one selection:
-`TextSelection.CurrentScope(window)` is the scope that holds it. A scope is not focusable until a press that starts a
+`TextSelection.CurrentScope(window)` is the scope that holds it. `HasSelectionIn(visual)` tells whether some of the
+selected text lies in a given visual, such as one row of the surface. A scope is not focusable until a press that starts a
 selection focuses it, and stops being focusable when it loses focus, so a press on empty space leaves a focused text
 box focused.
 
