@@ -2,7 +2,7 @@
 
 `Darkspyre.LocalServices.Contracts` defines independent installation and subscriber interfaces, shared result/launch types,
 service identities and typed control/business messages,
-wire limits and lifecycle deadlines. It depends on the .NET libraries only. Protocol version 3 is
+wire limits and lifecycle deadlines. It depends on the .NET libraries only. Protocol version 5 is
 independent of the SDK/plugin version. `Darkspyre.LocalServices` contains the frame codec and the
 subscriber registry, portable connector, handshake and immutable package-cache policy. The build-selected
 platform assemblies own native files, transport and detached launch. Neither library
