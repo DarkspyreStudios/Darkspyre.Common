@@ -91,6 +91,22 @@ public sealed class ServiceConnector : IServiceConnector
         await installation.ResetCrashBudgetAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>Joins a running service without launching, asks it to stop, and returns once no process owns it.</summary>
+    public async Task StopAsync(CancellationToken cancellationToken = default)
+    {
+        using (IServiceInstallation installation = this.platform.OpenInstallation(this.registration))
+        {
+            // No owner, or one already draining, gets no frame; the wait below covers both.
+            ServiceSubscription? subscription = await TryConnectAsync(installation, cancellationToken).ConfigureAwait(false);
+            if (subscription is not null)
+            {
+                await using (subscription.ConfigureAwait(false))
+                    await subscription.RequestStopAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
+        await this.platform.WaitUntilStoppedAsync(ServiceInstaller.PluginDataOf(this.registration), cancellationToken).ConfigureAwait(false);
+    }
+
     private async Task<ServiceSubscription?> TryConnectAsync(IServiceInstallation installation, CancellationToken cancellationToken)
     {
         ServicePeer? peer = null;

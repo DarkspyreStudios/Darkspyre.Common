@@ -19,12 +19,10 @@ internal sealed class WindowsServiceListener : IDisposable
     private WindowsServiceListener(WindowsServiceOwner owner, ServiceDiscovery identity, byte[] capability)
     { this.owner = owner; this.Identity = identity; this.capability = capability; }
     internal ServiceDiscovery Identity { get; }
+    // One name per runtime folder and user, so two copies of the app, each with its own folder, never share a pipe.
     internal static string PipeName(WindowsPrivateDirectory directory)
-    {
-        string application = Path.GetFileName(Path.GetDirectoryName(directory.Path)) ?? throw new InvalidDataException("The service runtime has no application directory.");
-        string sidHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(WindowsFileSecurity.User.Value)));
-        return $"Darkspyre.{application}.{sidHash}";
-    }
+        => "Darkspyre." + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(
+            directory.Path.ToUpperInvariant() + "\n" + WindowsFileSecurity.User.Value)));
     internal static WindowsServiceListener Bind(WindowsServiceOwner owner, ServiceFamily family, Guid storeId, string buildDigest, string layoutId, Guid epoch)
     {
         var identity = new ServiceDiscovery(family, ServiceProtocol.Version, epoch, storeId, buildDigest, layoutId);

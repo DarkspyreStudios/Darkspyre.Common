@@ -31,7 +31,9 @@ public static class MacServiceClient
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             deadline.CancelAfter(ServiceProtocol.ConnectDeadline);
             socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
-            await socket.ConnectAsync(new UnixDomainSocketEndPoint(MacServiceListener.SocketPath(runtime, discovery)), deadline.Token).ConfigureAwait(false);
+            // A blocking connect by the short name, on this thread, while its working folder is the runtime directory.
+            Socket connecting = socket;
+            MacThreadDirectory.Run(runtime, () => { connecting.Connect(new UnixDomainSocketEndPoint(MacServiceListener.SocketName(discovery))); return true; });
             var hello = new HelloMessage(family, ServiceProtocol.Version, expectedStoreId, clientBuildDigest);
             ServicePeer peer = await MacServiceHandshake.ConnectAsync(socket, discovery, capability, hello, deadline.Token).ConfigureAwait(false);
             socket = null;

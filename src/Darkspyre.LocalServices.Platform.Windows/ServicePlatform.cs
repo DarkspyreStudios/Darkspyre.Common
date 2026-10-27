@@ -38,6 +38,7 @@ public sealed partial class ServicePlatform : IServicePlatform
     {
         public async Task<ServicePeer?> TryConnectAsync(CancellationToken cancellationToken = default)
         {
+            Require();
             using var runtime = WindowsPrivateDirectory.OpenOrCreate(registration.RuntimePath);
             try { return await WindowsServiceClient.ConnectAsync(runtime, registration.Family, registration.StoreId, registration.ClientBuildDigest, cancellationToken).ConfigureAwait(false); }
             catch (ServiceProtocolException error) when (error.Code == ServiceErrorCode.Unavailable) { return null; }
@@ -47,30 +48,36 @@ public sealed partial class ServicePlatform : IServicePlatform
         }
         public async Task<ServiceLaunchReservation> TryReserveLaunchAsync(CancellationToken cancellationToken = default)
         {
+            Require();
             using var budget = new ServiceLaunchBudget(new WindowsServiceFileSystem(), registration.RuntimePath);
             return await budget.TryReserveAsync(cancellationToken).ConfigureAwait(false);
         }
         public async Task<ServicePackagePin> PinPreferredAsync(CancellationToken cancellationToken = default)
         {
+            Require();
             using var cache = ServicePackageCache.Open(new WindowsServiceFileSystem(), registration.PackageCachePath);
             return await cache.PinPreferredAsync(cancellationToken).ConfigureAwait(false);
         }
         public ServiceLaunchObservation Launch(ServicePackagePin pin, Guid attemptId)
         {
+            Require();
             DetachedServiceProcess process = WindowsDetachedLauncher.Start(pin.CreateLaunchSpec(registration.BuildArguments(pin, attemptId), registration.UserHome, registration.ScratchDirectory), pin);
             return new(attemptId, process.ProcessId, pin.BuildDigest, process.Completion);
         }
         public async Task RecordExitAsync(Guid attemptId, bool normalExit, CancellationToken cancellationToken = default)
         {
+            Require();
             using var budget = new ServiceLaunchBudget(new WindowsServiceFileSystem(), registration.RuntimePath);
             await budget.RecordExitAsync(attemptId, normalExit, cancellationToken).ConfigureAwait(false);
         }
         public async Task ResetCrashBudgetAsync(CancellationToken cancellationToken = default)
         {
+            Require();
             using var budget = new ServiceLaunchBudget(new WindowsServiceFileSystem(), registration.RuntimePath);
             await budget.ResetAsync(cancellationToken).ConfigureAwait(false);
         }
         public void Dispose() { }
+        private void Require() => ServiceInstaller.RequireInstalled(new WindowsServiceFileSystem(), registration);
         private static bool IsTransient(IOException error) => (error.InnerException is Win32Exception native ? native.NativeErrorCode : error.HResult & 0xffff) is 2 or 109 or 231 or 232 or 233;
     }
 

@@ -35,6 +35,24 @@ internal sealed class WindowsFileLease(SafeFileHandle handle) : IServicePackageL
         }
         finally { file?.Dispose(); }
     }
+    // Whether another handle holds the exclusive lease. A missing file is not held, and nothing is created.
+    internal static bool IsHeldElsewhere(WindowsPrivateDirectory directory, string name)
+    {
+        SafeFileHandle file;
+        try { file = WindowsPrivateDirectory.OpenNative(directory.Child(name), WindowsNative.Read | WindowsNative.Write, 3u, 3, directory: false); }
+        catch (IOException error) when (error.InnerException is Win32Exception { NativeErrorCode: WindowsNative.Missing }) { return false; }
+        catch (IOException error) when (error.InnerException is Win32Exception { NativeErrorCode: WindowsNative.SharingViolation }) { return true; }
+        using (file)
+        {
+            WindowsFileSecurity.Inspect(file, directory: false);
+            WindowsNative.Overlapped overlap = default;
+            // Closing the handle releases a lock this probe took.
+            if (WindowsNative.LockFileEx(file, 1 | 2, 0, 1, 0, ref overlap)) return false;
+            int error = Marshal.GetLastPInvokeError();
+            if (error == WindowsNative.LockViolation) return true;
+            throw WindowsNative.Error("probe ownership", error);
+        }
+    }
     internal static WindowsFileLease AdoptShared(SafeFileHandle inherited, WindowsPrivateDirectory directory, string name)
     {
         WindowsFileSecurity.Inspect(inherited, directory: false);

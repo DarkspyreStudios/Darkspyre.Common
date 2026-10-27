@@ -24,24 +24,28 @@ public sealed record ServiceRegistration(ServiceFamily Family, string RuntimePat
 /// <param name="PackageCachePath">The immutable payload cache root.</param>
 /// <param name="BuildDigest">The verified service package digest.</param>
 /// <param name="AttemptId">The reserved launch attempt identity.</param>
+/// <param name="ModelPath">The absolute Model files folder the service loads models from, from the registration's
+/// <c>--model-path</c> argument, or null when the registration records none.</param>
 public sealed record ServiceStart(ServiceFamily Family, Guid StoreId, string LayoutId, string RuntimePath,
-    string StorePath, string PackageCachePath, string BuildDigest, Guid AttemptId);
+    string StorePath, string PackageCachePath, string BuildDigest, Guid AttemptId, string? ModelPath = null);
+/// <summary>The folders a service's owner names, read from its settings each time it installs.</summary>
+/// <param name="PluginData">The owner's absolute Plugin data folder. The store is <c>&lt;PluginData&gt;/store</c>; the
+/// registration, program copies, connection point and scratch are in the library-created <c>&lt;PluginData&gt;/service</c>.</param>
+/// <param name="ModelFiles">The absolute Model files folder the service loads models from, or null to keep the one the
+/// registration records.</param>
+/// <param name="CreateIfMissing">True for the service's owner. False for a program that joins what the owner set up:
+/// it creates no folder and fails with <see cref="ServiceErrorCode.NotInstalled"/> when no registration is there.</param>
+public sealed record ServiceFolders(string PluginData, string? ModelFiles, bool CreateIfMissing);
 /// <summary>A bundled payload and its trusted manifest identity, installed by the subscriber library.</summary>
-/// <param name="ApplicationName">The subscriber application name used for installation.</param>
 /// <param name="Family">The fixed service family.</param>
 /// <param name="LayoutId">The installed layout identity.</param>
 /// <param name="ClientBuildDigest">The subscriber’s expected package digest.</param>
 /// <param name="PackageDirectory">The bundled immutable payload directory.</param>
 /// <param name="Manifest">The trusted payload inventory.</param>
 /// <param name="ServiceBuildDigest">The service package digest used by the installer.</param>
-/// <param name="DataRoot">The absolute folder that holds the service's durable store, as <c>&lt;DataRoot&gt;/store</c>, or null
-/// for the store the registration already names. The subscriber that owns a durable store passes it; the platform never
-/// chooses a durable store's folder. A change records the new store path for the next launch and does not move the store.</param>
-/// <gotcha>A first installation with a null root puts the store in the platform's installation folder. Only a service that
-/// keeps no durable data, whose store holds just its locks and staging, installs that way.</gotcha>
-public sealed record ServicePackageInstallation(string ApplicationName, ServiceFamily Family, string LayoutId,
-    string ClientBuildDigest, string PackageDirectory, ServicePackageManifest Manifest, string ServiceBuildDigest,
-    string? DataRoot);
+/// <param name="Folders">The owner's folders: the service keeps every file it writes under them.</param>
+public sealed record ServicePackageInstallation(ServiceFamily Family, string LayoutId, string ClientBuildDigest,
+    string PackageDirectory, ServicePackageManifest Manifest, string ServiceBuildDigest, ServiceFolders Folders);
 /// <summary>Native installation, connection and ownership operations selected at build time.</summary>
 public interface IServicePlatform
 {
@@ -51,8 +55,13 @@ public interface IServicePlatform
     IServiceInstallation OpenInstallation(ServiceRegistration registration);
     /// <summary>Adopts the launch pin and acquires family then store ownership before storage opens.</summary>
     Task<IServiceOwner?> TryOwnAsync(ServiceStart start, CancellationToken cancellationToken = default);
+    /// <summary>Completes once no process owns the service whose owner folder is <paramref name="pluginData"/>; at once
+    /// when its runtime folder does not exist. Creates nothing.</summary>
+    Task WaitUntilStoppedAsync(string pluginData, CancellationToken cancellationToken = default);
 }
 /// <summary>Native subscriber operations; disposing the installation never kills a backend.</summary>
+/// <gotcha>Every operation first reads the registration and throws <see cref="ServiceErrorCode.NotInstalled"/> when it is
+/// gone, so a connection or launch never recreates a moved or removed folder.</gotcha>
 public interface IServiceInstallation : IDisposable
 {
     /// <summary>Authenticates an existing owner, returning null only for an unavailable transport.</summary>

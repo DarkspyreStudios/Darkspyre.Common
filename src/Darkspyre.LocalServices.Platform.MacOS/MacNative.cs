@@ -75,6 +75,10 @@ internal static partial class MacNative
     private static partial int FreeAcl(nint acl);
     [LibraryImport(LibSystem, EntryPoint = "getpeereid", SetLastError = true)]
     internal static partial int GetPeerIdentity(System.Net.Sockets.SafeSocketHandle socket, out uint userId, out uint groupId);
+    // Sets the calling thread's own working folder to the descriptor's directory; -1 returns the thread to the process's
+    // working folder. libsystem_pthread exports it through libSystem, and no public SDK header declares it.
+    [LibraryImport(LibSystem, EntryPoint = "pthread_fchdir_np", SetLastError = true)]
+    internal static partial int ThreadChangeDirectory(int descriptor);
 
     internal static void RequirePlatform()
     {

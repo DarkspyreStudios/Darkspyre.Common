@@ -89,6 +89,11 @@ public sealed partial class ServiceControlHost : IAsyncDisposable
                         CheckEpoch(unsubscribe.Epoch);
                         connection.End("the subscriber unsubscribed", expected: true);
                         return;
+                    case StopMessage stop:
+                        // The drain closes every connection, this one too, and the service exits through its cleanup.
+                        CheckEpoch(stop.Epoch);
+                        BeginDrain();
+                        return;
                     case RequestMessage request:
                         await DispatchAsync(connection, peer.Welcome.ConnectionId, request).ConfigureAwait(false);
                         break;

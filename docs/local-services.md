@@ -85,8 +85,12 @@ new family lease. The hosting layer must close all database handles and peers be
 store, build digest and layout. Its random 256-bit capability is in a separate 0600 file. Both files
 are published atomically through descriptor-relative private temporary files. Endpoint names derive
 from the epoch; discovery cannot supply arbitrary socket or capability paths. A new exclusive owner
-can remove the previous epoch's published endpoint. Socket paths that exceed Darwin's limit fail;
-there is no temporary-directory fallback.
+can remove the previous epoch's published endpoint. The listener binds, and the client connects, by the socket's
+file name `<epoch>.sock` from inside the runtime directory: `MacThreadDirectory.Run` sets the calling thread's own
+working folder to the runtime directory's descriptor with `pthread_fchdir_np`, runs the bind or a blocking connect, and
+resets the thread with `pthread_fchdir_np(-1)`. A runtime path longer than Darwin's 104-byte socket-path limit therefore
+works, and other threads keep the process's working folder. The socket's mode is set through its full path, which has no
+such limit. libSystem exports `pthread_fchdir_np`; no public SDK header declares it.
 
 Server and client verify the peer OS user. Authentication sends the epoch and capability in a fixed
 48-byte prelude, followed by bounded Hello/Welcome frames. Capability comparisons use constant-time
@@ -230,6 +234,19 @@ The backend record keeps normal accounting correct when its launcher is gone.
 Persisted launch-window timestamps use UTC across processes. A clock rollback fails closed until the
 recorded window passes or explicit retry resets it. Subscriber and shutdown deadlines stay monotonic.
 Accounting records do not grant ownership. Corrupt/non-private accounting fails instead of being replaced.
+
+## Stop request
+
+`IServiceConnector.StopAsync` stops a running service. It opens the installation and only connects: it never reserves
+or launches. A connected peer is subscribed, `ServiceSubscription.RequestStopAsync` sends `StopMessage`, and the
+subscription is disposed. No owner, or an owner already draining, gets no frame. `ServiceControlHost` answers a
+`StopMessage` of its epoch with `BeginDrain`, so every connection closes with `ServiceDraining`, other programs' too,
+and the service exits through its drain deadlines. A call in flight on a closed connection ends with it. `StopAsync`
+then waits on `IServicePlatform.WaitUntilStoppedAsync` for the owner folder, bounded by the caller's token.
+
+`WaitUntilStoppedAsync(pluginData)` polls the ownership lease, `owner.lock` in `<pluginData>/service/runtime`, every
+100 ms and completes when no process holds it. It completes at once when the runtime folder or the lock file does not
+exist, and it creates nothing.
 The disposable service fixture composes the owner, listener, control host, package pin and shutdown
 coordinator without opening databases. The fixture echoes complete validated request bodies through the common dispatcher.
 
@@ -282,22 +299,33 @@ repository metadata identifies Darkspyre.Common.
 `ServiceConnector` owns the connect/reserve/pin/launch loop and exit accounting. Its subscription owns no
 process termination handle. Each build-selected platform composition exposes its own `ServicePlatform`.
 
-The subscriber library calls `InstallAsync` with a trusted bundled manifest and its expected digest. The
-shared installer holds the existing cache catalog lock while installing, creating or reading
-`registration.json`, and selecting the verified package. Concurrent installers retain one StoreId.
-An interrupted preferred selection reuses that registration. A different LayoutId fails explicitly.
-Installation opens no database and starts no process. Host supplies no factory or registration.
+The subscriber library calls `InstallAsync` with a trusted bundled manifest, its expected digest and the owner's
+`ServiceFolders`, which it reads from its settings each time it installs. The shared installer holds the existing cache
+catalog lock while installing, creating or reading `registration.json`, and selecting the verified package. Concurrent
+installers retain one StoreId. An interrupted preferred selection reuses that registration. A different LayoutId fails
+explicitly. Installation opens no database and starts no process. Host supplies no factory or registration. No platform
+chooses a folder: every path derives from the owner's Plugin data folder `<P>` (`ServiceFolders.PluginData`).
 
-`ServicePackageInstallation.DataRoot` names the folder of the service's durable store: the store is
-`<DataRoot>/store`. The subscriber that owns the store passes it, and the platform never chooses a durable store's
-folder. A subscriber that does not own the store passes null and gets the store the registration names. A root that
-differs from the registered one records the new store path for the next launch; it moves no data, and a running service
-keeps the store it opened. A first installation with a null root puts the store in the platform's installation folder,
-which only a service with no durable data does: its store holds just locks and staging.
+| Path | Holds |
+| --- | --- |
+| `<P>/store/` | The service's store, created private by the service when it first owns it |
+| `<P>/service/` | `registration.json`, created private by the library at the owner's install |
+| `<P>/service/packages/` | The verified package cache |
+| `<P>/service/runtime/` | Ownership lock, launch budget, discovery and the connection point |
+| `<P>/service/scratch/` | The detached service's temporary folder |
 
-Each platform's installation folder holds `registration.json`, the package cache (`packages/`) and `scratch/`.
-The macOS driver keeps it in the user's Library/Application Support/Darkspyre application directory. Rendezvous uses
-the shorter Library/Caches/Darkspyre application directory.
+The library creates its own `service` folder because a Plugin data folder need not be private. `registration.json` is
+`{"storeId":"…","layoutId":"…","modelPath":"…"|null}`. It holds no folder path except the Model files folder, so the
+owner's folder can move. A missing registration gets a new StoreId. A `ServiceFolders.ModelFiles` that differs from the
+recorded one republishes it; null keeps it. The launch arguments read the registration at each launch and append
+`--model-path <folder>` when it records one, so a service that starts after a change gets the folder recorded last; a
+running service keeps the folder it started with. `ServiceStart.ModelPath` carries the value to the backend.
+
+The owner passes `CreateIfMissing` true and the installer creates `<P>/service` with mode 0700. A program that joins
+what the owner set up passes false: when `<P>/service` or its `registration.json` is missing, `InstallAsync` throws
+`ServiceProtocolException` with `NotInstalled` before it writes anything. Every `IServiceInstallation` operation first
+reads the registration and throws `NotInstalled` when it is gone, so a connection, launch or launch-accounting call never
+recreates a moved or removed folder.
 `TryOwnAsync` adopts the inherited package pin and acquires family ownership before store ownership.
 The returned owner prepares private store/staging directories. The backend initializes storage before
 `PublishAsync`. After admitted work and peers close, `CompleteAsync` removes discovery, records a normal
@@ -354,9 +382,10 @@ inherited package lease. The native ABI implementation supports Linux x64 and AR
 File inspection translates each architecture's `stat` layout into the same device, inode, link-count,
 mode and user fields. Directory and no-follow open flags also use the architecture's ABI values.
 
-The installation folder uses XDG_DATA_HOME or the user’s .local/share directory. Rendezvous uses an owned
-XDG_RUNTIME_DIR when available, otherwise the private installation directory. Cache, registration, launch
-accounting and subscriber policy use the same neutral implementations as macOS.
+The listener binds, and the client connects, through `/proc/self/fd/<descriptor>/<epoch>.sock`, where the descriptor is
+the process's open runtime directory. That name stays short however long the runtime path is, so Linux's 108-byte
+socket-path limit does not apply to the folder. Cache, registration, launch accounting and subscriber policy use the
+same neutral implementations as macOS.
 
 ## Windows ownership and launch
 
@@ -364,13 +393,13 @@ The Windows driver uses protected current-user/SYSTEM file DACLs, rejects repars
 opened file identity. Family, store, catalog and launch ownership use LockFileEx on permanent files.
 Package pins use read handles that permit only shared reads. Collection requires write access;
 an inherited child handle therefore retains the pin after launcher exit. Adoption checks the permanent
-file identity and clears inheritance without closing and reopening the handle. The installation folder is the user's
-local application-data Darkspyre application directory, and rendezvous uses its `runtime` folder.
+file identity and clears inheritance without closing and reopening the handle.
 
 The pipe endpoint uses an explicit current-user DACL and denies network access. The server compares
 the impersonated TokenUser SID after reading the authentication prelude; the client checks the server
 process TokenUser before sending it. Shared capability and protocol checks then establish the peer.
-The pipe name uses the application's runtime parent name and the current user SID hash.
+The pipe name is `Darkspyre.` and the lower-case hex SHA-256 of the upper-cased runtime folder path, a line feed and
+the current user SID. Two copies of the app, each with its own folder, get two pipes.
 
 CreateProcess receives a verified cached executable, a clean environment, null standard streams and
 an explicit handle list containing the package pin. It creates a detached process group and requires

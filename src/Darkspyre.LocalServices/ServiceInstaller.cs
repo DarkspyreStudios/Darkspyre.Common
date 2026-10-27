@@ -4,9 +4,12 @@ using Darkspyre.LocalServices.Contracts;
 
 namespace Darkspyre.LocalServices;
 
-// Registration and preferred selection share the cache catalog lock on every platform.
+// Registration and preferred selection share the cache catalog lock on every platform. Every path derives from the owner's
+// Plugin data folder <P>: the store is <P>/store, and the library keeps the registration, package cache, runtime and scratch
+// in the private <P>/service it creates. The registration records no folder except Model files, so the folder can move.
 internal static class ServiceInstaller
 {
+    private const string RegistrationFile = "registration.json";
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
         RespectRequiredConstructorParameters = true,
@@ -16,68 +19,127 @@ internal static class ServiceInstaller
         PropertyNameCaseInsensitive = false,
     };
 
-    // The installation root holds the registration, the package cache and scratch; the store lives under the caller's data root.
     internal static async Task<ServiceRegistration> InstallAsync(ServiceFileSystem files,
-        ServicePackageInstallation installation, string installationRoot, string runtimePath, string userHome,
-        CancellationToken cancellationToken)
+        ServicePackageInstallation installation, string userHome, CancellationToken cancellationToken)
     {
-        using ServiceDirectory root = files.OpenPrivateDirectory(installationRoot);
-        string cachePath = Path.Combine(installationRoot, "packages");
-        string? storePath = installation.DataRoot is { } dataRoot ? Path.Combine(Path.GetFullPath(dataRoot), "store") : null;
+        ServiceFolders folders = installation.Folders;
+        string pluginData = Path.GetFullPath(folders.PluginData);
+        string rootPath = ServiceRoot(pluginData);
+        // A joiner creates nothing: a missing service folder or registration fails before anything is written.
+        using ServiceDirectory root = folders.CreateIfMissing ? files.OpenPrivateDirectory(rootPath)
+            : files.OpenExistingPrivateDirectory(rootPath) ?? throw NotInstalled(pluginData);
+        if (!folders.CreateIfMissing && root.ReadPrivateFile(RegistrationFile) is null) throw NotInstalled(pluginData);
+        string cachePath = Path.Combine(rootPath, "packages");
         using ServicePackageCache cache = ServicePackageCache.Open(files, cachePath);
         using IServicePackageLease catalog = await cache.AcquireCatalogAsync(cancellationToken).ConfigureAwait(false);
         using ServicePackagePin pin = await cache.InstallLockedAsync(installation.PackageDirectory,
             installation.Manifest, installation.ServiceBuildDigest, cancellationToken).ConfigureAwait(false);
-        byte[]? bytes = root.ReadPrivateFile("registration.json");
+        string? modelFiles = folders.ModelFiles is { } named ? Path.GetFullPath(named) : null;
+        byte[]? bytes = root.ReadPrivateFile(RegistrationFile);
         Registration stored;
         if (bytes is null)
         {
-            // A service whose subscribers name no data root keeps no durable data; its store folder holds only locks and staging.
-            stored = new(Guid.NewGuid(), storePath ?? Path.Combine(installationRoot, "store"), runtimePath, cachePath, installation.LayoutId);
-            root.PublishPrivateFile("registration.json", JsonSerializer.SerializeToUtf8Bytes(stored, Json));
+            if (!folders.CreateIfMissing) throw NotInstalled(pluginData);
+            stored = new(Guid.NewGuid(), installation.LayoutId, modelFiles);
+            root.PublishPrivateFile(RegistrationFile, JsonSerializer.SerializeToUtf8Bytes(stored, Json));
         }
         else
         {
-            stored = JsonSerializer.Deserialize<Registration>(bytes, Json)
-                ?? throw new InvalidDataException("The service registration is missing.");
-            if (stored.StoreId == Guid.Empty || !Path.IsPathFullyQualified(stored.StorePath)
-                || !Path.IsPathFullyQualified(stored.RuntimePath) || stored.PackageCachePath != cachePath)
-                throw new InvalidDataException("The service registration is invalid.");
+            stored = Parse(bytes);
             if (stored.LayoutId != installation.LayoutId)
                 throw new ServiceProtocolException(ServiceErrorCode.IncompatibleProtocol);
-            if (storePath is not null && !string.Equals(storePath, stored.StorePath, StringComparison.Ordinal))
+            if (modelFiles is not null && !string.Equals(modelFiles, stored.ModelPath, StringComparison.Ordinal))
             {
-                // The next launch opens the store here. A running service keeps the store it opened.
-                stored = stored with { StorePath = storePath };
-                root.PublishPrivateFile("registration.json", JsonSerializer.SerializeToUtf8Bytes(stored, Json));
+                // The next launch passes this folder. A running service keeps the one it started with.
+                stored = stored with { ModelPath = modelFiles };
+                root.PublishPrivateFile(RegistrationFile, JsonSerializer.SerializeToUtf8Bytes(stored, Json));
             }
         }
         await cache.SetPreferredLockedAsync(pin.BuildDigest, cancellationToken).ConfigureAwait(false);
         // Builds no launch can select any more leave the cache; a running service's pinned build stays.
         cache.CollectUnpreferredLocked();
-        string scratch = Path.Combine(installationRoot, "scratch");
+        string runtime = Path.Combine(rootPath, "runtime");
+        string scratch = Path.Combine(rootPath, "scratch");
+        using (files.OpenPrivateDirectory(runtime)) { }
         using (files.OpenPrivateDirectory(scratch)) { }
-        return new(installation.Family, stored.RuntimePath, stored.PackageCachePath, stored.StoreId,
-            stored.LayoutId, installation.ClientBuildDigest, userHome, scratch, (package, attempt) =>
-            [
-                "--family", installation.Family.ToString(), "--store-id", stored.StoreId.ToString("D"),
-                "--layout-id", stored.LayoutId, "--runtime-path", stored.RuntimePath,
-                "--store-path", stored.StorePath, "--package-cache-path", stored.PackageCachePath,
-                "--build-digest", package.BuildDigest, "--attempt-id", attempt.ToString("D"),
-            ]);
+        string storePath = Path.Combine(pluginData, "store");
+        Guid storeId = stored.StoreId;
+        string layoutId = stored.LayoutId;
+        return new(installation.Family, runtime, cachePath, storeId, layoutId, installation.ClientBuildDigest, userHome,
+            scratch, (package, attempt) =>
+            {
+                // Read at each launch, so a service that starts after a Model files change gets the folder recorded last.
+                string? modelPath = ReadRegistration(files, rootPath).ModelPath;
+                List<string> arguments =
+                [
+                    "--family", installation.Family.ToString(), "--store-id", storeId.ToString("D"),
+                    "--layout-id", layoutId, "--runtime-path", runtime,
+                    "--store-path", storePath, "--package-cache-path", cachePath,
+                    "--build-digest", package.BuildDigest, "--attempt-id", attempt.ToString("D"),
+                ];
+                if (modelPath is not null) arguments.AddRange(["--model-path", modelPath]);
+                return arguments;
+            });
+    }
+
+    // Every installation operation calls this first, so a connection or launch never recreates a moved or removed folder.
+    internal static void RequireInstalled(ServiceFileSystem files, ServiceRegistration registration)
+        => _ = ReadRegistration(files, RootOf(registration));
+
+    // The owner folder of an installed registration, whose runtime folder is <P>/service/runtime.
+    internal static string PluginDataOf(ServiceRegistration registration)
+        => Path.GetDirectoryName(RootOf(registration)) ?? throw new ArgumentException("The service registration has no owner folder.", nameof(registration));
+
+    internal static async Task WaitUntilStoppedAsync(ServiceFileSystem files, string pluginData, CancellationToken cancellationToken)
+    {
+        if (!IsAbsolute(pluginData)) throw new ArgumentException("A Plugin data folder must be an absolute path.", nameof(pluginData));
+        string runtime = Path.Combine(ServiceRoot(Path.GetFullPath(pluginData)), "runtime");
+        while (true)
+        {
+            using (ServiceDirectory? directory = files.OpenExistingPrivateDirectory(runtime))
+                if (directory is null || !directory.IsLeaseHeld("owner.lock")) return;
+            await Task.Delay(100, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     internal static void Validate(ServicePackageInstallation installation)
     {
         ArgumentNullException.ThrowIfNull(installation);
-        if (string.IsNullOrWhiteSpace(installation.ApplicationName) || installation.ApplicationName.Any(c => !char.IsAsciiLetterOrDigit(c))
-            || !Enum.IsDefined(installation.Family) || string.IsNullOrWhiteSpace(installation.LayoutId)
+        if (!Enum.IsDefined(installation.Family) || string.IsNullOrWhiteSpace(installation.LayoutId)
             || installation.LayoutId.Length > 128 || installation.LayoutId.Any(char.IsControl))
-            throw new ArgumentException("A service installation requires an application, family and layout identity.", nameof(installation));
-        if (installation.DataRoot is { } dataRoot && (!Path.IsPathFullyQualified(dataRoot) || dataRoot.Any(char.IsControl)))
-            throw new ArgumentException("A service data root must be an absolute path.", nameof(installation));
+            throw new ArgumentException("A service installation requires a family and layout identity.", nameof(installation));
+        if (installation.Folders is not { } folders || !IsAbsolute(folders.PluginData)
+            || (folders.ModelFiles is { } modelFiles && !IsAbsolute(modelFiles)))
+            throw new ArgumentException("A service installation requires an absolute Plugin data folder, and an absolute Model files folder when it names one.", nameof(installation));
         ServicePackageManifest.ValidateDigest(installation.ClientBuildDigest);
     }
 
-    private sealed record Registration(Guid StoreId, string StorePath, string RuntimePath, string PackageCachePath, string LayoutId);
+    private static string ServiceRoot(string pluginData) => Path.Combine(pluginData, "service");
+
+    private static string RootOf(ServiceRegistration registration)
+        => Path.GetDirectoryName(registration.RuntimePath) ?? throw new ArgumentException("The service registration has no service folder.", nameof(registration));
+
+    private static Registration ReadRegistration(ServiceFileSystem files, string rootPath)
+    {
+        using ServiceDirectory? root = files.OpenExistingPrivateDirectory(rootPath);
+        byte[]? bytes = root?.ReadPrivateFile(RegistrationFile);
+        return bytes is null ? throw NotInstalled(Path.GetDirectoryName(rootPath) ?? rootPath) : Parse(bytes);
+    }
+
+    private static Registration Parse(byte[] bytes)
+    {
+        Registration stored = JsonSerializer.Deserialize<Registration>(bytes, Json)
+            ?? throw new InvalidDataException("The service registration is missing.");
+        if (stored.StoreId == Guid.Empty || string.IsNullOrWhiteSpace(stored.LayoutId)
+            || (stored.ModelPath is { } modelPath && !IsAbsolute(modelPath)))
+            throw new InvalidDataException("The service registration is invalid.");
+        return stored;
+    }
+
+    private static bool IsAbsolute(string? path) => path is not null && Path.IsPathFullyQualified(path) && !path.Any(char.IsControl);
+
+    private static ServiceProtocolException NotInstalled(string pluginData)
+        => new(ServiceErrorCode.NotInstalled, $"No owner set up the service in {pluginData}.");
+
+    private sealed record Registration(Guid StoreId, string LayoutId, string? ModelPath);
 }

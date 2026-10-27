@@ -725,6 +725,15 @@ The runtime implements the connector, subscription, request transport, launch bu
 It references Contracts. A subscriber library installs its verified package through `IServicePlatform`,
 constructs `ServiceConnector`, and owns the returned `IServiceSubscription`. The first connection launches
 the service; subsequent connections join it. The final departure starts the existing drain.
+The subscriber library names the owner's folders in `ServiceFolders` at every install. The service keeps every file
+it writes under the owner's Plugin data folder: its store in `<PluginData>/store`, and its registration, package cache,
+connection point and scratch in the private `<PluginData>/service` the library creates. The registration records the
+Model files folder, and each launch passes it as `--model-path`. Only the owner creates the folder. A program that
+joins passes `CreateIfMissing` false and gets `NotInstalled` when no registration is there, and every installation
+operation refuses the same way once the registration is gone.
+`IServiceConnector.StopAsync` stops a running service: it joins without launching, sends `StopMessage`, and waits
+through `IServicePlatform.WaitUntilStoppedAsync` until no process owns it. The service drains, so every connection
+closes, other programs' too, and their owners connect again for their next call.
 A subscription closes only when its connection fails, the service ends it or its owner disposes it:
 one call's cancellation, deadline or wait behind other frames ends only that call, and no timer closes a live
 connection on either side. The service host reports why each connection ended. `CloseReason` names
@@ -751,6 +760,9 @@ The Chromium sandbox tests share the isolated installation fixture through frien
 libraries. They never install into the application's per-user service cache.
 The Linux implementation supports glibc on x64 and ARM64. It selects the architecture's file-status
 layout and directory/no-follow open flags inside the Linux library. Consumers use the same contracts.
+Each platform reaches the connection point by a short name, so a long Plugin data path works: macOS binds and connects
+from inside the runtime directory through the calling thread's own working folder (`pthread_fchdir_np`), Linux through
+the directory's `/proc/self/fd` entry, and Windows through a pipe name hashed from the runtime folder and the user.
 
 [Local service contracts and lifecycle](docs/local-services.md) describes the wire, installation and
 ownership behavior. The [shared service design](https://darkspyre.atlassian.net/browse/DSA-855) records this boundary.

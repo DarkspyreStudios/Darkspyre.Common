@@ -45,6 +45,18 @@ public sealed class MacFileLease : IServicePackageLease
     /// <summary>Shared leases pin immutable package payloads. Collection requires an exclusive lease on the same file.</summary>
     public static MacFileLease? TryAcquireShared(MacPrivateDirectory directory, string name) => TryAcquire(directory, name, shared: true);
 
+    // Whether another open description holds the exclusive lease. A missing file is not held, and nothing is created.
+    internal static bool IsHeldElsewhere(MacPrivateDirectory directory, string name)
+    {
+        using SafeFileHandle? descriptor = directory.OpenExistingPermanentFile(name);
+        if (descriptor is null) return false;
+        // Closing the descriptor releases a lease this probe took.
+        if (MacNative.Flock(descriptor, MacNative.ExclusiveNonblocking) == 0) return false;
+        int error = Marshal.GetLastPInvokeError();
+        if (error == MacNative.WouldBlock) return true;
+        throw MacNative.Error("flock", error);
+    }
+
     private static MacFileLease? TryAcquire(MacPrivateDirectory directory, string name, bool shared)
     {
         ArgumentNullException.ThrowIfNull(directory);

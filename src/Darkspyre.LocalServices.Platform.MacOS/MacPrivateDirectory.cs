@@ -30,7 +30,12 @@ public sealed partial class MacPrivateDirectory : IDisposable
     internal SafeFileHandle Handle => this.handle;
 
     /// <summary>Opens or creates the private directory and validates its ownership and permissions.</summary>
-    public static MacPrivateDirectory OpenOrCreate(string path)
+    public static MacPrivateDirectory OpenOrCreate(string path) => Open(path, create: true)!;
+
+    // Null when the directory or a parent is missing; creates nothing.
+    internal static MacPrivateDirectory? OpenExisting(string path) => Open(path, create: false);
+
+    private static MacPrivateDirectory? Open(string path, bool create)
     {
         MacNative.RequirePlatform();
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
@@ -47,13 +52,18 @@ public sealed partial class MacPrivateDirectory : IDisposable
         {
             foreach (string part in parts)
             {
-                if (MacNative.MakeDirectoryAt(current, part, 0x1c0) != 0)
+                if (create && MacNative.MakeDirectoryAt(current, part, 0x1c0) != 0)
                 {
                     int error = Marshal.GetLastPInvokeError();
                     if (error != MacNative.Exists) throw MacNative.Error("mkdirat", error);
                 }
                 fd = MacNative.OpenAt(current, part, MacNative.Directory | MacNative.NoFollow | MacNative.CloseOnExec);
-                if (fd < 0) throw MacNative.Error("open directory", Marshal.GetLastPInvokeError());
+                if (fd < 0)
+                {
+                    int error = Marshal.GetLastPInvokeError();
+                    if (!create && error == MacNative.Missing) return null;
+                    throw MacNative.Error("open directory", error);
+                }
                 var next = new SafeFileHandle((nint)fd, ownsHandle: true);
                 current.Dispose();
                 current = next;
@@ -78,6 +88,23 @@ public sealed partial class MacPrivateDirectory : IDisposable
             CreatePermanentFile(name);
             fd = MacNative.OpenAt(this.handle, name, MacNative.ReadWrite | MacNative.NoFollow | MacNative.CloseOnExec);
             if (fd < 0) throw MacNative.Error("open created file", Marshal.GetLastPInvokeError());
+        }
+        var result = new SafeFileHandle((nint)fd, ownsHandle: true);
+        try { MacNative.InspectPrivate(result, directory: false); return result; }
+        catch { result.Dispose(); throw; }
+    }
+
+    // Null when the permanent file does not exist; creates nothing.
+    internal SafeFileHandle? OpenExistingPermanentFile(string name)
+    {
+        RequireChildName(name);
+        ObjectDisposedException.ThrowIf(this.handle.IsClosed, this);
+        int fd = MacNative.OpenAt(this.handle, name, MacNative.ReadWrite | MacNative.NoFollow | MacNative.CloseOnExec);
+        if (fd < 0)
+        {
+            int error = Marshal.GetLastPInvokeError();
+            if (error == MacNative.Missing) return null;
+            throw MacNative.Error("open permanent file", error);
         }
         var result = new SafeFileHandle((nint)fd, ownsHandle: true);
         try { MacNative.InspectPrivate(result, directory: false); return result; }

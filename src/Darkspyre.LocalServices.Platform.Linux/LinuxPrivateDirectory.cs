@@ -24,7 +24,18 @@ internal sealed class LinuxPrivateDirectory : ServiceDirectory
         try { return new(System.IO.Path.GetFullPath(path), handle); }
         catch { handle.Dispose(); throw; }
     }
+    // Null when the directory or a parent is missing; creates nothing.
+    internal static LinuxPrivateDirectory? OpenExisting(string path)
+    {
+        LinuxNative.RequirePlatform();
+        SafeFileHandle? handle = Walk(path, directory: true, createDirectories: false, missingReturnsNull: true);
+        if (handle is null) return null;
+        try { return new(System.IO.Path.GetFullPath(path), handle); }
+        catch { handle.Dispose(); throw; }
+    }
     internal static SafeFileHandle OpenPath(string path, bool directory, bool createDirectories = false)
+        => Walk(path, directory, createDirectories, missingReturnsNull: false)!;
+    private static SafeFileHandle? Walk(string path, bool directory, bool createDirectories, bool missingReturnsNull)
     {
         if (!System.IO.Path.IsPathFullyQualified(path) || path.Contains('\0')) throw new ArgumentException("A service path must be absolute.", nameof(path));
         string[] parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
@@ -40,7 +51,12 @@ internal sealed class LinuxPrivateDirectory : ServiceDirectory
                 if (createDirectories && LinuxNative.MakeDirectoryAt(current, parts[index], 0x1c0) != 0 && Marshal.GetLastPInvokeError() != LinuxNative.Exists)
                     throw LinuxNative.Error("mkdirat", Marshal.GetLastPInvokeError());
                 fd = LinuxNative.OpenAt(current, parts[index], LinuxNative.NoFollow | LinuxNative.CloseOnExec | (isDirectory ? LinuxNative.Directory : 0x800));
-                if (fd < 0) throw LinuxNative.Error("open service path", Marshal.GetLastPInvokeError());
+                if (fd < 0)
+                {
+                    int error = Marshal.GetLastPInvokeError();
+                    if (missingReturnsNull && error == LinuxNative.Missing) return null;
+                    throw LinuxNative.Error("open service path", error);
+                }
                 current.Dispose();
                 current = new((nint)fd, ownsHandle: true);
             }
@@ -59,6 +75,21 @@ internal sealed class LinuxPrivateDirectory : ServiceDirectory
         if (fd < 0 && Marshal.GetLastPInvokeError() == LinuxNative.Exists)
             fd = LinuxNative.OpenAt(this.Handle, name, LinuxNative.ReadWrite | LinuxNative.NoFollow | LinuxNative.CloseOnExec);
         if (fd < 0) throw LinuxNative.Error("open permanent file", Marshal.GetLastPInvokeError());
+        var handle = new SafeFileHandle((nint)fd, ownsHandle: true);
+        try { LinuxNative.InspectPrivate(handle, directory: false); return handle; }
+        catch { handle.Dispose(); throw; }
+    }
+    // Null when the permanent file does not exist; creates nothing.
+    internal SafeFileHandle? OpenExistingPermanentFile(string name)
+    {
+        RequireName(name);
+        int fd = LinuxNative.OpenAt(this.Handle, name, LinuxNative.ReadWrite | LinuxNative.NoFollow | LinuxNative.CloseOnExec);
+        if (fd < 0)
+        {
+            int error = Marshal.GetLastPInvokeError();
+            if (error == LinuxNative.Missing) return null;
+            throw LinuxNative.Error("open permanent file", error);
+        }
         var handle = new SafeFileHandle((nint)fd, ownsHandle: true);
         try { LinuxNative.InspectPrivate(handle, directory: false); return handle; }
         catch { handle.Dispose(); throw; }
@@ -107,6 +138,7 @@ internal sealed class LinuxPrivateDirectory : ServiceDirectory
             throw LinuxNative.Error("remove private entry", Marshal.GetLastPInvokeError());
     }
     internal override IServicePackageLease? TryAcquire(string name, bool shared = false) => LinuxFileLease.TryAcquire(this, name, shared);
+    internal override bool IsLeaseHeld(string name) => LinuxFileLease.IsHeldElsewhere(this, name);
     internal override void PublishDirectory(string temporaryName, string finalName)
     {
         RequireName(temporaryName); RequireName(finalName);

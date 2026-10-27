@@ -12,6 +12,8 @@ internal sealed class MacServiceFileSystem : ServiceFileSystem
 
 
     internal override ServiceDirectory OpenPrivateDirectory(string path) => new DirectoryHandle(MacPrivateDirectory.OpenOrCreate(path));
+    internal override ServiceDirectory? OpenExistingPrivateDirectory(string path)
+        => MacPrivateDirectory.OpenExisting(path) is { } directory ? new DirectoryHandle(directory) : null;
     internal override SafeFileHandle Open(string path, bool directory) => MacPackageFiles.Open(path, directory);
     internal override void InspectPrivate(SafeFileHandle handle, bool directory, bool readOnly = false, bool executable = false)
         => MacNative.InspectPrivate(handle, directory, readOnly, executable);
@@ -55,6 +57,7 @@ internal sealed class MacServiceFileSystem : ServiceFileSystem
         internal override void PublishPrivateFile(string name, ReadOnlySpan<byte> bytes) => directory.PublishPrivateFile(name, bytes);
         internal override IServicePackageLease? TryAcquire(string name, bool shared = false)
             => shared ? MacFileLease.TryAcquireShared(directory, name) : MacFileLease.TryAcquire(directory, name);
+        internal override bool IsLeaseHeld(string name) => MacFileLease.IsHeldElsewhere(directory, name);
         internal override void PublishDirectory(string temporaryName, string finalName)
         {
             if (MacNative.RenameAt(directory.Handle, temporaryName, directory.Handle, finalName, 4) != 0)

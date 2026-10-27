@@ -111,6 +111,6 @@ public enum ServiceErrorCode
     WrongEpoch,
     /// <summary>The request identity was already used.</summary>
     DuplicateRequest,
-    /// <summary>The runtime endpoint path exceeds the platform limit.</summary>
-    RuntimePathTooLong,
+    /// <summary>No owner set up the service in the named Plugin data folder.</summary>
+    NotInstalled,
 }

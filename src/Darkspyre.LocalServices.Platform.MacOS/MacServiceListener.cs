@@ -1,7 +1,6 @@
 using System.Net.Sockets;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
-using System.Text;
 using Darkspyre.LocalServices.Contracts;
 
 namespace Darkspyre.LocalServices.Platform.MacOS;
@@ -35,7 +34,7 @@ public sealed class MacServiceListener : IDisposable
         if (!owner.IsHeld) throw new InvalidOperationException("Service ownership is required before binding.");
         var identity = new ServiceDiscovery(family, ServiceProtocol.Version, epoch, storeId, buildDigest, layoutId);
         ServiceDiscoveryMetadata.Validate(identity);
-        string path = SocketPath(owner.RuntimeDirectory, identity);
+        string name = SocketName(identity);
         owner.ClaimEndpoint();
         ServiceDiscovery? stale = ServiceDiscoveryMetadata.Read(owner.RuntimeDirectory.ReadPrivateFile(ServiceDiscoveryMetadata.FileName));
         if (stale is not null)
@@ -50,8 +49,9 @@ public sealed class MacServiceListener : IDisposable
         var result = new MacServiceListener(owner, socket, identity, capability);
         try
         {
-            socket.Bind(new UnixDomainSocketEndPoint(path));
-            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            // Bound by its short name from the runtime directory; chmod takes the full path, which has no such limit.
+            MacThreadDirectory.Run(owner.RuntimeDirectory, () => { socket.Bind(new UnixDomainSocketEndPoint(name)); return true; });
+            File.SetUnixFileMode(Path.Combine(owner.RuntimeDirectory.Path, name), UnixFileMode.UserRead | UnixFileMode.UserWrite);
             socket.Listen(ServiceProtocol.MaximumConnectionRequests);
             owner.RuntimeDirectory.PublishPrivateFile(identity.CapabilityName, capability);
             owner.RuntimeDirectory.PublishPrivateFile(ServiceDiscoveryMetadata.FileName, ServiceDiscoveryMetadata.Serialize(identity));
@@ -80,12 +80,8 @@ public sealed class MacServiceListener : IDisposable
         finally { this.handshakes.Release(); }
     }
 
-    internal static string SocketPath(MacPrivateDirectory directory, ServiceDiscovery identity)
-    {
-        string path = Path.Combine(directory.Path, $"{identity.Epoch:N}.sock");
-        if (Encoding.UTF8.GetByteCount(path) >= 104) throw new ServiceProtocolException(ServiceErrorCode.RuntimePathTooLong);
-        return path;
-    }
+    // The socket's file name in the runtime directory. Bind and connect name it relative to that directory.
+    internal static string SocketName(ServiceDiscovery identity) => $"{identity.Epoch:N}.sock";
 
     /// <summary>Stops listener admission and releases its owned socket resources.</summary>
     public void Dispose()

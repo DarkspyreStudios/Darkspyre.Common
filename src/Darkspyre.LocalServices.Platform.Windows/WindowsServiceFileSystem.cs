@@ -10,6 +10,7 @@ internal sealed class WindowsServiceFileSystem : ServiceFileSystem
     internal const string InheritedDigestVariable = "DARKSPYRE_SERVICE_PACKAGE_DIGEST";
     internal const string InheritedCacheVariable = "DARKSPYRE_SERVICE_PACKAGE_CACHE";
     internal override ServiceDirectory OpenPrivateDirectory(string path) => WindowsPrivateDirectory.OpenOrCreate(path);
+    internal override ServiceDirectory? OpenExistingPrivateDirectory(string path) => WindowsPrivateDirectory.OpenExisting(path);
     internal override SafeFileHandle Open(string path, bool directory) => WindowsPrivateDirectory.OpenPath(path, directory);
     internal override void InspectPrivate(SafeFileHandle handle, bool directory, bool readOnly = false, bool executable = false) => WindowsFileSecurity.Inspect(handle, directory, readOnly, executable);
     // The loader maps a native DLL as an image, which needs execute access as the program itself does.

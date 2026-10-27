@@ -114,6 +114,10 @@ public sealed partial class ServiceSubscription : IServiceSubscription
         finally { this.writes.Release(); }
     }
 
+    // The service answers by draining: every connection, this one too, closes with ServiceDraining.
+    internal Task RequestStopAsync(CancellationToken cancellationToken)
+        => SendAsync(new StopMessage(this.Identity.Epoch), cancellationToken);
+
     private static string Describe(Exception error) => $"{error.GetType().Name}: {error.Message}";
 
     // The first reason wins; a later failure of the same close is its consequence.

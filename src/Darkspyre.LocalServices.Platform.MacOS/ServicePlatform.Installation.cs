@@ -9,13 +9,9 @@ public sealed partial class ServicePlatform
     {
         ServiceInstaller.Validate(installation);
         string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        // The installation root holds the registration, the package cache and scratch. The store follows the caller's data root.
-        string root = Path.Combine(home, "Library", "Application Support", "Darkspyre", installation.ApplicationName);
-        // Rendezvous stays separate from durable data and uses a shorter per-user cache path.
-        string runtime = Path.Combine(home, "Library", "Caches", "Darkspyre", installation.ApplicationName);
         try
         {
-            return await ServiceInstaller.InstallAsync(new MacServiceFileSystem(), installation, root, runtime, home, cancellationToken).ConfigureAwait(false);
+            return await ServiceInstaller.InstallAsync(new MacServiceFileSystem(), installation, home, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
         catch (ServiceProtocolException) { throw; }
@@ -24,4 +20,8 @@ public sealed partial class ServicePlatform
             throw new ServiceProtocolException(ServiceErrorCode.Unavailable, "The packaged search service could not be installed.", error);
         }
     }
+
+    /// <inheritdoc />
+    public Task WaitUntilStoppedAsync(string pluginData, CancellationToken cancellationToken = default)
+        => ServiceInstaller.WaitUntilStoppedAsync(new MacServiceFileSystem(), pluginData, cancellationToken);
 }

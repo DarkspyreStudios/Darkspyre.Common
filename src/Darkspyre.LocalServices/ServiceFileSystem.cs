@@ -6,6 +6,8 @@ namespace Darkspyre.LocalServices;
 internal abstract class ServiceFileSystem
 {
     internal abstract ServiceDirectory OpenPrivateDirectory(string path);
+    // Null when the directory or any of its parents is missing; otherwise the same checks as OpenPrivateDirectory. Creates nothing.
+    internal abstract ServiceDirectory? OpenExistingPrivateDirectory(string path);
     internal abstract SafeFileHandle Open(string path, bool directory);
     internal abstract void InspectPrivate(SafeFileHandle handle, bool directory, bool readOnly = false, bool executable = false);
     internal abstract bool IsExecutable(string path);
@@ -35,6 +37,8 @@ internal abstract class ServiceDirectory : IDisposable
     internal abstract byte[]? ReadPrivateFile(string name);
     internal abstract void PublishPrivateFile(string name, ReadOnlySpan<byte> bytes);
     internal abstract IServicePackageLease? TryAcquire(string name, bool shared = false);
+    // Whether another open description holds the exclusive lease on the existing file; false when it is missing. Creates nothing.
+    internal abstract bool IsLeaseHeld(string name);
     internal abstract void PublishDirectory(string temporaryName, string finalName);
     public abstract void Dispose();
 }

@@ -40,6 +40,18 @@ internal sealed class LinuxFileLease : IServicePackageLease
     /// <summary>Shared leases pin immutable package payloads. Collection requires an exclusive lease on the same file.</summary>
     public static LinuxFileLease? TryAcquireShared(LinuxPrivateDirectory directory, string name) => TryAcquire(directory, name, shared: true);
 
+    // Whether another open description holds the exclusive lease. A missing file is not held, and nothing is created.
+    internal static bool IsHeldElsewhere(LinuxPrivateDirectory directory, string name)
+    {
+        using SafeFileHandle? descriptor = directory.OpenExistingPermanentFile(name);
+        if (descriptor is null) return false;
+        // Closing the descriptor releases a lease this probe took.
+        if (LinuxNative.Flock(descriptor, 2 | 4) == 0) return false;
+        int error = Marshal.GetLastPInvokeError();
+        if (error == LinuxNative.WouldBlock) return true;
+        throw LinuxNative.Error("flock", error);
+    }
+
     internal static LinuxFileLease? TryAcquire(LinuxPrivateDirectory directory, string name, bool shared)
     {
         ArgumentNullException.ThrowIfNull(directory);

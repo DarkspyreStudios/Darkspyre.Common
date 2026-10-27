@@ -8,7 +8,7 @@ internal static partial class WindowsNative
 {
     internal const uint Read = 0x80000000, Write = 0x40000000, ReadControl = 0x20000;
     internal const uint Directory = 0x10, ReparsePoint = 0x400;
-    internal const int Missing = 2, SharingViolation = 32, LockViolation = 33;
+    internal const int Missing = 2, PathMissing = 3, SharingViolation = 32, LockViolation = 33;
     [LibraryImport("kernel32.dll", EntryPoint = "CreateFileW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
     internal static partial SafeFileHandle CreateFile(string path, uint access, uint sharing, in SecurityAttributes security, uint disposition, uint flags, nint template);
     [LibraryImport("kernel32.dll", SetLastError = true)]

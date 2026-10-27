@@ -23,6 +23,7 @@ namespace Darkspyre.LocalServices.Contracts;
 [JsonDerivedType(typeof(EventMessage), "event")]
 [JsonDerivedType(typeof(CapabilityRequestMessage), "capability-request")]
 [JsonDerivedType(typeof(CapabilityResultMessage), "capability-result")]
+[JsonDerivedType(typeof(StopMessage), "stop")]
 public abstract record ServiceMessage;
 
 /// <summary>Requests a handshake with the expected service family and store.</summary>
@@ -54,6 +55,9 @@ public sealed record UnsubscribeMessage(Guid Epoch) : ServiceMessage;
 /// <summary>Reports that the service no longer admits work.</summary>
 /// <param name="Epoch">The service process epoch that owns this exchange.</param>
 public sealed record DrainingMessage(Guid Epoch) : ServiceMessage;
+/// <summary>Asks the service to close every connection and exit through its drain.</summary>
+/// <param name="Epoch">The service process epoch that owns this exchange.</param>
+public sealed record StopMessage(Guid Epoch) : ServiceMessage;
 /// <summary>Publishes the current store health and optional safe error.</summary>
 /// <param name="Epoch">The service process epoch that owns this exchange.</param>
 /// <param name="StoreId">The durable store identity.</param>

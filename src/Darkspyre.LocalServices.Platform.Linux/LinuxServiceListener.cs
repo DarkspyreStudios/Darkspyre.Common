@@ -1,6 +1,5 @@
 using System.Net.Sockets;
 using System.Security.Cryptography;
-using System.Text;
 using Darkspyre.LocalServices.Contracts;
 
 namespace Darkspyre.LocalServices.Platform.Linux;
@@ -76,12 +75,10 @@ internal sealed class LinuxServiceListener : IDisposable
         finally { this.handshakes.Release(); }
     }
 
+    // A short name for a socket in the runtime directory, however long its path: the process's /proc entry for the open
+    // directory descriptor. The caller keeps the directory open while it binds or connects.
     internal static string SocketPath(LinuxPrivateDirectory directory, ServiceDiscovery identity)
-    {
-        string path = Path.Combine(directory.Path, $"{identity.Epoch:N}.sock");
-        if (Encoding.UTF8.GetByteCount(path) >= 108) throw new ServiceProtocolException(ServiceErrorCode.RuntimePathTooLong);
-        return path;
-    }
+        => $"/proc/self/fd/{directory.Handle.DangerousGetHandle()}/{identity.Epoch:N}.sock";
 
     public void Dispose()
     {

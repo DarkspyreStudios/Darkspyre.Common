@@ -21,6 +21,15 @@ internal sealed class WindowsPrivateDirectory : ServiceDirectory
         try { return new(System.IO.Path.GetFullPath(path), handle); }
         catch { handle.Dispose(); throw; }
     }
+    // Null when the directory or a parent is missing; creates nothing.
+    internal static WindowsPrivateDirectory? OpenExisting(string path)
+    {
+        SafeFileHandle handle;
+        try { handle = OpenPath(path, directory: true); }
+        catch (IOException error) when (error.InnerException is System.ComponentModel.Win32Exception { NativeErrorCode: WindowsNative.Missing or WindowsNative.PathMissing }) { return null; }
+        try { return new(System.IO.Path.GetFullPath(path), handle); }
+        catch { handle.Dispose(); throw; }
+    }
     internal static SafeFileHandle OpenPath(string path, bool directory, bool createDirectories = false)
     {
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("This local service driver requires Windows.");
@@ -110,6 +119,7 @@ internal sealed class WindowsPrivateDirectory : ServiceDirectory
     }
     internal void RemoveChild(string name) => File.Delete(Child(name));
     internal override IServicePackageLease? TryAcquire(string name, bool shared = false) => WindowsFileLease.TryAcquire(this, name, shared);
+    internal override bool IsLeaseHeld(string name) => WindowsFileLease.IsHeldElsewhere(this, name);
     internal override void PublishDirectory(string temporaryName, string finalName) => System.IO.Directory.Move(Child(temporaryName), Child(finalName));
     public override void Dispose() => this.Handle.Dispose();
 }

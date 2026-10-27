@@ -12,6 +12,7 @@ internal sealed class LinuxServiceFileSystem : ServiceFileSystem
 
 
     internal override ServiceDirectory OpenPrivateDirectory(string path) => LinuxPrivateDirectory.OpenOrCreate(path);
+    internal override ServiceDirectory? OpenExistingPrivateDirectory(string path) => LinuxPrivateDirectory.OpenExisting(path);
     internal override SafeFileHandle Open(string path, bool directory) => LinuxPrivateDirectory.OpenPath(path, directory);
     internal override void InspectPrivate(SafeFileHandle handle, bool directory, bool readOnly = false, bool executable = false)
         => LinuxNative.InspectPrivate(handle, directory, readOnly, executable);
