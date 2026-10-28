@@ -27,12 +27,6 @@ public sealed class ToolActivity : UserControl
     /// <summary>The collapsed line and card title of a turn the application sent to the model.</summary>
     internal const string ApplicationTitle = "Application message";
 
-    /// <summary>The output of a call whose human question is still open.</summary>
-    internal const string WaitingForAnswer = "Waiting for your answer";
-
-    /// <summary>The output of a message_to call whose question is still open.</summary>
-    internal const string WaitingForReply = "Waiting for a reply";
-
     private readonly TranscriptContext context;
     private readonly Expander expander = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly FileLinkText line;

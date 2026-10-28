@@ -296,7 +296,7 @@ Each folder is its own namespace, `Darkspyre.Agent.Common.UI.<folder>`:
 | `.Terminal` | `TerminalView`, `TerminalKeys` |
 | `.Transcript` | `TranscriptPane`, transcript rows and scrolling, tool cards, preview leases, neutral presentation records and owner callbacks |
 
-`TranscriptPane` draws local and remote transcripts from neutral records. Its owner supplies Markdown bindings, authorized preview reads, file actions and queue operations. `AttachmentPreviewImages` shares one lazy decoded image per leased key and releases it when no shown row holds it. `FollowLatest` lives in `.Controls` and keeps a scroll viewer at the newest content until the person scrolls away.
+`TranscriptPane` draws local and remote transcripts from neutral records. Its owner supplies Markdown bindings, authorized preview reads, file actions and queue operations. A queue hold arriving after its row is removed or pane is released is cancelled through the captured owner. `AttachmentPreviewImages` shares one lazy decoded image per leased key and releases it when no shown row holds it. `FollowLatest` lives in `.Controls` and keeps a scroll viewer at the newest content until the person scrolls away.
 
 agent-ds's `Darkspyre.Agent.Plugin` references the library, so a plugin compiles against it and loads the
 application's copy (agent-ds `SharedLibraries.props` excludes its runtime assets from plugin packages).

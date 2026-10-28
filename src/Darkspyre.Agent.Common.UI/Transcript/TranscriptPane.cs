@@ -70,19 +70,20 @@ public sealed class TranscriptPane
     /// <summary>Releases the pane's existing row edits, scrolling and image leases.</summary>
     public void Release()
     {
+        this.List.ReleaseRows();
         if (this.actions.CancelEdit is { } cancel)
             foreach (TranscriptRow row in this.List.Rows)
-                if (row is { Editing: { } editing, Waiting: { } waiting }) _ = this.CancelAsync(cancel, waiting.PromptId, editing.Handle);
+                if (row is { Editing: { } editing, Waiting: { } waiting }) _ = CancelAsync(this.context, cancel, waiting.PromptId, editing.Handle);
         this.Scroll.Detach();
         this.context.Images.Dispose();
     }
 
-    private async Task CancelAsync(Func<Guid, object?, Task> cancel, Guid promptId, object? handle)
+    internal static async Task CancelAsync(TranscriptContext context, Func<Guid, object?, Task> cancel, Guid promptId, object? handle)
     {
         try { await cancel(promptId, handle); }
         catch (Exception error) when (error is not OperationCanceledException)
         {
-            await this.context.Warn($"The edit of a queued message could not be cancelled. {error.Message}");
+            await context.Warn($"The edit of a queued message could not be cancelled. {error.Message}");
         }
     }
 }

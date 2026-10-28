@@ -92,6 +92,9 @@ public sealed class TranscriptRow(string key, TranscriptRowKind kind)
 
     private QueuedDraft? editing;
 
+    // A removed row or released pane cannot accept a late queue hold.
+    internal bool Available { get; set; } = true;
+
     /// <summary>Raised when what the row shows changes.</summary>
     public event EventHandler? Changed;
 
@@ -245,7 +248,11 @@ public sealed class TranscriptList : UserControl
                 && this.rows.All(row => row.Key != reply || row.Kind != TranscriptRowKind.Message))
                 streamed.Adopt(reply);
         for (int index = this.rows.Count - 1; index >= 0; index--)
-            if (!shownKeys.Contains((this.rows[index].Key, this.rows[index].Kind))) this.rows.RemoveAt(index);
+            if (!shownKeys.Contains((this.rows[index].Key, this.rows[index].Kind)))
+            {
+                this.rows[index].Available = false;
+                this.rows.RemoveAt(index);
+            }
         for (int index = 0; index < wanted.Count; index++)
         {
             (string key, TranscriptRowKind kind, Action<TranscriptRow> fill) = wanted[index];
@@ -269,7 +276,16 @@ public sealed class TranscriptList : UserControl
     }
 
     /// <summary>Empties the list, as when the conversation it shows changes.</summary>
-    public void Clear() => this.rows.Clear();
+    public void Clear()
+    {
+        this.ReleaseRows();
+        this.rows.Clear();
+    }
+
+    internal void ReleaseRows()
+    {
+        foreach (TranscriptRow row in this.rows) row.Available = false;
+    }
 }
 
 /// <summary>
@@ -702,7 +718,14 @@ public sealed class TranscriptRowView : UserControl
         private async Task BeginAsync(string? typed = null)
         {
             TranscriptWaiting shown = this.waiting;
+            Func<Guid, object?, Task> cancel = this.owner.actions.CancelEdit!;
             QueueBegin start = await this.owner.actions.BeginEdit!(this.promptId);
+            if (!this.owner.row.Available)
+            {
+                if (start.Status == QueueBeginStatus.Held)
+                    await TranscriptPane.CancelAsync(this.owner.context, cancel, this.promptId, start.Handle);
+                return;
+            }
             switch (start.Status)
             {
                 case QueueBeginStatus.Held:
