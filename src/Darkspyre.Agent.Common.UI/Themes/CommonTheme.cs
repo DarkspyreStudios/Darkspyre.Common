@@ -30,6 +30,10 @@ public sealed class CommonTheme : Styles
             Source = new Uri("avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml"),
         });
         this.Add(new ControlStyles());
+        this.Add(new StyleInclude(new Uri("avares://Darkspyre.Agent.Common.UI"))
+        {
+            Source = new Uri("avares://Darkspyre.Agent.Common.UI/Themes/TranscriptStyles.axaml"),
+        });
         this.Resources[typeof(CompositionTarget)] = CompositionTargetTheme();
     }
 
