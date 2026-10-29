@@ -35,12 +35,15 @@ internal static class ServiceInstaller
         using ServicePackagePin pin = await cache.InstallLockedAsync(installation.PackageDirectory,
             installation.Manifest, installation.ServiceBuildDigest, cancellationToken).ConfigureAwait(false);
         string? modelFiles = folders.ModelFiles is { } named ? Path.GetFullPath(named) : null;
+        string storePath = Path.Combine(pluginData, "store");
         byte[]? bytes = root.ReadPrivateFile(RegistrationFile);
         Registration stored;
         if (bytes is null)
         {
             if (!folders.CreateIfMissing) throw NotInstalled(pluginData);
-            stored = new(Guid.NewGuid(), installation.LayoutId, modelFiles);
+            // A store that is already there keeps its identity: the service refuses a store whose identity differs from the
+            // registration's (StoreMismatch).
+            stored = new(installation.StoreIdentity?.Invoke(storePath) ?? Guid.NewGuid(), installation.LayoutId, modelFiles);
             root.PublishPrivateFile(RegistrationFile, JsonSerializer.SerializeToUtf8Bytes(stored, Json));
         }
         else
@@ -62,7 +65,6 @@ internal static class ServiceInstaller
         string scratch = Path.Combine(rootPath, "scratch");
         using (files.OpenPrivateDirectory(runtime)) { }
         using (files.OpenPrivateDirectory(scratch)) { }
-        string storePath = Path.Combine(pluginData, "store");
         Guid storeId = stored.StoreId;
         string layoutId = stored.LayoutId;
         return new(installation.Family, runtime, cachePath, storeId, layoutId, installation.ClientBuildDigest, userHome,

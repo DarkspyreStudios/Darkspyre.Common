@@ -734,6 +734,10 @@ connection point and scratch in the private `<PluginData>/service` the library c
 Model files folder, and each launch passes it as `--model-path`. Only the owner creates the folder. A program that
 joins passes `CreateIfMissing` false and gets `NotInstalled` when no registration is there, and every installation
 operation refuses the same way once the registration is gone.
+The registration holds the store identity that the subscriber's hello and the service's store check compare. When the
+owner's install creates the registration, it calls `ServicePackageInstallation.StoreIdentity` with `<PluginData>/store`.
+A store already there keeps the identity it records, so the service does not refuse it with `StoreMismatch`. A folder
+with no store, or an installation without the reader, gets a new identity.
 `IServiceConnector.StopAsync` stops a running service: it joins without launching, sends `StopMessage`, and waits
 through `IServicePlatform.WaitUntilStoppedAsync` until no process owns it. The service drains, so every connection
 closes, other programs' too, and their owners connect again for their next call.

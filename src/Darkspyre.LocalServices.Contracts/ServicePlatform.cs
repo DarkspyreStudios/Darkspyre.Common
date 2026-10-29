@@ -44,8 +44,13 @@ public sealed record ServiceFolders(string PluginData, string? ModelFiles, bool 
 /// <param name="Manifest">The trusted payload inventory.</param>
 /// <param name="ServiceBuildDigest">The service package digest used by the installer.</param>
 /// <param name="Folders">The owner's folders: the service keeps every file it writes under them.</param>
+/// <param name="StoreIdentity">Reads the identity the store in the given absolute store folder records, or returns null
+/// when the folder holds no store. The installer calls it only when it creates the registration, so a registration created
+/// beside an existing store takes that store's identity. Null, or a null result, gives the registration a new identity.</param>
+/// <gotcha>An exception <paramref name="StoreIdentity"/> throws fails the installation, and no registration is written.</gotcha>
 public sealed record ServicePackageInstallation(ServiceFamily Family, string LayoutId, string ClientBuildDigest,
-    string PackageDirectory, ServicePackageManifest Manifest, string ServiceBuildDigest, ServiceFolders Folders);
+    string PackageDirectory, ServicePackageManifest Manifest, string ServiceBuildDigest, ServiceFolders Folders,
+    Func<string, Guid?>? StoreIdentity = null);
 /// <summary>Native installation, connection and ownership operations selected at build time.</summary>
 public interface IServicePlatform
 {
