@@ -73,13 +73,19 @@ internal sealed class WindowsPrivateDirectory : ServiceDirectory
         fixed (byte* pointer = descriptor)
         {
             var security = new WindowsNative.SecurityAttributes { Length = (uint)Marshal.SizeOf<WindowsNative.SecurityAttributes>(), Descriptor = (nint)pointer };
-            SafeFileHandle result = WindowsNative.CreateFile(path, access, sharing, in security, disposition,
+            SafeFileHandle result = WindowsNative.CreateFile(Extended(path), access, sharing, in security, disposition,
                 0x00200000u | (directory ? 0x02000000u : 0), 0); // OPEN_REPARSE_POINT and BACKUP_SEMANTICS
             if (!result.IsInvalid) return result;
             int error = Marshal.GetLastPInvokeError(); result.Dispose();
             throw WindowsNative.Error("open private path", error);
         }
     }
+    // CreateFileW normalizes a plain path against MAX_PATH and refuses a longer one with ERROR_PATH_NOT_FOUND, unless the
+    // running executable's manifest declares longPathAware. The .NET application host does not declare it, so a service
+    // process opened its own files only while its subscriber ran under a host that does. The extended-length form skips
+    // that normalization, so every owner folder works in every host process. It performs no normalization of its own,
+    // which is why the path is made full first: a package-relative payload path uses forward slashes.
+    private static string Extended(string path) => @"\\?\" + System.IO.Path.GetFullPath(path);
     internal string Child(string name)
     {
         if (string.IsNullOrWhiteSpace(name) || name is "." or ".." || name.IndexOfAny(['/', '\\', ':', '\0']) >= 0 || name.EndsWith('.') || name.EndsWith(' '))

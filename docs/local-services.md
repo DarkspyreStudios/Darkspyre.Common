@@ -395,6 +395,12 @@ Package pins use read handles that permit only shared reads. Collection requires
 an inherited child handle therefore retains the pin after launcher exit. Adoption checks the permanent
 file identity and clears inheritance without closing and reopening the handle.
 
+Every private path the driver opens reaches CreateFileW in its extended-length form: `\\?\` and the full path.
+CreateFileW otherwise normalizes a plain path against MAX_PATH and refuses a longer one with ERROR_PATH_NOT_FOUND,
+because the .NET application host's manifest does not declare `longPathAware`. An owner folder of any length therefore
+works in a detached service process as it does in its subscriber's. The extended form performs no normalization itself,
+so the driver makes the path full first; package-relative payload paths use forward slashes.
+
 The pipe endpoint uses an explicit current-user DACL and denies network access. The server compares
 the impersonated TokenUser SID after reading the authentication prelude; the client checks the server
 process TokenUser before sending it. Shared capability and protocol checks then establish the peer.
