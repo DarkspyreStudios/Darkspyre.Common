@@ -173,8 +173,8 @@ The `GitClient` operations check paths through the path policy, take the reposit
 
 `tests/Darkspyre.Common.Git.Tests` runs against the real `git` on PATH. Every folder the tests create lives in a
 per-process scratch root, `<parent>/darkspyre-common-tests-<process id>`. The parent is `AGENTDS_TEST_SCRATCH` when set,
-else `/Volumes/Data/tmp` when it exists; with neither, the tests fail at start. `GitVersionTests` writes the Git
-version a run used to the test output.
+else the stored Core `default-temp-location` setting; with neither, the tests fail at start. `GitVersionTests` writes
+the Git version a run used to the test output.
 
 ## Darkspyre.Common.Pdf and Darkspyre.Common.Pdf.Pdfium
 

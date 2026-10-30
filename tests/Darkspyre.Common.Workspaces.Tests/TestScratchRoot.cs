@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Darkspyre.Common.Tests.Support;
 
 namespace Darkspyre.Common.Workspaces.Tests;
 
@@ -7,8 +8,9 @@ namespace Darkspyre.Common.Workspaces.Tests;
 /// folder at it before any test code runs. The root is removed when the process exits.
 /// </summary>
 /// <remarks>
-/// <c>AGENTDS_TEST_SCRATCH</c> names the parent folder. Without it, the parent is <c>/Volumes/Data/tmp</c> when that
-/// folder exists. With neither, the tests fail at start: there is no system-temporary fallback. The scratch root is
+/// <c>AGENTDS_TEST_SCRATCH</c> names the parent folder. Without it, the parent is the stored Core
+/// <c>default-temp-location</c> setting (<c>~/.agent-ds/settings.json</c>). With neither, the tests fail at start:
+/// there is no system-temporary fallback. The scratch root is
 /// <c>&lt;parent&gt;/darkspyre-common-tests-&lt;process id&gt;</c>, so concurrent test runs never share or delete each other's
 /// files. Test code allocates folders through <see cref="CreateDirectory"/>, never through the process's temporary
 /// folder. <c>TMPDIR</c> is still set to the
@@ -17,7 +19,6 @@ namespace Darkspyre.Common.Workspaces.Tests;
 public static class TestScratchRoot
 {
     private const string Override = "AGENTDS_TEST_SCRATCH";
-    private const string Workstation = "/Volumes/Data/tmp";
 
     private static readonly System.Collections.Concurrent.ConcurrentQueue<Action> Releases = new();
     private static string? parent;
@@ -34,11 +35,10 @@ public static class TestScratchRoot
         Justification = "The scratch root must exist before any test code runs.")]
     internal static void Initialize()
     {
-        string? configured = Environment.GetEnvironmentVariable(Override);
+        string? configured = Environment.GetEnvironmentVariable(Override) ?? TestDefaultTempLocation.Read();
         parent = Path.TrimEndingDirectorySeparator(Path.GetFullPath(!string.IsNullOrWhiteSpace(configured) ? configured
-            : System.IO.Directory.Exists(Workstation) ? Workstation
             : throw new InvalidOperationException(
-                "Set AGENTDS_TEST_SCRATCH to a folder outside every repository and the system temporary folder.")));
+                "Set AGENTDS_TEST_SCRATCH, or the default-temp-location setting, to a folder outside every repository and the system temporary folder.")));
         string created = CreateNamed(parent, $"darkspyre-common-tests-{Environment.ProcessId}");
         root = created;
         Environment.SetEnvironmentVariable("TMPDIR", created + Path.DirectorySeparatorChar);
