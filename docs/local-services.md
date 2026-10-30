@@ -344,5 +344,5 @@ The test backend executable uses Apple Development certificate
 `96BA98550C1A060322A9B7A217D81A07A2C39BED` and the fixed identifier
 `com.darkspyrestudios.localservices.tests.backend`. Sign the copied AgenticTools test output before
 running its native lifecycle cases. The fixtures capture their package manifests from those signed bytes.
-The test runner uses `/Volumes/Data/tmp/signed-test-host/dotnet` with identifier
+The test runner uses `<default-temp-location>/signed-test-host/dotnet` with identifier
 `com.darkspyrestudios.agent.tests.testhost` and team `L469XNMGLQ`.
