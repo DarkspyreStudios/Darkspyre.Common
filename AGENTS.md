@@ -16,10 +16,6 @@ commit.
 None. Every shape in this repository is internal to the Darkspyre repositories that consume it, so a shape change fixes
 every caller in the same change (L1).
 
-## Laws
-
-This repository records no law exception.
-
 ## Versions
 
 Each library's version is `<net>.<major>.<minor>.<build>`, set by its property in `Directory.Build.props`, such as
