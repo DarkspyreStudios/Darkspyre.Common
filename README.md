@@ -770,6 +770,9 @@ layout and directory/no-follow open flags inside the Linux library. Consumers us
 Each platform reaches the connection point by a short name, so a long Plugin data path works: macOS binds and connects
 from inside the runtime directory through the calling thread's own working folder (`pthread_fchdir_np`), Linux through
 the directory's `/proc/self/fd` entry, and Windows through a pipe name hashed from the runtime folder and the user.
+On macOS a private directory opens with `O_NOFOLLOW_ANY` on the permitted path. Missing components are created from the
+nearest existing ancestor opened the same way. The leaf stays owner-only, mode 0700, without an extended ACL, and on a
+host-local filesystem.
 
 [Local service contracts and lifecycle](docs/local-services.md) describes the wire, installation and
 ownership behavior. The [shared service design](https://darkspyre.atlassian.net/browse/DSA-855) records this boundary.

@@ -11,6 +11,7 @@ internal static partial class MacNative
 {
     internal const int ReadWrite = 0x2;
     internal const int NoFollow = 0x100;
+    internal const int NoFollowAny = 0x20000000; // O_NOFOLLOW_ANY: refuse a symlink in any component.
     internal const int Directory = 0x100000;
     internal const int CloseOnExec = 0x1000000;
     internal const int ExclusiveNonblocking = 2 | 4;

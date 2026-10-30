@@ -7,7 +7,7 @@ internal static class MacPackageFiles
 {
     internal static SafeFileHandle Open(string path, bool directory)
     {
-        int fd = MacNative.Open(path, MacNative.CloseOnExec | 0x20000000 | (directory ? MacNative.Directory : 4)); // NOFOLLOW_ANY; NONBLOCK rejects special-file stalls.
+        int fd = MacNative.Open(path, MacNative.CloseOnExec | MacNative.NoFollowAny | (directory ? MacNative.Directory : 4)); // NONBLOCK rejects special-file stalls.
         if (fd < 0) throw MacNative.Error("open package entry", Marshal.GetLastPInvokeError());
         var handle = new SafeFileHandle((nint)fd, ownsHandle: true);
         try

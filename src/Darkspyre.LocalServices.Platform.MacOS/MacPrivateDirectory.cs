@@ -45,34 +45,75 @@ public sealed partial class MacPrivateDirectory : IDisposable
         string[] parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length == 0 || parts.Any(part => part is "." or ".."))
             throw new ArgumentException("A service directory cannot contain traversal components.", nameof(path));
-        int fd = MacNative.Open("/", MacNative.Directory | MacNative.CloseOnExec);
-        if (fd < 0) throw MacNative.Error("open root", Marshal.GetLastPInvokeError());
-        SafeFileHandle current = new((nint)fd, ownsHandle: true);
+        // Open the permitted path directly. A walk from "/" opens ungranted ancestors such as /Volumes
+        // even when the target is inside a granted folder. O_NOFOLLOW_ANY rejects a symlink in any component.
+        int flags = MacNative.Directory | MacNative.NoFollowAny | MacNative.CloseOnExec;
+        int fd = MacNative.Open(path, flags);
+        if (fd >= 0) return Adopt(path, fd);
+        int error = Marshal.GetLastPInvokeError();
+        if (error != MacNative.Missing) throw MacNative.Error("open directory", error);
+        if (!create) return null;
+        return CreateFromPermittedAncestor(path, parts, flags);
+    }
+
+    // The missing suffix is created from the nearest existing ancestor that itself opens with O_NOFOLLOW_ANY.
+    // An ancestor that cannot be opened is refused. Nothing is created by opening "/".
+    private static MacPrivateDirectory CreateFromPermittedAncestor(string path, string[] parts, int flags)
+    {
+        SafeFileHandle? ancestor = null;
+        int start = 0;
         try
         {
-            foreach (string part in parts)
+            for (int length = parts.Length - 1; length >= 1; length--)
             {
-                if (create && MacNative.MakeDirectoryAt(current, part, 0x1c0) != 0)
+                int fd = MacNative.Open("/" + string.Join("/", parts, 0, length), flags);
+                if (fd >= 0)
                 {
-                    int error = Marshal.GetLastPInvokeError();
-                    if (error != MacNative.Exists) throw MacNative.Error("mkdirat", error);
+                    ancestor = new SafeFileHandle((nint)fd, ownsHandle: true);
+                    start = length;
+                    break;
                 }
-                fd = MacNative.OpenAt(current, part, MacNative.Directory | MacNative.NoFollow | MacNative.CloseOnExec);
-                if (fd < 0)
-                {
-                    int error = Marshal.GetLastPInvokeError();
-                    if (!create && error == MacNative.Missing) return null;
-                    throw MacNative.Error("open directory", error);
-                }
-                var next = new SafeFileHandle((nint)fd, ownsHandle: true);
-                current.Dispose();
-                current = next;
+                int error = Marshal.GetLastPInvokeError();
+                if (error != MacNative.Missing) throw MacNative.Error("open directory", error);
             }
-            var result = new MacPrivateDirectory(System.IO.Path.GetFullPath(path), current);
-            current = null!; // Ownership transfers only after validation succeeds.
+            if (ancestor is null) throw new IOException("A service directory requires an existing permitted ancestor.");
+            SafeFileHandle current = ancestor;
+            ancestor = null;
+            try
+            {
+                for (int index = start; index < parts.Length; index++)
+                {
+                    string part = parts[index];
+                    if (MacNative.MakeDirectoryAt(current, part, 0x1c0) != 0)
+                    {
+                        int error = Marshal.GetLastPInvokeError();
+                        if (error != MacNative.Exists) throw MacNative.Error("mkdirat", error);
+                    }
+                    int fd = MacNative.OpenAt(current, part, MacNative.Directory | MacNative.NoFollow | MacNative.CloseOnExec);
+                    if (fd < 0) throw MacNative.Error("open directory", Marshal.GetLastPInvokeError());
+                    var next = new SafeFileHandle((nint)fd, ownsHandle: true);
+                    current.Dispose();
+                    current = next;
+                }
+                var result = new MacPrivateDirectory(System.IO.Path.GetFullPath(path), current);
+                current = null!; // Ownership transfers only after validation succeeds.
+                return result;
+            }
+            finally { current?.Dispose(); }
+        }
+        finally { ancestor?.Dispose(); }
+    }
+
+    private static MacPrivateDirectory Adopt(string path, int fd)
+    {
+        SafeFileHandle opened = new((nint)fd, ownsHandle: true);
+        try
+        {
+            var result = new MacPrivateDirectory(System.IO.Path.GetFullPath(path), opened);
+            opened = null!; // Ownership transfers only after validation succeeds.
             return result;
         }
-        finally { current?.Dispose(); }
+        finally { opened?.Dispose(); }
     }
 
     /// <summary>Opens or atomically creates a permanent file. Existing files are never truncated or replaced.</summary>

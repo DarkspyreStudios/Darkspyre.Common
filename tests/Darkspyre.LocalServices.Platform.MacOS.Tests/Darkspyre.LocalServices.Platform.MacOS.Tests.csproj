@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Darkspyre.LocalServices.Platform.MacOS/Darkspyre.LocalServices.Platform.MacOS.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="../TestSupport/TestDefaultTempLocation.cs" Link="TestSupport/TestDefaultTempLocation.cs" />
+  </ItemGroup>
+</Project>
