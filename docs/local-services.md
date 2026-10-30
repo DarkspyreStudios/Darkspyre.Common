@@ -69,6 +69,10 @@ It rejects symlinks and traversal components, requires an owner-only leaf direct
 extended ACLs, and rejects nonlocal filesystems and known guest/network filesystem types. These
 checks cannot detect a host-local directory exported by an unrelated VM-sharing configuration.
 
+The macOS installer uses `HOME` when `Environment.GetFolderPath(UserProfile)` returns an empty
+string in a constrained process. The detached launcher still requires a fully qualified home path
+without traversal. This does not change the sandbox or any service-data path.
+
 `MacFileLease` uses Darwin `flock` on a permanent private file. Creation uses an exclusive atomic
 rename from a descriptor-relative private temporary file. It never truncates or replaces an existing
 lock file. Contention returns null; filesystem and permission failures throw. Closing the lease

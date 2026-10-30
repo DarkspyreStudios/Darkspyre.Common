@@ -9,6 +9,7 @@ public sealed partial class ServicePlatform
     {
         ServiceInstaller.Validate(installation);
         string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (home.Length == 0) home = Environment.GetEnvironmentVariable("HOME") ?? string.Empty;
         try
         {
             return await ServiceInstaller.InstallAsync(new MacServiceFileSystem(), installation, home, cancellationToken).ConfigureAwait(false);
