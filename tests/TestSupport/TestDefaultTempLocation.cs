@@ -10,7 +10,11 @@ internal static class TestDefaultTempLocation
     /// <summary>The stored setting value, or null when the settings file or the value is missing or unreadable.</summary>
     public static string? Read()
     {
-        string file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".agent-ds", "settings.json");
+        // The signed test host reports an empty user profile folder on macOS while HOME names the home folder.
+        string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) is { Length: > 0 } profile
+            ? profile : Environment.GetEnvironmentVariable("HOME") ?? "";
+        if (home.Length == 0) return null;
+        string file = Path.Combine(home, ".agent-ds", "settings.json");
         try
         {
             using System.Text.Json.JsonDocument settings = System.Text.Json.JsonDocument.Parse(File.ReadAllText(file));
