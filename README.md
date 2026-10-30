@@ -747,8 +747,15 @@ connection on either side. The service host reports why each connection ended. `
 what closed it. A closed subscription never reconnects; its owner connects again for the next call, and a
 call the close interrupted is never sent again. The service admits at most
 `ServiceProtocol.MaximumConnectionRequests` requests per connection and frees a request's slot before it sends the
-result. A subscription call waits for one of those slots before it is sent; a call that gets none within its deadline
-returns Failed with Busy and was never sent. `docs/local-services.md` describes the write rules.
+result. A subscription call waits for the slots its `ServiceRequestClass` needs before it is sent; a call that does not
+get them within its deadline returns Failed with Busy and was never sent. The class reserves slots for the classes that
+hold fewer: a write holds one of `ServiceProtocol.MaximumConnectionWrites` as well as one of the connection's requests,
+so the rest are only ever given to reads, and a long save holds one of
+`ServiceProtocol.MaximumConnectionLongSaves` as well, so a quick write always has the rest. The class is the caller's
+own classification, it is not on the wire, and the service does not read it; a service whose store a class does not
+apply to admits every operation as a read. Without the reservation, writes queued on a service's own write lock took
+every slot of the connection and a read costing a few milliseconds waited its whole deadline for one
+([DSA-1291](https://darkspyre.atlassian.net/browse/DSA-1291)). `docs/local-services.md` describes the write rules.
 The application Host does not register, install or start the service.
 The package cache copies a payload into a staging folder and syncs each file with `ServiceFileSystem.SyncFile`. It then
 flushes the device once with `ServiceFileSystem.FlushDevice` and only after that publishes the build by rename. On macOS

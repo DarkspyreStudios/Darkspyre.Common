@@ -22,9 +22,12 @@ public interface IServiceSubscription : IAsyncDisposable
     /// <gotcha>Set it before the subscriber does anything that lets the service call back, such as registering a route.</gotcha>
     ServiceCallbackHandler? CallbackHandler { get; set; }
 
-    /// <summary>Submits one operation within its deadline and returns its complete terminal reply.</summary>
+    /// <summary>Submits one operation of <paramref name="requestClass"/> within its deadline and returns its complete terminal reply.</summary>
     /// <gotcha>The caller retains the input stream. Cancellation requests cancellation without replaying the operation and
     /// leaves the subscription open. A closed subscription refuses the call with Unavailable before it sends anything.</gotcha>
+    /// <gotcha>A class that does not match what the operation really does moves the limits it is admitted under and
+    /// nothing else: a write declared a read can take the slots reads are reserved, and a long save declared a quick
+    /// write can hold the store's writer gate past half a second.</gotcha>
     Task<ServiceCallResult> InvokeAsync(string operation, Stream body,
-        int deadlineMilliseconds, CancellationToken cancellationToken = default);
+        int deadlineMilliseconds, ServiceRequestClass requestClass, CancellationToken cancellationToken = default);
 }

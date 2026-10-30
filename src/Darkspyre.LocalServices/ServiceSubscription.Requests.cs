@@ -7,37 +7,59 @@ public sealed partial class ServiceSubscription
 {
     private readonly Dictionary<Guid, PendingCall> pending = [];
     // The connection's admission slots: a call holds one from before it is sent until its result arrives, so the service
-    // never refuses it for the connection's request limit.
+    // never refuses it for the connection's request limit. A write also holds one of the write slots, and a long save one
+    // of the long-save slots, which is what keeps slots free for the classes that hold fewer (DSA-1291).
     private readonly SemaphoreSlim slots = new(ServiceProtocol.MaximumConnectionRequests);
+    private readonly SemaphoreSlim writeSlots = new(ServiceProtocol.MaximumConnectionWrites);
+    private readonly SemaphoreSlim longSaveSlots = new(ServiceProtocol.MaximumConnectionLongSaves);
     /// <summary>Receives service invalidations on this subscription.</summary>
     public event Action<EventMessage>? EventReceived;
 
     /// <summary>
-    /// Submits one operation without replay. The caller retains ownership of the input stream. A call waits for one of the
-    /// connection's <see cref="ServiceProtocol.MaximumConnectionRequests"/> request slots before it is sent; a call that
-    /// gets none within its deadline returns Failed with Busy and was never sent. The caller's cancellation and the rest of
-    /// the deadline send a Cancel and return the service's answer for this call, such as Cancelled or a result the service
+    /// Submits one operation without replay. The caller retains ownership of the input stream. A call waits for the
+    /// connection's request slots its <paramref name="requestClass"/> needs before it is sent: one of
+    /// <see cref="ServiceProtocol.MaximumConnectionRequests"/> for any class, one of
+    /// <see cref="ServiceProtocol.MaximumConnectionWrites"/> as well for a write, and one of
+    /// <see cref="ServiceProtocol.MaximumConnectionLongSaves"/> as well for a long save. A call that does not get them
+    /// all within its deadline returns Failed with Busy and was never sent. The caller's cancellation and the rest of the
+    /// deadline send a Cancel and return the service's answer for this call, such as Cancelled or a result the service
     /// already proved; the subscription stays open. A call the subscription's close interrupts returns OutcomeUnknown.
     /// </summary>
     /// <gotcha>A closed subscription refuses the call with Unavailable before it sends anything, so the owner can send the same
     /// call on a new subscription without replaying it.</gotcha>
-    public async Task<ServiceCallResult> InvokeAsync(string operation, Stream body, int deadlineMilliseconds, CancellationToken cancellationToken = default)
+    public async Task<ServiceCallResult> InvokeAsync(string operation, Stream body, int deadlineMilliseconds,
+        ServiceRequestClass requestClass, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(operation);
         ArgumentNullException.ThrowIfNull(body);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(deadlineMilliseconds);
+        if (!Enum.IsDefined(requestClass)) throw new ArgumentOutOfRangeException(nameof(requestClass));
         cancellationToken.ThrowIfCancellationRequested();
         long waiting = System.Diagnostics.Stopwatch.GetTimestamp();
-        if (!await this.slots.WaitAsync(deadlineMilliseconds, cancellationToken).ConfigureAwait(false))
-            return new(ServiceResultStatus.Failed, null, null, new(ServiceErrorCode.Busy, Guid.NewGuid(),
-                $"{operation} waited its whole {deadlineMilliseconds} ms deadline for one of the connection's {ServiceProtocol.MaximumConnectionRequests} request slots"));
+        // Scarcest first, and always in this order, so two classes cannot each hold what the other waits for.
+        SemaphoreSlim[] reservations = requestClass switch
+        {
+            ServiceRequestClass.LongSave => [this.longSaveSlots, this.writeSlots, this.slots],
+            ServiceRequestClass.QuickWrite => [this.writeSlots, this.slots],
+            _ => [this.slots],
+        };
+        int held = 0;
         try
         {
-            int remaining = deadlineMilliseconds - (int)System.Diagnostics.Stopwatch.GetElapsedTime(waiting).TotalMilliseconds;
-            return await SendRequestAsync(operation, body, Math.Max(1, remaining), cancellationToken).ConfigureAwait(false);
+            for (; held < reservations.Length; held++)
+                if (!await reservations[held].WaitAsync(Remaining(deadlineMilliseconds, waiting), cancellationToken).ConfigureAwait(false))
+                    return new(ServiceResultStatus.Failed, null, null, new(ServiceErrorCode.Busy, Guid.NewGuid(),
+                        $"{operation} waited its whole {deadlineMilliseconds} ms deadline for the connection's "
+                        + $"{requestClass} request slots"));
+            return await SendRequestAsync(operation, body, Math.Max(1, Remaining(deadlineMilliseconds, waiting)), cancellationToken)
+                .ConfigureAwait(false);
         }
-        finally { this.slots.Release(); }
+        finally { for (int i = held - 1; i >= 0; i--) reservations[i].Release(); }
     }
+
+    // The deadline that is left, never negative: a wait of zero returns at once rather than waiting forever.
+    private static int Remaining(int deadlineMilliseconds, long since) =>
+        Math.Max(0, deadlineMilliseconds - (int)System.Diagnostics.Stopwatch.GetElapsedTime(since).TotalMilliseconds);
 
     private async Task<ServiceCallResult> SendRequestAsync(string operation, Stream body, int deadlineMilliseconds, CancellationToken cancellationToken)
     {

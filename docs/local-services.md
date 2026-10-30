@@ -283,6 +283,16 @@ per-connection limit: `ServiceSubscription.InvokeAsync` holds one of the connect
 request until its result arrives, and a call that gets no slot within its deadline returns Failed with Busy without
 sending anything.
 
+The caller declares each call's `ServiceRequestClass`, which reserves slots for the classes that hold fewer. A
+`QuickWrite` or `LongSave` holds one of `ServiceProtocol.MaximumConnectionWrites` as well as one of the 32, so the rest
+are only ever given to `Read` calls; a `LongSave` holds one of `ServiceProtocol.MaximumConnectionLongSaves` as well, so
+a quick write always has the rest. The reservations sum to the 32, so the client never offers the service more than its
+per-connection limit and the class does not travel: it is not on the wire, the service does not read it, and the
+protocol version does not change with it. A service that keeps no store, such as host tools or Chromium, admits every
+operation as a `Read`. The reservation exists because writes queued on a service's own write lock took every slot of
+the connection and a read costing a few milliseconds then waited its whole deadline for one
+([DSA-1291](https://darkspyre.atlassian.net/browse/DSA-1291)).
+
 `ServiceControlHost.Operations` shares the lifecycle serialization lock. Subscription admits a connection;
 EOF, Unsubscribe and drain remove its authority immediately. Admission checks also advance the lifecycle
 deadlines, so a delayed timer cannot admit work after drain. Deadline/stop notifications use asynchronous task

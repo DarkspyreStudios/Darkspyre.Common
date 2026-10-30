@@ -11,6 +11,20 @@ public static class ServiceProtocol
     public const int MaximumChunkBytes = MaximumFrameBytes - 93;
     /// <summary>The maximum admitted requests per connection.</summary>
     public const int MaximumConnectionRequests = 32;
+    /// <summary>
+    /// The most of a connection's <see cref="MaximumConnectionRequests"/> requests that writes may hold, so the rest are
+    /// only ever given to reads.
+    /// </summary>
+    /// <remarks>
+    /// A read costs a few milliseconds, so the reserved remainder drains in that time and a further read waits about as
+    /// long. Writes wait for the store's one writer gate, so without this reservation writes queued on that gate took
+    /// every slot of the connection and a read waited its whole deadline for one (DSA-1291).
+    /// </remarks>
+    public const int MaximumConnectionWrites = 24;
+    /// <summary>
+    /// The most of <see cref="MaximumConnectionWrites"/> that long saves may hold, so a quick write always has the rest.
+    /// </summary>
+    public const int MaximumConnectionLongSaves = 4;
     /// <summary>The maximum admitted requests across the service.</summary>
     public const int MaximumServiceRequests = 256;
     /// <summary>The launch-attempt limit within one launch window.</summary>
@@ -30,6 +44,25 @@ public static class ServiceProtocol
     public static TimeSpan GracefulDrainDeadline => TimeSpan.FromSeconds(10);
     /// <summary>The maximum shutdown wait.</summary>
     public static TimeSpan ShutdownDeadline => TimeSpan.FromSeconds(15);
+}
+
+/// <summary>
+/// What an operation does to the service's store: how many of a connection's requests it may hold, and for a write
+/// where it stands in the store's writer gate.
+/// </summary>
+/// <gotcha>The class is the caller's own classification of the operation and travels no further than admission. It is
+/// not on the wire, so a service does not read it and the protocol version does not change with it.</gotcha>
+public enum ServiceRequestClass
+{
+    /// <summary>An operation that takes no write lock. It may hold any of the connection's requests.</summary>
+    Read,
+    /// <summary>One bounded write transaction, which holds the store's writer gate for at most half a second.</summary>
+    QuickWrite,
+    /// <summary>
+    /// One unbounded write transaction, which runs only while no ordinary session work can run, such as during a data
+    /// store switch.
+    /// </summary>
+    LongSave,
 }
 
 /// <summary>A fixed service family. Family ownership does not vary by binary or protocol version.</summary>
