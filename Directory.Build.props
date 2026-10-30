@@ -26,7 +26,7 @@
     <DarkspyreMobileMauiVersion>11.0.1.0</DarkspyreMobileMauiVersion>
     <DarkspyreLocalServicesContractsVersion>11.0.10.8</DarkspyreLocalServicesContractsVersion>
     <DarkspyreLocalServicesVersion>11.0.10.16</DarkspyreLocalServicesVersion>
-    <DarkspyreLocalServicesPlatformMacOSVersion>11.0.10.7</DarkspyreLocalServicesPlatformMacOSVersion>
+    <DarkspyreLocalServicesPlatformMacOSVersion>11.0.10.8</DarkspyreLocalServicesPlatformMacOSVersion>
     <DarkspyreLocalServicesPlatformLinuxVersion>11.0.10.8</DarkspyreLocalServicesPlatformLinuxVersion>
     <DarkspyreLocalServicesPlatformWindowsVersion>11.0.10.8</DarkspyreLocalServicesPlatformWindowsVersion>
   </PropertyGroup>

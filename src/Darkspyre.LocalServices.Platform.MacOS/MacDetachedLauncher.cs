@@ -26,7 +26,7 @@ public static class MacDetachedLauncher
             throw new ArgumentException("The installed executable needs a SHA256 identity.", nameof(spec));
         using var retainedPin = packagePin is null ? null : new PinReference(packagePin, spec);
         using MacPrivateDirectory scratch = MacPrivateDirectory.OpenOrCreate(spec.ScratchDirectory);
-        int fd = MacNative.Open(spec.ExecutablePath, MacNative.CloseOnExec | 0x20000000); // O_NOFOLLOW_ANY
+        int fd = MacNative.Open(spec.ExecutablePath, MacNative.CloseOnExec | MacNative.NoFollowAny);
         if (fd < 0) throw MacNative.Error("open installed executable", Marshal.GetLastPInvokeError());
         using var executable = new SafeFileHandle((nint)fd, ownsHandle: true);
         if (MacNative.Fstat(executable, out MacNative.FileStatus status) != 0)

@@ -61,10 +61,13 @@ exits closes its connection, which the service reads as EOF.
 
 ## macOS ownership
 
-`MacPrivateDirectory` walks an absolute path through retained directory descriptors. It rejects
-symlinks and traversal components, requires an owner-only leaf directory without extended ACLs,
-and rejects nonlocal filesystems and known guest/network filesystem types. These checks cannot
-detect a host-local directory exported by an unrelated VM-sharing configuration.
+`MacPrivateDirectory` opens an absolute path directly with `O_NOFOLLOW_ANY`, so a granted folder
+is reached without opening an ungranted ancestor. A missing directory is created from the nearest
+existing ancestor that opens the same way: each missing component is made mode 0700 and opened
+from that retained descriptor without following a link, and nothing is created by opening `/`.
+It rejects symlinks and traversal components, requires an owner-only leaf directory without
+extended ACLs, and rejects nonlocal filesystems and known guest/network filesystem types. These
+checks cannot detect a host-local directory exported by an unrelated VM-sharing configuration.
 
 `MacFileLease` uses Darwin `flock` on a permanent private file. Creation uses an exclusive atomic
 rename from a descriptor-relative private temporary file. It never truncates or replaces an existing
