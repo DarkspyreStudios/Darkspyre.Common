@@ -80,6 +80,9 @@ public sealed class TranscriptRow(string key, TranscriptRowKind kind)
     /// <summary>Whether the queued prompt can be steered into the running turn.</summary>
     public bool CanSteer { get; private set; }
 
+    /// <summary>Whether the running turn's steer takes a queued prompt's attachments.</summary>
+    public bool CanSteerFiles { get; private set; }
+
     /// <summary>Whether a work stretch is open.</summary>
     public bool Expanded { get; set; }
 
@@ -118,12 +121,13 @@ public sealed class TranscriptRow(string key, TranscriptRowKind kind)
         this.ResponseId = null;
     }
 
-    internal void ShowQueued(TranscriptWaiting prompt, string? refusal, bool canSteer) =>
-        this.Set(this.Waiting == prompt && this.Refusal == refusal && this.CanSteer == canSteer, () =>
+    internal void ShowQueued(TranscriptWaiting prompt, string? refusal, bool canSteer, bool canSteerFiles) =>
+        this.Set(this.Waiting == prompt && this.Refusal == refusal && this.CanSteer == canSteer && this.CanSteerFiles == canSteerFiles, () =>
         {
             this.Waiting = prompt;
             this.Refusal = refusal;
             this.CanSteer = canSteer;
+            this.CanSteerFiles = canSteerFiles;
         });
 
     private void Set(bool same, Action change)
@@ -184,10 +188,12 @@ public sealed class TranscriptList : UserControl
     /// <paramref name="reasoning"/> still arriving joins the last work stretch; <paramref name="busy"/> marks it live
     /// with <paramref name="progress"/>. <paramref name="streaming"/> shows as a last reply until a stored message
     /// carries <paramref name="activeResponseId"/>. <paramref name="waiting"/> are the queued prompts, with the reason
-    /// each last steer was refused.
+    /// each last steer was refused. <paramref name="canSteerFiles"/> says whether that steer takes a prompt's
+    /// attachments, so a prompt with files offers the action only where they would go with it.
     /// </summary>
     public void Show(IReadOnlyList<TranscriptMessage> messages, string reasoning, bool busy, int offset, string streaming, string progress,
-        Guid? activeResponseId, IReadOnlyList<TranscriptWaiting> waiting, IReadOnlyDictionary<Guid, string> refusals, bool canSteer)
+        Guid? activeResponseId, IReadOnlyList<TranscriptWaiting> waiting, IReadOnlyDictionary<Guid, string> refusals, bool canSteer,
+        bool canSteerFiles)
     {
         List<(string Key, TranscriptRowKind Kind, Action<TranscriptRow> Fill)> wanted = [];
         // The stored replies by the response they finish, for the streaming row that showed them.
@@ -230,13 +236,13 @@ public sealed class TranscriptList : UserControl
             wanted.Add((prompt.PromptId.ToString("D"), TranscriptRowKind.Queued, item =>
             {
                 item.Position = int.MaxValue;
-                item.ShowQueued(prompt, refusals.GetValueOrDefault(prompt.PromptId), canSteer);
+                item.ShowQueued(prompt, refusals.GetValueOrDefault(prompt.PromptId), canSteer, canSteerFiles);
             }));
         foreach (TranscriptRow retained in this.rows.Where(row => row.Kind == TranscriptRowKind.Queued && row.Editing is not null && row.Waiting is not null
             && waiting.All(prompt => prompt.PromptId != row.Waiting.PromptId)))
         {
             TranscriptWaiting prompt = retained.Waiting!;
-            wanted.Add((retained.Key, TranscriptRowKind.Queued, item => item.ShowQueued(prompt, NoLongerWaitingNotice, false)));
+            wanted.Add((retained.Key, TranscriptRowKind.Queued, item => item.ShowQueued(prompt, NoLongerWaitingNotice, false, false)));
         }
         // Rows no longer shown leave first, so the rows that stay are never moved past them: a moved row gets a new
         // view, which the pane's scroll anchoring cannot hold in place. A work stretch at the top of the window is
@@ -370,7 +376,7 @@ public sealed class TranscriptRowView : UserControl
                 TranscriptWaiting prompt = this.row.Waiting!;
                 if (this.queued is null || this.queued.Shape != QueuedView.ShapeOf(prompt))
                     this.Content = (this.queued = new QueuedView(this, prompt)).Root;
-                this.queued.Show(prompt, this.row.Refusal, this.row.CanSteer, this.row.Editing);
+                this.queued.Show(prompt, this.row.Refusal, this.row.CanSteer, this.row.CanSteerFiles, this.row.Editing);
                 break;
             default:
                 // The stored reply that took over a streaming row keeps the streaming row's view.
@@ -624,7 +630,7 @@ public sealed class TranscriptRowView : UserControl
 
         internal static string ShapeOf(TranscriptWaiting waiting) => (waiting.Text.Length > 0).ToString();
 
-        internal void Show(TranscriptWaiting waiting, string? refused, bool canSteer, QueuedDraft? editing)
+        internal void Show(TranscriptWaiting waiting, string? refused, bool canSteer, bool canSteerFiles, QueuedDraft? editing)
         {
             this.waiting = waiting;
             if (this.prompt is { } sent && sent.Text != waiting.Text) sent.Text = waiting.Text;
@@ -633,7 +639,9 @@ public sealed class TranscriptRowView : UserControl
                 () => AttachmentPreviewList.Of(waiting.Previews, this.owner.context.Images), this.refusal);
             this.refusal.IsVisible = refused is not null && editing is null;
             this.refusal.Text = refused;
-            if (this.steer is not null) this.steer.IsVisible = canSteer && waiting.Previews.Count == 0 && editing is null;
+            // A prompt with attachments is steerable only where the running turn's steer carries them.
+            if (this.steer is not null)
+                this.steer.IsVisible = canSteer && (waiting.Previews.Count == 0 || canSteerFiles) && editing is null;
             if (this.edit is not null) this.edit.IsVisible = editing is null;
             if (this.prompt is not null) this.prompt.IsVisible = editing is null;
             if (this.previews is not null) this.previews.IsVisible = editing is null;
