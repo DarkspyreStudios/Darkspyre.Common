@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Darkspyre.LocalServices.Contracts;
@@ -7,6 +9,9 @@ namespace Darkspyre.LocalServices;
 // Registration and preferred selection share the cache catalog lock on every platform. Every path derives from the owner's
 // Plugin data folder <P>: the store is <P>/store, and the library keeps the registration, package cache, runtime and scratch
 // in the private <P>/service it creates. The registration records no folder except Model files, so the folder can move.
+// One exception (DSA-1291): on Linux, Chromium's own temporary folder goes under $XDG_RUNTIME_DIR instead, because its
+// third-party singleton socket has an 108-byte AF_UNIX limit a long Plugin data folder can exceed. Every other service,
+// and Chromium itself on macOS and Windows, keeps its temporary folder under Plugin data with everything else.
 internal static class ServiceInstaller
 {
     private const string RegistrationFile = "registration.json";
@@ -62,7 +67,7 @@ internal static class ServiceInstaller
         // Builds no launch can select any more leave the cache; a running service's pinned build stays.
         cache.CollectUnpreferredLocked();
         string runtime = Path.Combine(rootPath, "runtime");
-        string scratch = Path.Combine(rootPath, "scratch");
+        string scratch = ScratchDirectory(installation.Family, pluginData, rootPath);
         using (files.OpenPrivateDirectory(runtime)) { }
         using (files.OpenPrivateDirectory(scratch)) { }
         Guid storeId = stored.StoreId;
@@ -117,6 +122,26 @@ internal static class ServiceInstaller
     }
 
     private static string ServiceRoot(string pluginData) => Path.Combine(pluginData, "service");
+
+    // The folder the detached launcher gives the service as TMPDIR. Chromium on Linux is the one exception: see the
+    // class comment.
+    internal static string ScratchDirectory(ServiceFamily family, string pluginData, string rootPath)
+        => family == ServiceFamily.Chromium && OperatingSystem.IsLinux()
+            ? LinuxChromiumRuntimeScratch(pluginData, Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR"))
+            : Path.Combine(rootPath, "scratch");
+
+    // Exposed so a test can check the naming and validation without the real OS being Linux. $XDG_RUNTIME_DIR is never
+    // read from a fallback such as /tmp, so a session that does not set it fails clearly instead of placing Chromium's
+    // singleton socket somewhere a later move could still make too long. The name derives from the owning Plugin data
+    // folder, so two app instances with different folders never share one.
+    internal static string LinuxChromiumRuntimeScratch(string pluginData, string? runtimeDirectory)
+    {
+        if (string.IsNullOrEmpty(runtimeDirectory))
+            throw new ServiceProtocolException(ServiceErrorCode.Unavailable,
+                "The panel browser needs XDG_RUNTIME_DIR, which this session does not set.");
+        string name = "darkspyre-chromium-" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(pluginData)));
+        return Path.Combine(runtimeDirectory, name);
+    }
 
     private static string RootOf(ServiceRegistration registration)
         => Path.GetDirectoryName(registration.RuntimePath) ?? throw new ArgumentException("The service registration has no service folder.", nameof(registration));

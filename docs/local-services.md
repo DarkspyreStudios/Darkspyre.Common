@@ -331,6 +331,17 @@ chooses a folder: every path derives from the owner's Plugin data folder `<P>` (
 | `<P>/service/runtime/` | Ownership lock, launch budget, discovery and the connection point |
 | `<P>/service/scratch/` | The detached service's temporary folder |
 
+One exception (DSA-1291): on Linux, Chromium's own temporary folder is not `<P>/service/scratch`. Its third-party
+singleton socket has an 108-byte `AF_UNIX` `sun_path` limit that a long Plugin data folder can exceed, so
+`ServiceInstaller.ScratchDirectory` gives it `$XDG_RUNTIME_DIR/darkspyre-chromium-<sha256 of P>` instead, created mode
+0700 like every other service folder. A session that does not set `XDG_RUNTIME_DIR` fails installation with
+`ServiceErrorCode.Unavailable` rather than falling back to `/tmp`. Chromium on macOS and Windows, and every other
+service family on every platform, is unaffected and keeps `<P>/service/scratch`. The folder is named from `P`'s hash so
+two app instances with different Plugin data folders never share one; nothing currently removes it when the service
+stops, the same as `<P>/service/scratch` itself. Chromium's Linux AppArmor grant (`CheckSandbox`) needs no change for
+this: its one rule, `userns,`, is scoped under `flags=(unconfined)`, which mediates only the user-namespace capability
+and names no file path.
+
 The library creates its own `service` folder because a Plugin data folder need not be private. `registration.json` is
 `{"storeId":"…","layoutId":"…","modelPath":"…"|null}`. It holds no folder path except the Model files folder, so the
 owner's folder can move. A missing registration gets a new StoreId. A `ServiceFolders.ModelFiles` that differs from the
