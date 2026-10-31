@@ -89,10 +89,12 @@ public sealed partial class ServiceControlHost
     private async Task ReceiveBodyAsync(Connection connection, BlobChunkMessage chunk)
     {
         CheckEpoch(chunk.Epoch);
-        IncomingRequest incoming;
-        lock (this.gate)
-            incoming = connection.Requests.GetValueOrDefault(chunk.RequestId)
-                ?? throw new ServiceProtocolException(ServiceErrorCode.InvalidFrame);
+        IncomingRequest? incoming;
+        lock (this.gate) incoming = connection.Requests.GetValueOrDefault(chunk.RequestId);
+        // A request that has already answered, such as one its deadline stopped before its body arrived, is no longer
+        // pending, and its remaining chunks are dropped. Refusing the frame would end the connection and every other
+        // call on it, which is the whole host's session work (DSA-1291 line 20).
+        if (incoming is null) return;
         await incoming.Transfer.AppendAsync(chunk, connection.Stop.Token).ConfigureAwait(false);
         if (incoming.Transfer.Complete) incoming.Ready.TrySetResult();
     }
@@ -109,9 +111,15 @@ public sealed partial class ServiceControlHost
             try
             {
                 await SendBusinessAsync(connection, new AcceptedMessage(this.epoch, lease.Request.RequestId), connection.Stop.Token).ConfigureAwait(false);
-                await incoming.Ready.Task.WaitAsync(connection.Stop.Token).ConfigureAwait(false);
+                // The body is awaited under this request's own stop as well as the connection's. Every outbound frame of
+                // a subscription serializes on one semaphore, so a body chunk, and the Cancel meant to stop it, can be
+                // queued behind other frames for longer than the request's deadline. Until the request ends it holds one
+                // of the connection's admission slots, and a connection whose slots are all held by requests waiting for
+                // bodies serves nothing (DSA-1291 line 20).
+                await Task.WhenAny(incoming.Ready.Task, lease.StopRequested).WaitAsync(connection.Stop.Token).ConfigureAwait(false);
                 ServiceOperationResult result;
-                if (lease.StopRequested.IsCompleted || !lease.CanPublish) result = new(ServiceResultStatus.Cancelled);
+                if (!incoming.Ready.Task.IsCompleted || lease.StopRequested.IsCompleted || !lease.CanPublish)
+                    result = new(ServiceResultStatus.Cancelled);
                 else
                 {
                     try

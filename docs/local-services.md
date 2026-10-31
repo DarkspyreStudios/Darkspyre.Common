@@ -397,12 +397,17 @@ for one frame, allowing cancellation traffic between chunks. Result chunks prece
 terminal result reference. The client rejects incomplete or mismatched transfers and never returns
 partial bytes as success. Service invalidations use the same subscription's `EventReceived` event.
 
-Cancellation before handler entry returns Cancelled after the admitted transfer settles. A handler
+Cancellation before handler entry returns Cancelled without waiting for the admitted transfer to settle: the
+request's own stop, which its deadline, its Cancel and a revocation all raise, ends the wait for its body. Its
+remaining chunks are then dropped rather than refused, because refusing a frame ends the whole connection. A body
+that is still queued behind other frames of the one subscription can otherwise outlast its request's deadline, and
+until the request ends it holds one of the connection's admission slots. A handler
 that stops after entry without a proven result returns OutcomeUnknown; when it threw, the result's error carries the
 exception's type and message. A proven domain result remains
 valid after caller cancellation. Lost transport reports an unknown submitted outcome; read adapters
 interpret that transport failure as unavailable. There is no automatic business replay. The registry
-slot remains occupied until the handler and the result body's transfer finish, and it is released before the Result
+slot remains occupied until the handler, or the wait for the request's body, and the result body's transfer finish,
+and it is released before the Result
 frame is sent, so a subscriber that reads the result finds the slot free. Connection disposal joins
 that work before native ownership can be released.
 
