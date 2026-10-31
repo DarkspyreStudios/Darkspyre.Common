@@ -28,6 +28,6 @@
     <DarkspyreLocalServicesVersion>11.0.10.18</DarkspyreLocalServicesVersion>
     <DarkspyreLocalServicesPlatformMacOSVersion>11.0.10.8</DarkspyreLocalServicesPlatformMacOSVersion>
     <DarkspyreLocalServicesPlatformLinuxVersion>11.0.10.8</DarkspyreLocalServicesPlatformLinuxVersion>
-    <DarkspyreLocalServicesPlatformWindowsVersion>11.0.10.8</DarkspyreLocalServicesPlatformWindowsVersion>
+    <DarkspyreLocalServicesPlatformWindowsVersion>11.0.10.9</DarkspyreLocalServicesPlatformWindowsVersion>
   </PropertyGroup>
 </Project>
