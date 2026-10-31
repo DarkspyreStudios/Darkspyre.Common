@@ -333,12 +333,17 @@ chooses a folder: every path derives from the owner's Plugin data folder `<P>` (
 
 One exception (DSA-1291): on Linux, Chromium's own temporary folder is not `<P>/service/scratch`. Its third-party
 singleton socket has an 108-byte `AF_UNIX` `sun_path` limit that a long Plugin data folder can exceed, so
-`ServiceInstaller.ScratchDirectory` gives it `$XDG_RUNTIME_DIR/darkspyre-chromium-<sha256 of P>` instead, created mode
-0700 like every other service folder. A session that does not set `XDG_RUNTIME_DIR` fails installation with
-`ServiceErrorCode.Unavailable` rather than falling back to `/tmp`. Chromium on macOS and Windows, and every other
-service family on every platform, is unaffected and keeps `<P>/service/scratch`. The folder is named from `P`'s hash so
-two app instances with different Plugin data folders never share one; nothing currently removes it when the service
-stops, the same as `<P>/service/scratch` itself. Chromium's Linux AppArmor grant (`CheckSandbox`) needs no change for
+`ServiceInstaller.ScratchDirectory` gives it `$XDG_RUNTIME_DIR/darkspyre-chromium-<first 16 characters of P's sha256>`
+instead, created mode 0700 like every other service folder. A session that does not set `XDG_RUNTIME_DIR` fails
+installation with `ServiceErrorCode.Unavailable` rather than falling back to `/tmp`. Chromium on macOS and Windows, and
+every other service family on every platform, is unaffected and keeps `<P>/service/scratch`. The folder is named from
+`P`'s hash so two app instances with different Plugin data folders never share one; nothing currently removes it when
+the service stops, the same as `<P>/service/scratch` itself. The hash is truncated because Chromium binds the socket
+inside its own unique directory under this folder, so it binds the folder plus
+`/org.chromium.Chromium.XXXXXX/SingletonSocket`, 45 characters, and that whole path has to fit the limit: with
+`/run/user/<uid>` and `darkspyre-chromium-` only 28 characters of hash are left. The full 64 made the bound path 143
+bytes and CEF aborted with `FATAL chrome/browser/process_singleton_posix.cc:315 Socket path too long` before any page
+rendered (maelstrom 0.11.4978). Chromium's Linux AppArmor grant (`CheckSandbox`) needs no change for
 this: its one rule, `userns,`, is scoped under `flags=(unconfined)`, which mediates only the user-namespace capability
 and names no file path.
 

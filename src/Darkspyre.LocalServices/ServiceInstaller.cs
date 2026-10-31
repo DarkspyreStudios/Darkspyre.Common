@@ -134,13 +134,21 @@ internal static class ServiceInstaller
     // read from a fallback such as /tmp, so a session that does not set it fails clearly instead of placing Chromium's
     // singleton socket somewhere a later move could still make too long. The name derives from the owning Plugin data
     // folder, so two app instances with different folders never share one.
+    //
+    // Chromium binds the socket inside its own unique directory under this folder, so it binds this folder plus
+    // "/org.chromium.Chromium.XXXXXX/SingletonSocket", 45 characters, and that whole path has to fit the 107 bytes an
+    // AF_UNIX address holds. With "/run/user/<uid>" and "darkspyre-chromium-" that leaves 28 characters for the hash,
+    // so it is truncated to 16; the full 64 made the bound path 143 bytes and CEF aborted with "Socket path too long"
+    // (DSA-1291, maelstrom 0.11.4978). Sixteen hexadecimal characters still tell two Plugin data folders apart.
+    private const int HashCharacters = 16;
+
     internal static string LinuxChromiumRuntimeScratch(string pluginData, string? runtimeDirectory)
     {
         if (string.IsNullOrEmpty(runtimeDirectory))
             throw new ServiceProtocolException(ServiceErrorCode.Unavailable,
                 "The panel browser needs XDG_RUNTIME_DIR, which this session does not set.");
-        string name = "darkspyre-chromium-" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(pluginData)));
-        return Path.Combine(runtimeDirectory, name);
+        string hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(pluginData)));
+        return Path.Combine(runtimeDirectory, "darkspyre-chromium-" + hash[..HashCharacters]);
     }
 
     private static string RootOf(ServiceRegistration registration)
