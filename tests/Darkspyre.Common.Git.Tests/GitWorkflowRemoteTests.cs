@@ -4,7 +4,8 @@ namespace Darkspyre.Common.Git.Tests;
 
 /// <summary>
 /// The library's Git transfers against a real local bare remote through a recording launcher: lease pushes, a push after
-/// an unknown outcome, remote reads, fetch results from ref comparison, and a failed fetch of a force-pushed branch.
+/// an unknown outcome, remote reads, fetch results from ref comparison, a failed fetch of a force-pushed branch, and the
+/// reason Git itself gives for a fetch and a push the transport refused.
 /// </summary>
 [System.Runtime.Versioning.SupportedOSPlatform("macos")]
 [System.Runtime.Versioning.SupportedOSPlatform("linux")]
@@ -152,6 +153,47 @@ public sealed class GitWorkflowRemoteTests
         Assert.Equal("Fetch did not complete successfully; inspect repository state before another action. No retry or cleanup was attempted.",
             fetched.Diagnostic);
         Assert.Equal(tracking, repository.Head("refs/remotes/origin/main"));
+    }
+
+    /// <summary>
+    /// A fetch the transport refused reports Git's own reason after the library's sentence, so the cause names itself
+    /// instead of leaving the caller with nothing but the failure (DSA-1281).
+    /// </summary>
+    [Fact]
+    public async Task AFetchTheTransportRefusedReportsGitsOwnReason()
+    {
+        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-fetch-refused-");
+        GitConversation git = repository.First;
+        repository.Run("remote", "set-url", "origin", Path.Combine(repository.Root, "absent.git"));
+
+        GitFetchResult fetched = await git.Transfers.FetchAsync(new(repository.Path, "origin", ["refs/heads/main:refs/remotes/origin/main"]));
+
+        Assert.Empty(fetched.UpdatedRefs);
+        Assert.StartsWith("Fetch did not complete successfully; inspect repository state before another action. "
+            + "No retry or cleanup was attempted. fatal:", fetched.Diagnostic, StringComparison.Ordinal);
+        Assert.Contains("does not appear to be a git repository", fetched.Diagnostic, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A push the transport refused reports Git's own reason after the library's sentence, with the outcome still Unknown
+    /// because Git reported none for the ref (DSA-1281).
+    /// </summary>
+    [Fact]
+    public async Task APushTheTransportRefusedReportsGitsOwnReason()
+    {
+        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-push-refused-");
+        GitConversation git = repository.First;
+        repository.Run("remote", "set-url", "origin", Path.Combine(repository.Root, "absent.git"));
+        repository.Write("a.txt", "pushed\n");
+        repository.Commit("Pushed");
+
+        GitPushResult pushed = await git.Transfers.PushAsync(new(repository.Path, "origin", "main", "refs/heads/main"));
+
+        Assert.Equal(GitPushOutcome.Unknown, Assert.Single(pushed.Refs).Outcome);
+        Assert.StartsWith("Remote acceptance was not confirmed. Inspect remote state before another action; "
+            + "no automatic retry was attempted. fatal:", pushed.Diagnostic, StringComparison.Ordinal);
+        Assert.Contains("does not appear to be a git repository", pushed.Diagnostic, StringComparison.Ordinal);
+        Assert.Equal(pushed.Diagnostic, Assert.Single(pushed.Refs).Diagnostic);
     }
 
     /// <summary>

@@ -17,7 +17,7 @@ internal sealed class GitCommands(IGitProcessLauncher processes, GitReadPolicy r
         ["GIT_INDEX_FILE"] = null, ["GIT_OBJECT_DIRECTORY"] = null, ["GIT_ALTERNATE_OBJECT_DIRECTORIES"] = null,
         ["GIT_PREFIX"] = null, ["GIT_CONFIG_COUNT"] = null, ["GIT_CONFIG_PARAMETERS"] = null,
         ["GIT_OPTIONAL_LOCKS"] = "0", ["GIT_TERMINAL_PROMPT"] = "0", ["LC_ALL"] = "C",
-    }.ToImmutableDictionary(StringComparer.Ordinal);
+    }.ToImmutableDictionary(StringComparer.Ordinal).SetItems(HomeEntries(AccountHome));
 
     // A read also never follows a replacement ref, and it clears the inherited namespace and every trace variable, so Git
     // copies no output anywhere but its own pipes.
@@ -47,6 +47,29 @@ internal sealed class GitCommands(IGitProcessLauncher processes, GitReadPolicy r
             ["GIT_EDITOR"] = null, ["GIT_SEQUENCE_EDITOR"] = null,
             ["GIT_CONFIG_COUNT"] = "1", ["GIT_CONFIG_KEY_0"] = "core.editor", ["GIT_CONFIG_VALUE_0"] = "false",
         });
+
+    /// <summary>The home directory of the account this process runs as, read from the account rather than its environment.</summary>
+    private static string AccountHome =>
+        System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile);
+
+    /// <summary>
+    /// The entries naming <paramref name="home"/> as the home directory of the account Git runs as: <c>HOME</c>, and,
+    /// for a home rooted at a drive letter, <c>HOMEDRIVE</c> and <c>HOMEPATH</c> as well. Empty for an unknown home.
+    /// </summary>
+    /// <gotcha>
+    /// Every Git child carries these, so it reads that account's own configuration and SSH settings whatever environment
+    /// block this process was started with. A Windows service's block can name another folder in <c>HOMEDRIVE</c> and
+    /// <c>HOMEPATH</c>, which Git for Windows prefers over <c>USERPROFILE</c>; Git's own shell and ssh recompute the home
+    /// from the same two, so all three must agree.
+    /// </gotcha>
+    internal static IReadOnlyList<KeyValuePair<string, string?>> HomeEntries(string home)
+    {
+        if (string.IsNullOrEmpty(home)) return [];
+        // A drive letter, a colon and a separator: the shape of a home only a system with these two variables has.
+        return home is [char letter, ':', '\\' or '/', ..] && char.IsAsciiLetter(letter)
+            ? [new("HOME", home), new("HOMEDRIVE", home[..2]), new("HOMEPATH", home[2..])]
+            : [new("HOME", home)];
+    }
 
     /// <summary>Runs a command line unchanged as a Change child, with the caller's timeout and output bound.</summary>
     internal Task<GitRunResult> RunCommandLineAsync(string directory, IReadOnlyList<string> arguments, TimeSpan timeout,

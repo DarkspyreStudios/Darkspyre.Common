@@ -29,8 +29,9 @@ internal sealed partial class GitTransfers
             ?? throw new DirectoryNotFoundException("The fetch repository is unavailable.");
         await this.paths.RequireWriteAsync([current.CommonDirectory], cancellationToken).ConfigureAwait(false);
         using IDisposable operation = await this.locks.EnterAsync(current.CommonDirectory, cancellationToken).ConfigureAwait(false);
-        // A named remote is required; an arbitrary URL/path is not silently treated as one. Do not
-        // copy its potentially credential-bearing URL into the SDK result or diagnostics.
+        // A named remote is required; an arbitrary URL/path is not silently treated as one. This operation copies no
+        // remote URL of its own into the SDK result or diagnostics; a failure carries only Git's own reason, whose URLs
+        // GitOperationChecks.Reason strips of their user name and password.
         Check(await this.git.RunAsync(current.WorktreePath, ["remote", "get-url", "--", request.RemoteName],
             cancellationToken).ConfigureAwait(false), "resolve configured fetch remote");
         foreach (string reference in refs)
@@ -58,9 +59,12 @@ internal sealed partial class GitTransfers
         ReadOnlyCollection<GitRefUpdate> updated = updates.AsReadOnly();
         if (result.Exit.ExitCode == 0 && result.Exit.Diagnostic is null) return new(request.RemoteName, updated);
         // --atomic: when Git refuses one ref, it updates none of them, unless another process changed a ref meanwhile.
-        return new(request.RemoteName, updated, updated.Count == 0
+        // Git's own reason follows the sentence, so a refused key or an unverified host key names itself instead of
+        // leaving the caller with nothing but the failure. Git writes none for a ref it merely refuses to fast-forward.
+        return new(request.RemoteName, updated, (updated.Count == 0
             ? "Fetch did not complete successfully; inspect repository state before another action. No retry or cleanup was attempted."
-            : "Fetch did not complete successfully after changing refs; inspect repository state before another action. No retry or cleanup was attempted.");
+            : "Fetch did not complete successfully after changing refs; inspect repository state before another action. No retry or cleanup was attempted.")
+            + (Reason(result.Errors) is { } reason ? " " + reason : string.Empty));
     }
 
     // The commit each destination names now, read with for-each-ref. A pattern also matches refs below it, so only a line

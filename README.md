@@ -51,6 +51,13 @@ and sets `GIT_TERMINAL_PROMPT=0`. Environment config supplies `core.editor=false
 still wins. Standard input is closed. A command that needs an editor or credential prompt fails without waiting.
 The command-line and client entries share `GitCommands.StartAndCaptureAsync` for start, disposal and capture.
 
+Every variant of that list names the home directory of the account the process runs as, so each Git child reads that
+account's own global configuration and SSH settings whatever environment block the process was started with. `HOME`
+names the account's profile folder, read from the account rather than its environment, and a home rooted at a drive
+letter also names `HOMEDRIVE` and `HOMEPATH`. Git for Windows prefers those two over `USERPROFILE`, and a Windows
+service's block can name another folder in them, which would leave a service's Git reading no global configuration at
+all; Git's own shell and ssh recompute the home from the same two, so all three agree.
+
 There are two kinds of entry into that one capture path:
 
 | Entry | Caller | Adds | Environment | Bound and timeout |
@@ -136,7 +143,11 @@ The `GitClient` operations check paths through the path policy, take the reposit
   password, and no message holds the command line.
 - A fetch reads the commit of each `source:destination` destination with `for-each-ref` before and after
   `fetch --atomic`. `GitFetchResult.UpdatedRefs` lists each destination whose commit changed, in request order. A failed
-  fetch returns its diagnostic.
+  fetch returns its diagnostic, and a push whose outcome Git never reported returns its unconfirmed diagnostic. Each
+  carries Git's own reason after its sentence, on the same terms as a failure the library cannot handle, so a refused
+  key, an unverified host key or an unreachable remote names itself. Git writes no such line for a ref it only refuses
+  to fast-forward, and that diagnostic is the sentence alone. Neither copies a remote URL of the library's own into the
+  result.
 - A rebase runs `git -c rebase.updateRefs=false rebase`, so it moves no other branch.
 - A cherry-pick runs a plain pick. When a pick stops with `CHERRY_PICK_HEAD` present, no unmerged path and an index equal
   to HEAD, the commit was already applied: the library runs `cherry-pick --skip`, at most once per source commit. A stop

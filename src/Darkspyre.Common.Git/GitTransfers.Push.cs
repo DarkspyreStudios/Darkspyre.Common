@@ -48,6 +48,7 @@ internal sealed partial class GitTransfers
         {
             // After dispatch, cancellation/transport failure does not establish remote rejection.
             // The shared process path settles its child; this operation never retries the push.
+            // Git wrote no result here, so the diagnostic carries no reason of its own.
             return UnknownPush(request.DestinationBranchRef);
         }
         return ReadPushResult(request.DestinationBranchRef, request.Mode, result);
@@ -62,8 +63,8 @@ internal sealed partial class GitTransfers
     {
         string text;
         try { text = new UTF8Encoding(false, true).GetString(result.Output); }
-        catch (DecoderFallbackException) { return UnknownPush(destination); }
-        if (text.Length != 0 && !text.EndsWith('\n')) return UnknownPush(destination);
+        catch (DecoderFallbackException) { return UnknownPush(destination, result); }
+        if (text.Length != 0 && !text.EndsWith('\n')) return UnknownPush(destination, result);
         GitPushOutcome? outcome = null;
         foreach (string line in text.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
@@ -73,7 +74,7 @@ internal sealed partial class GitTransfers
             if (fields.Length != 3 || fields[0].Length != 1) continue;
             int separator = fields[1].LastIndexOf(':');
             if (separator < 0 || fields[1][(separator + 1)..] != destination) continue;
-            if (outcome is not null) return UnknownPush(destination);
+            if (outcome is not null) return UnknownPush(destination, result);
             outcome = fields[0][0] switch
             {
                 ' ' or '*' or '=' => GitPushOutcome.Accepted,
@@ -84,16 +85,20 @@ internal sealed partial class GitTransfers
                 _ => GitPushOutcome.Unknown,
             };
         }
-        if (outcome is null or GitPushOutcome.Unknown) return UnknownPush(destination);
+        if (outcome is null or GitPushOutcome.Unknown) return UnknownPush(destination, result);
         string? diagnostic = outcome == GitPushOutcome.Rejected ? "Git rejected the requested branch update."
             : result.Exit.ExitCode != 0 || result.Exit.Diagnostic is not null
                 ? "Git acknowledged the ref update but did not complete cleanly; inspect remote state before another action." : null;
         return new(Array.AsReadOnly(new[] { new GitPushRefResult(destination, outcome.Value, diagnostic) }), diagnostic);
     }
 
-    private static GitPushResult UnknownPush(string destination)
+    // A push whose outcome Git never reported, such as one the transport refused. Git's own reason follows the sentence
+    // when Git wrote one, with the user name and password out of every URL, so a refused key names itself.
+    private static GitPushResult UnknownPush(string destination, GitRunResult? result = null)
     {
-        const string diagnostic = "Remote acceptance was not confirmed. Inspect remote state before another action; no automatic retry was attempted.";
+        const string unconfirmed = "Remote acceptance was not confirmed. Inspect remote state before another action; no automatic retry was attempted.";
+        string diagnostic = unconfirmed
+            + (result is { } ran && Reason(ran.Errors) is { } reason ? " " + reason : string.Empty);
         return new(Array.AsReadOnly(new[] { new GitPushRefResult(destination, GitPushOutcome.Unknown, diagnostic) }), diagnostic);
     }
 }
