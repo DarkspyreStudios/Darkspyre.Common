@@ -11,14 +11,18 @@ internal static class WindowsFileSecurity
     {
         get { using WindowsIdentity identity = WindowsIdentity.GetCurrent(); return identity.User ?? throw new UnauthorizedAccessException("The current process has no user SID."); }
     }
-    internal static FileSystemSecurity Create(bool directory, bool readOnly = false, bool executable = false)
+    internal static FileSystemSecurity Create(bool directory, bool readOnly = false, bool executable = false) =>
+        Create(User, directory, readOnly, executable);
+    // The given account owns the resource and holds one allow rule, and SYSTEM holds the other. A host that runs as
+    // SYSTEM gives both rules the same SID, so the access control list keeps one entry instead of two.
+    internal static FileSystemSecurity Create(SecurityIdentifier user, bool directory, bool readOnly = false, bool executable = false)
     {
         FileSystemSecurity security = directory ? new DirectorySecurity() : new FileSecurity();
-        security.SetOwner(User);
+        security.SetOwner(user);
         security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
         FileSystemRights rights = !readOnly ? FileSystemRights.FullControl : directory || executable ? FileSystemRights.ReadAndExecute : FileSystemRights.Read;
         InheritanceFlags inheritance = directory ? InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit : InheritanceFlags.None;
-        security.AddAccessRule(new FileSystemAccessRule(User, rights, inheritance, PropagationFlags.None, AccessControlType.Allow));
+        security.AddAccessRule(new FileSystemAccessRule(user, rights, inheritance, PropagationFlags.None, AccessControlType.Allow));
         security.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null), FileSystemRights.FullControl, inheritance, PropagationFlags.None, AccessControlType.Allow));
         return security;
     }
@@ -33,18 +37,24 @@ internal static class WindowsFileSecurity
             Marshal.Copy(descriptor, bytes, 0, bytes.Length);
             var actual = new RawSecurityDescriptor(bytes, 0);
             byte[] expectedBytes = Create(directory, readOnly, executable).GetSecurityDescriptorBinaryForm();
-            var expected = new RawSecurityDescriptor(expectedBytes, 0);
-            if (actual.Owner != expected.Owner || !actual.ControlFlags.HasFlag(ControlFlags.DiscretionaryAclProtected)
-                || actual.DiscretionaryAcl is not { Count: 2 } || expected.DiscretionaryAcl is null)
-                throw new UnauthorizedAccessException("Service resources require a protected DACL for the current user and SYSTEM.");
-            // Compare the two explicit allow entries, independent of the ACL serialization order.
-            foreach (GenericAce ace in expected.DiscretionaryAcl)
-            {
-                if (ace is not CommonAce rule || rule.AceQualifier != AceQualifier.AccessAllowed
-                    || actual.DiscretionaryAcl.Cast<GenericAce>().OfType<CommonAce>().Count(e => e.AceQualifier == AceQualifier.AccessAllowed && e.AceFlags == rule.AceFlags && e.SecurityIdentifier == rule.SecurityIdentifier && e.AccessMask == rule.AccessMask) != 1)
-                    throw new UnauthorizedAccessException("The service resource access rights do not match its private or sealed state.");
-            }
+            Verify(actual, new RawSecurityDescriptor(expectedBytes, 0));
         }
         finally { WindowsNative.LocalFree(descriptor); }
+    }
+    // Refuses a descriptor that is not the one Create builds for this process: another owner, an inheriting access
+    // control list, a different number of entries, or an entry whose rights differ. The expected descriptor decides the
+    // number of entries, which is one on a host that runs as SYSTEM, because the user and SYSTEM rules name one SID.
+    internal static void Verify(RawSecurityDescriptor actual, RawSecurityDescriptor expected)
+    {
+        if (actual.Owner != expected.Owner || !actual.ControlFlags.HasFlag(ControlFlags.DiscretionaryAclProtected)
+            || expected.DiscretionaryAcl is null || actual.DiscretionaryAcl?.Count != expected.DiscretionaryAcl.Count)
+            throw new UnauthorizedAccessException("Service resources require a protected DACL for the current user and SYSTEM.");
+        // Compare the explicit allow entries, independent of the ACL serialization order.
+        foreach (GenericAce ace in expected.DiscretionaryAcl)
+        {
+            if (ace is not CommonAce rule || rule.AceQualifier != AceQualifier.AccessAllowed
+                || actual.DiscretionaryAcl.Cast<GenericAce>().OfType<CommonAce>().Count(e => e.AceQualifier == AceQualifier.AccessAllowed && e.AceFlags == rule.AceFlags && e.SecurityIdentifier == rule.SecurityIdentifier && e.AccessMask == rule.AccessMask) != 1)
+                throw new UnauthorizedAccessException("The service resource access rights do not match its private or sealed state.");
+        }
     }
 }

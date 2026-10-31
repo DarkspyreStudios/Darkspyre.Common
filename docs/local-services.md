@@ -428,7 +428,9 @@ same neutral implementations as macOS.
 ## Windows ownership and launch
 
 The Windows driver uses protected current-user/SYSTEM file DACLs, rejects reparse points and checks
-opened file identity. Family, store, catalog and launch ownership use LockFileEx on permanent files.
+opened file identity. A host that runs as LocalSystem is the SYSTEM account itself, so the rule for the current user
+and the rule for SYSTEM name one SID and the DACL holds one entry. The check counts the entries of the descriptor it
+builds for the current user, never a fixed two, and still refuses a DACL that carries an entry beyond them. Family, store, catalog and launch ownership use LockFileEx on permanent files.
 Package pins use read handles that permit only shared reads. Collection requires write access;
 an inherited child handle therefore retains the pin after launcher exit. Adoption checks the permanent
 file identity and clears inheritance without closing and reopening the handle.

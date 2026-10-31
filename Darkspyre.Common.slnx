@@ -18,6 +18,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Darkspyre.LocalServices.TestBackend/Darkspyre.LocalServices.TestBackend.csproj" />
+    <Project Path="tests/Darkspyre.LocalServices.Platform.Windows.Tests/Darkspyre.LocalServices.Platform.Windows.Tests.csproj" />
     <Project Path="tests/Darkspyre.Common.Git.Tests/Darkspyre.Common.Git.Tests.csproj" />
     <Project Path="tests/Darkspyre.Common.Pdf.Tests/Darkspyre.Common.Pdf.Tests.csproj" />
     <Project Path="tests/Darkspyre.Common.Workspaces.Tests/Darkspyre.Common.Workspaces.Tests.csproj" />
