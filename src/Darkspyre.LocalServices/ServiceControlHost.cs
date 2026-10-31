@@ -236,7 +236,7 @@ public sealed partial class ServiceControlHost : IAsyncDisposable
 
     private sealed class Connection(ServicePeer peer, CancellationToken token) : IDisposable
     {
-        private readonly SemaphoreSlim writes = new(1);
+        private readonly FrameGate frames = new();
         private readonly object ending = new();
         private int broken;
         private (string Reason, bool Expected)? ended;
@@ -268,23 +268,29 @@ public sealed partial class ServiceControlHost : IAsyncDisposable
             if (!this.Finalizing && this.Termination is null) this.Termination = Task.Run(() => NotifyAndCloseAsync(reason));
         }
 
-        // A frame write waits as long as the subscriber takes to read it: a busy or slow subscriber is still connected. Only a
-        // write that fails, or one the connection's stop interrupts, breaks the transport: it may leave a partial frame.
+        // A frame write waits as long as the subscriber takes to read it: a busy or slow subscriber is still connected. The
+        // gate writes a frame that answers a call before a queued result body. Only a write that fails, or one the
+        // connection's stop interrupts, breaks the transport: it may leave a partial frame.
         public async Task SendAsync(ServiceMessage message, CancellationToken cancellationToken)
         {
+            FrameGate.Hold hold;
+            // The connection's stop is linked in, so a frame waiting for its turn does not hold the teardown behind a
+            // stalled subscriber: BreakTransport cancels Stop before Dispose releases the gate.
             using (var waiting = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, this.Stop.Token))
-                await this.writes.WaitAsync(waiting.Token).ConfigureAwait(false);
-            try
+                hold = await this.frames.EnterAsync(message, waiting.Token).ConfigureAwait(false);
+            using (hold)
             {
-                if (Volatile.Read(ref this.broken) != 0) throw new IOException("The control transport is closed.");
-                await ServiceFrameCodec.WriteAsync(peer.Stream, message, cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    if (Volatile.Read(ref this.broken) != 0) throw new IOException("The control transport is closed.");
+                    await ServiceFrameCodec.WriteAsync(peer.Stream, message, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception error)
+                {
+                    BreakTransport($"writing a {message.GetType().Name} failed: {error.GetType().Name}: {error.Message}");
+                    throw;
+                }
             }
-            catch (Exception error)
-            {
-                BreakTransport($"writing a {message.GetType().Name} failed: {error.GetType().Name}: {error.Message}");
-                throw;
-            }
-            finally { this.writes.Release(); }
         }
 
         public async Task NotifyAndCloseAsync(ServiceErrorCode reason)
@@ -305,7 +311,7 @@ public sealed partial class ServiceControlHost : IAsyncDisposable
         public void Dispose()
         {
             this.Stop.Dispose();
-            this.writes.Dispose();
+            this.frames.Dispose();
         }
 
         public void BreakTransport(string? reason = null)

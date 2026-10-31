@@ -12,7 +12,7 @@ namespace Darkspyre.LocalServices;
 public sealed partial class ServiceSubscription : IServiceSubscription
 {
     private readonly ServicePeer peer;
-    private readonly SemaphoreSlim writes = new(1);
+    private readonly FrameGate frames = new();
     private readonly CancellationTokenSource stopping = new();
     private readonly TaskCompletionSource<ServiceErrorCode?> closed = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly object gate = new();
@@ -97,21 +97,20 @@ public sealed partial class ServiceSubscription : IServiceSubscription
         catch (Exception error) { Finish(ServiceErrorCode.Unavailable, $"the receive loop failed: {Describe(error)}"); throw; }
     }
 
-    // A frame write waits as long as the service takes to read it. Only a write that fails, or one the subscription's close
-    // interrupts, closes the subscription: it may leave a partial frame on the stream.
-    private async Task SendAsync(ServiceMessage message, CancellationToken cancellationToken)
+    // A frame write waits as long as the service takes to read it, and the gate writes a frame that starts or stops a
+    // call before a queued body chunk. Only a write that fails, or one the subscription's close interrupts, closes the
+    // subscription: it may leave a partial frame on the stream. <paramref name="waits"/> collects the gate wait of the
+    // frames of one call.
+    private async Task SendAsync(ServiceMessage message, CancellationToken cancellationToken, CallWaits? waits = null)
     {
-        await this.writes.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
+        using FrameGate.Hold hold = await this.frames.EnterAsync(message, cancellationToken).ConfigureAwait(false);
+        waits?.Add(hold.Waited);
+        try { await ServiceFrameCodec.WriteAsync(this.peer.Stream, message, cancellationToken).ConfigureAwait(false); }
+        catch (Exception error)
         {
-            try { await ServiceFrameCodec.WriteAsync(this.peer.Stream, message, cancellationToken).ConfigureAwait(false); }
-            catch (Exception error)
-            {
-                Finish(ServiceErrorCode.Unavailable, $"writing a {message.GetType().Name} failed: {Describe(error)}");
-                throw;
-            }
+            Finish(ServiceErrorCode.Unavailable, $"writing a {message.GetType().Name} failed: {Describe(error)}");
+            throw;
         }
-        finally { this.writes.Release(); }
     }
 
     // The service answers by draining: every connection, this one too, closes with ServiceDraining.
@@ -169,7 +168,7 @@ public sealed partial class ServiceSubscription : IServiceSubscription
             await this.peer.DisposeAsync().ConfigureAwait(false);
             // Other disposal callers share this task; no frame operation remains when these are released.
             this.stopping.Dispose();
-            this.writes.Dispose();
+            this.frames.Dispose();
         }
     }
 }

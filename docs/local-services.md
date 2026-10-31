@@ -29,6 +29,23 @@ must discard the connection after any failed or cancelled frame read/write. It m
 partial frame. Chunk order, total transfer size, digest, epoch, context and message-state validation
 belong to the connection/operation owner; decoding a frame does not grant admission or authority.
 
+The connection owner serializes writes through `FrameGate`, one gate per connection with a queue for the frames that
+start and stop a call and a queue for the frames that carry data. A connection still writes one frame at a time. When
+the gate frees, a waiting frame that is not a `BlobChunkMessage` is written before a waiting chunk, whatever order they
+arrived in. Both directions use it: the subscriber's outbound frames and the service's Accepted, result bodies and
+Result. Without that order a Cancel meant to stop a call, and the request of a small call, waited behind other callers'
+data for longer than the whole deadline, because a frame write waits as long as the peer takes to read it and one chunk
+carries up to 1,048,483 bytes.
+
+A chunk is not starved and there is no rule against it. A connection admits at most 32 requests, each of which writes at
+most one request frame and one Cancel outbound and one Accepted and one Result inbound, so a chunk waits for at most
+twice that many frames, each of at most one frame's bytes, plus one small frame per published invalidation.
+
+A frame enters the gate under the same token its write runs under, so a frame still stops waiting when its connection
+stops. The service's connection links its own stop into that wait, because breaking the transport cancels that stop
+before the connection disposes the gate, and a gate entered under the caller's token alone would hold the closing write
+and the teardown behind a stalled subscriber. Disposing the gate releases every waiter with `ObjectDisposedException`.
+
 `AcceptedMessage` acknowledges admission, not commit. `OutcomeUnknown` distinguishes a lost or
 uncertain mutation outcome from a confirmed failure. Authentication material is not part of these
 message records. An error envelope, `ServiceError`, carries a code and a correlation ID and, when a service or callback
@@ -392,10 +409,17 @@ caller owns its input stream. Accepted acknowledges admission; the client then s
 `ServiceControlHost` validates sequence, total length and final SHA-256 before entering its handler.
 Request spools live under the owner's private staging directory and are deleted when dispatch settles.
 
-The single receive loop demultiplexes control, body and request messages. Writers hold their semaphore
+The single receive loop demultiplexes control, body and request messages. Writers hold the connection's gate
 for one frame, allowing cancellation traffic between chunks. Result chunks precede the
 terminal result reference. The client rejects incomplete or mismatched transfers and never returns
 partial bytes as success. Service invalidations use the same subscription's `EventReceived` event.
+
+A call's wait for its connection's turn is summed over the call's own frames, its request, each of its body chunks and
+its Cancel, and reported once as the call ends, through the subscription's `CallWaited` event, when the sum reaches
+`ServiceProtocol.ReportedFrameWait`. One line per call, not per frame. Frames that belong to no call, Subscribe,
+Unsubscribe and Stop, are not counted. The report is the caller's own measurement and reaches the caller without the
+service answering anything, so a stalled window is attributable even while the connection it happened on is stalled. A
+handler that throws is ignored: a report never changes a call's outcome.
 
 Cancellation before handler entry returns Cancelled without waiting for the admitted transfer to settle: the
 request's own stop, which its deadline, its Cancel and a revocation all raise, ends the wait for its body. Its

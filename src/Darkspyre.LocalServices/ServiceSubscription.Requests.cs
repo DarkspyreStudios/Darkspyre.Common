@@ -15,6 +15,11 @@ public sealed partial class ServiceSubscription
     /// <summary>Receives service invalidations on this subscription.</summary>
     public event Action<EventMessage>? EventReceived;
 
+    /// <summary>Reports a call of this subscription that waited at least <see cref="ServiceProtocol.ReportedFrameWait"/>
+    /// for its turn on the connection, once, as the call ends.</summary>
+    /// <gotcha>A handler that throws is ignored: a report never changes a call's outcome.</gotcha>
+    public event Action<ServiceCallWait>? CallWaited;
+
     /// <summary>
     /// Submits one operation without replay. The caller retains ownership of the input stream. A call waits for the
     /// connection's request slots its <paramref name="requestClass"/> needs before it is sent: one of
@@ -51,8 +56,8 @@ public sealed partial class ServiceSubscription
                     return new(ServiceResultStatus.Failed, null, null, new(ServiceErrorCode.Busy, Guid.NewGuid(),
                         $"{operation} waited its whole {deadlineMilliseconds} ms deadline for the connection's "
                         + $"{requestClass} request slots"));
-            return await SendRequestAsync(operation, body, Math.Max(1, Remaining(deadlineMilliseconds, waiting)), cancellationToken)
-                .ConfigureAwait(false);
+            return await SendRequestAsync(operation, body, Math.Max(1, Remaining(deadlineMilliseconds, waiting)), requestClass,
+                cancellationToken).ConfigureAwait(false);
         }
         finally { for (int i = held - 1; i >= 0; i--) reservations[i].Release(); }
     }
@@ -61,10 +66,12 @@ public sealed partial class ServiceSubscription
     private static int Remaining(int deadlineMilliseconds, long since) =>
         Math.Max(0, deadlineMilliseconds - (int)System.Diagnostics.Stopwatch.GetElapsedTime(since).TotalMilliseconds);
 
-    private async Task<ServiceCallResult> SendRequestAsync(string operation, Stream body, int deadlineMilliseconds, CancellationToken cancellationToken)
+    private async Task<ServiceCallResult> SendRequestAsync(string operation, Stream body, int deadlineMilliseconds,
+        ServiceRequestClass requestClass, CancellationToken cancellationToken)
     {
         Guid requestId = Guid.NewGuid(), transferId = Guid.NewGuid();
         var call = new PendingCall();
+        var waits = new CallWaits();
         lock (this.gate)
         {
             if (this.closed.Task.IsCompleted) throw new ServiceProtocolException(ServiceErrorCode.Unavailable);
@@ -73,14 +80,15 @@ public sealed partial class ServiceSubscription
         try
         {
             await SendAsync(new RequestMessage(this.Identity.Epoch, requestId, operation, 1,
-                deadlineMilliseconds, ServiceBodyTransfer.Reference(transferId)), this.stopping.Token).ConfigureAwait(false);
+                deadlineMilliseconds, ServiceBodyTransfer.Reference(transferId)), this.stopping.Token, waits).ConfigureAwait(false);
             using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cancellation.CancelAfter(deadlineMilliseconds);
-            Task cancel = SendCancelAsync(operation, requestId, call.Result.Task, cancellation.Token);
+            Task cancel = SendCancelAsync(operation, requestId, call.Result.Task, waits, cancellation.Token);
             try
             {
                 if (await call.Accepted.Task.ConfigureAwait(false))
-                    await ServiceBodyTransfer.SendAsync(this.Identity.Epoch, requestId, transferId, body, SendAsync, this.stopping.Token).ConfigureAwait(false);
+                    await ServiceBodyTransfer.SendAsync(this.Identity.Epoch, requestId, transferId, body,
+                        (message, token) => SendAsync(message, token, waits), this.stopping.Token).ConfigureAwait(false);
                 return await call.Result.Task.ConfigureAwait(false);
             }
             finally { call.Result.TrySetResult(UnknownResult()); await cancel.ConfigureAwait(false); }
@@ -105,15 +113,26 @@ public sealed partial class ServiceSubscription
                 call.Transfer?.Dispose();
                 call.Finished.TrySetResult();
             }
+            Report(operation, requestClass, waits.Total);
         }
     }
 
-    private async Task SendCancelAsync(string operation, Guid requestId, Task result, CancellationToken cancellationToken)
+    // One line per call, not per frame: the sum of the waits of this call's own frames, raised once as the call ends.
+    private void Report(string operation, ServiceRequestClass requestClass, TimeSpan waited)
+    {
+        if (waited < ServiceProtocol.ReportedFrameWait) return;
+        try { this.CallWaited?.Invoke(new(operation, requestClass, waited)); }
+        // A report must never turn a successful call into a failed one, so a handler's failure ends here.
+        catch (Exception) { }
+    }
+
+    private async Task SendCancelAsync(string operation, Guid requestId, Task result, CallWaits waits,
+        CancellationToken cancellationToken)
     {
         var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var registration = cancellationToken.Register(() => cancelled.TrySetResult());
         if (await Task.WhenAny(result, cancelled.Task).ConfigureAwait(false) != cancelled.Task || result.IsCompleted) return;
-        try { await SendAsync(new CancelMessage(this.Identity.Epoch, requestId), this.stopping.Token).ConfigureAwait(false); }
+        try { await SendAsync(new CancelMessage(this.Identity.Epoch, requestId), this.stopping.Token, waits).ConfigureAwait(false); }
         catch (Exception error) when (error is IOException or OperationCanceledException or ObjectDisposedException)
         {
             Finish(ServiceErrorCode.Unavailable, $"the Cancel for {operation} could not be sent: {Describe(error)}");
@@ -171,6 +190,15 @@ public sealed partial class ServiceSubscription
         if (epoch != this.Identity.Epoch) throw new ServiceProtocolException(ServiceErrorCode.WrongEpoch);
     }
     private static ServiceCallResult UnknownResult() => new(ServiceResultStatus.OutcomeUnknown, null, null, new(ServiceErrorCode.Unavailable, Guid.NewGuid()));
+
+    // A call's frames are written by the call's own task and, for the Cancel, by the task that watches its deadline, so
+    // the sum is taken under Interlocked.
+    private sealed class CallWaits
+    {
+        private long ticks;
+        internal void Add(TimeSpan waited) => Interlocked.Add(ref this.ticks, waited.Ticks);
+        internal TimeSpan Total => TimeSpan.FromTicks(Interlocked.Read(ref this.ticks));
+    }
     private sealed class PendingCall
     {
         internal TaskCompletionSource<bool> Accepted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);

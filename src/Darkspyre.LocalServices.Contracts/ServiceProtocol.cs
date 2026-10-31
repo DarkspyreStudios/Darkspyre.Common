@@ -40,6 +40,10 @@ public static class ServiceProtocol
     /// Draining or refusal. A live connection's frames have no deadline; only its end closes it.
     /// </summary>
     public static TimeSpan ClosingWriteDeadline => TimeSpan.FromSeconds(5);
+    /// <summary>The wait for a connection's turn that gets a line of its own, so a stalled window is attributable.</summary>
+    /// <remarks>One second, the same threshold the store's writer gate reports at, so one stall reads the same way
+    /// whether the wait was for the wire or for the write lock.</remarks>
+    public static TimeSpan ReportedFrameWait => TimeSpan.FromSeconds(1);
     /// <summary>The grace period for admitted work during drain.</summary>
     public static TimeSpan GracefulDrainDeadline => TimeSpan.FromSeconds(10);
     /// <summary>The maximum shutdown wait.</summary>

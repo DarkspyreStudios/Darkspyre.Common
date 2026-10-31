@@ -18,6 +18,11 @@ public interface IServiceSubscription : IAsyncDisposable
     /// <summary>Receives invalidations from the subscription's receive loop.</summary>
     event Action<EventMessage>? EventReceived;
 
+    /// <summary>Reports a call of this subscription that waited at least <see cref="ServiceProtocol.ReportedFrameWait"/>
+    /// for its turn on the connection, once, as the call ends.</summary>
+    /// <gotcha>A handler that throws is ignored: a report never changes a call's outcome.</gotcha>
+    event Action<ServiceCallWait>? CallWaited;
+
     /// <summary>Answers callbacks the service sends to this subscriber. Without a handler a callback fails with InvalidState.</summary>
     /// <gotcha>Set it before the subscriber does anything that lets the service call back, such as registering a route.</gotcha>
     ServiceCallbackHandler? CallbackHandler { get; set; }
