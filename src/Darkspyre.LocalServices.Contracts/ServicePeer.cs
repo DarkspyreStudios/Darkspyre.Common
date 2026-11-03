@@ -36,4 +36,6 @@ public sealed class ServiceProtocolException : IOException
     internal ServiceProtocolException(ServiceErrorCode code, string message, Exception? inner = null) : base(message, inner) => this.Code = code;
     /// <summary>The stable failure kind.</summary>
     public ServiceErrorCode Code { get; }
+    /// <summary>The copied failure of the observed startup attempt, when supplied by its owner.</summary>
+    public ServiceStartupFailure? StartupFailure { get; init; }
 }

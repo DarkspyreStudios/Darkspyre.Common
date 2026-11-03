@@ -53,7 +53,10 @@ internal sealed class MacServiceFileSystem : ServiceFileSystem
     {
         internal MacPrivateDirectory Directory => directory;
         internal override string Path => directory.Path;
+        internal override void RemovePrivateFile(string name) => directory.RemoveChild(name);
         internal override byte[]? ReadPrivateFile(string name) => directory.ReadPrivateFile(name);
+        internal override bool HasPrivateFile(string name)
+        { using SafeFileHandle? file = directory.OpenExistingPermanentFile(name); return file is not null; }
         internal override void PublishPrivateFile(string name, ReadOnlySpan<byte> bytes) => directory.PublishPrivateFile(name, bytes);
         internal override IServicePackageLease? TryAcquire(string name, bool shared = false)
             => shared ? MacFileLease.TryAcquireShared(directory, name) : MacFileLease.TryAcquire(directory, name);

@@ -45,7 +45,11 @@ internal static class ServiceFixture
         Guid attempt = Guid.Parse(args[7]);
         try
         {
-            if (args[9] == "crash") return 17;
+            if (args[9] == "crash")
+            {
+                await Console.Error.WriteLineAsync("The disposable backend failed before readiness.");
+                return 17;
+            }
             await using IServiceOwner? owner = await FixturePlatform.Create().TryOwnAsync(new(ServiceFamily.Memory,
                 Guid.Parse(args[5]), args[6], args[3], args[4], args[1], args[2], attempt), startup.Token);
             if (owner is null) return 0;

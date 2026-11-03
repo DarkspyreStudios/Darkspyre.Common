@@ -37,7 +37,7 @@ public sealed partial class ServiceSubscription
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(operation);
         ArgumentNullException.ThrowIfNull(body);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(deadlineMilliseconds);
+        ArgumentOutOfRangeException.ThrowIfNegative(deadlineMilliseconds);
         if (!Enum.IsDefined(requestClass)) throw new ArgumentOutOfRangeException(nameof(requestClass));
         cancellationToken.ThrowIfCancellationRequested();
         long waiting = System.Diagnostics.Stopwatch.GetTimestamp();
@@ -48,15 +48,17 @@ public sealed partial class ServiceSubscription
             ServiceRequestClass.QuickWrite => [this.writeSlots, this.slots],
             _ => [this.slots],
         };
+        using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, this.stopping.Token);
+        CancellationToken waitingToken = deadlineMilliseconds == ServiceProtocol.NoDeadlineMilliseconds ? lifetime.Token : cancellationToken;
         int held = 0;
         try
         {
             for (; held < reservations.Length; held++)
-                if (!await reservations[held].WaitAsync(Remaining(deadlineMilliseconds, waiting), cancellationToken).ConfigureAwait(false))
+                if (!await reservations[held].WaitAsync(Remaining(deadlineMilliseconds, waiting), waitingToken).ConfigureAwait(false))
                     return new(ServiceResultStatus.Failed, null, null, new(ServiceErrorCode.Busy, Guid.NewGuid(),
                         $"{operation} waited its whole {deadlineMilliseconds} ms deadline for the connection's "
                         + $"{requestClass} request slots"));
-            return await SendRequestAsync(operation, body, Math.Max(1, Remaining(deadlineMilliseconds, waiting)), requestClass,
+            return await SendRequestAsync(operation, body, deadlineMilliseconds == ServiceProtocol.NoDeadlineMilliseconds ? ServiceProtocol.NoDeadlineMilliseconds : Math.Max(1, Remaining(deadlineMilliseconds, waiting)), requestClass,
                 cancellationToken).ConfigureAwait(false);
         }
         finally { for (int i = held - 1; i >= 0; i--) reservations[i].Release(); }
@@ -64,7 +66,8 @@ public sealed partial class ServiceSubscription
 
     // The deadline that is left, never negative: a wait of zero returns at once rather than waiting forever.
     private static int Remaining(int deadlineMilliseconds, long since) =>
-        Math.Max(0, deadlineMilliseconds - (int)System.Diagnostics.Stopwatch.GetElapsedTime(since).TotalMilliseconds);
+        deadlineMilliseconds == ServiceProtocol.NoDeadlineMilliseconds ? Timeout.Infinite
+            : Math.Max(0, deadlineMilliseconds - (int)System.Diagnostics.Stopwatch.GetElapsedTime(since).TotalMilliseconds);
 
     private async Task<ServiceCallResult> SendRequestAsync(string operation, Stream body, int deadlineMilliseconds,
         ServiceRequestClass requestClass, CancellationToken cancellationToken)
@@ -82,7 +85,7 @@ public sealed partial class ServiceSubscription
             await SendAsync(new RequestMessage(this.Identity.Epoch, requestId, operation, 1,
                 deadlineMilliseconds, ServiceBodyTransfer.Reference(transferId)), this.stopping.Token, waits).ConfigureAwait(false);
             using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            cancellation.CancelAfter(deadlineMilliseconds);
+            if (deadlineMilliseconds != ServiceProtocol.NoDeadlineMilliseconds) cancellation.CancelAfter(deadlineMilliseconds);
             Task cancel = SendCancelAsync(operation, requestId, call.Result.Task, waits, cancellation.Token);
             try
             {

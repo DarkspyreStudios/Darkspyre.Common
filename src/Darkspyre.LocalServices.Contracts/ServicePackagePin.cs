@@ -31,10 +31,10 @@ public sealed class ServicePackagePin : IDisposable
     internal IServicePackageLease Lease => this.lease;
 
     /// <summary>Creates a launch specification while the package remains pinned.</summary>
-    public ServiceLaunchSpec CreateLaunchSpec(IReadOnlyList<string> arguments, string userHome, string scratchDirectory)
+    public ServiceLaunchSpec CreateLaunchSpec(IReadOnlyList<string> arguments, string userHome, string scratchDirectory, string startupOutputPath)
     {
         ObjectDisposedException.ThrowIf(!this.IsHeld, this);
-        return new(this.ExecutablePath, this.ExecutableSha256, arguments, userHome, scratchDirectory);
+        return new(this.ExecutablePath, this.ExecutableSha256, arguments, userHome, scratchDirectory) { StartupOutputPath = startupOutputPath };
     }
 
     /// <summary>Releases this package lease.</summary>

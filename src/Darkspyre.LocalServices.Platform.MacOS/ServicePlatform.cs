@@ -25,8 +25,15 @@ public sealed partial class ServicePlatform : IServicePlatform
                 await budget.RecordExitAsync(start.AttemptId, normalExit: true, cancellationToken).ConfigureAwait(false);
                 return null;
             }
+            ServiceStartupState? startup;
+            using (IServicePackageLease catalog = await cache.AcquireCatalogAsync(cancellationToken).ConfigureAwait(false))
+            {
+                if (cache.Preferred() != start.BuildDigest) return null;
+                using ServiceDirectory root = new MacServiceFileSystem().OpenPrivateDirectory(Path.GetDirectoryName(start.RuntimePath)!);
+                startup = ServiceStartupFiles.ReadState(root);
+            }
             await budget.MarkRunningAsync(start.AttemptId, cancellationToken).ConfigureAwait(false);
-            var result = new Owner(start, owner, pin);
+            var result = new Owner(start, owner, pin, startup);
             owner = null;
             pin = null;
             return result;
@@ -61,8 +68,10 @@ public sealed partial class ServicePlatform : IServicePlatform
         public ServiceLaunchObservation Launch(ServicePackagePin pin, Guid attemptId)
         {
             Require();
-            DetachedServiceProcess process = MacDetachedLauncher.Start(pin.CreateLaunchSpec(registration.BuildArguments(pin, attemptId), registration.UserHome, registration.ScratchDirectory), pin);
-            return new(attemptId, process.ProcessId, pin.BuildDigest, process.Completion);
+            DetachedServiceProcess process = MacDetachedLauncher.Start(pin.CreateLaunchSpec(registration.BuildArguments(pin, attemptId), registration.UserHome, registration.ScratchDirectory,
+                ServiceStartupFiles.PrepareOutput(new MacServiceFileSystem(), registration, attemptId, pin.BuildDigest)), pin);
+            return new(attemptId, process.ProcessId, pin.BuildDigest,
+                ServiceStartupFiles.ObserveExitAsync(new MacServiceFileSystem(), registration, attemptId, process.Completion));
         }
         public async Task RecordExitAsync(Guid attemptId, bool normalExit, CancellationToken cancellationToken = default)
         {
@@ -76,6 +85,10 @@ public sealed partial class ServicePlatform : IServicePlatform
             using var budget = new ServiceLaunchBudget(new MacServiceFileSystem(), registration.RuntimePath);
             await budget.ResetAsync(cancellationToken).ConfigureAwait(false);
         }
+        public Task<ServiceStartupFailure?> ReadStartupFailureAsync(Guid attemptId, CancellationToken cancellationToken = default)
+            => ServiceStartupFiles.ReadFailureAsync(new MacServiceFileSystem(), registration.RuntimePath, attemptId, cancellationToken);
+        public Task ClearStartupStateAsync(Guid id, CancellationToken cancellationToken = default)
+            => ServiceStartupFiles.ClearStateAsync(new MacServiceFileSystem(), registration.PackageCachePath, registration.RuntimePath, id, cancellationToken);
         public void Dispose() { }
         private void Require() => ServiceInstaller.RequireInstalled(new MacServiceFileSystem(), registration);
         private static bool IsTransient(SocketError error) => error is SocketError.ConnectionRefused or SocketError.ConnectionReset
@@ -89,14 +102,18 @@ public sealed partial class ServicePlatform : IServicePlatform
         private readonly ServicePackagePin pin;
         private MacServiceListener? listener;
         private bool disposed;
-        internal Owner(ServiceStart start, MacServiceOwner owner, ServicePackagePin pin)
+        internal Owner(ServiceStart start, MacServiceOwner owner, ServicePackagePin pin, ServiceStartupState? startup)
         {
             this.start = start;
+            this.StartupState = startup;
             this.owner = owner;
             this.pin = pin;
             this.StagingPath = Path.Combine(start.StorePath, "staging");
             using (MacPrivateDirectory.OpenOrCreate(this.StagingPath)) { }
         }
+        public ServiceStartupState? StartupState { get; }
+        public Task ClearStartupStateAsync(Guid id, CancellationToken cancellationToken = default)
+            => ServiceStartupFiles.ClearStateAsync(new MacServiceFileSystem(), start.PackageCachePath, start.RuntimePath, id, cancellationToken);
         public Guid Epoch { get; } = Guid.NewGuid();
         public string StorePath => this.start.StorePath;
         public string StagingPath { get; }

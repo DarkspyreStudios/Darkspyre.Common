@@ -92,6 +92,13 @@ internal sealed class WindowsPrivateDirectory : ServiceDirectory
             throw new ArgumentException("A private entry must be a single path component.", nameof(name));
         return System.IO.Path.Combine(this.Path, name);
     }
+    internal override bool HasPrivateFile(string name)
+    {
+        SafeFileHandle file;
+        try { file = OpenNative(Child(name), WindowsNative.Read, 7, 3, directory: false); }
+        catch (IOException error) when (error.InnerException is System.ComponentModel.Win32Exception { NativeErrorCode: WindowsNative.Missing }) { return false; }
+        using (file) { WindowsFileSecurity.Inspect(file, directory: false); return true; }
+    }
     internal override byte[]? ReadPrivateFile(string name)
     {
         SafeFileHandle file;
@@ -123,6 +130,7 @@ internal sealed class WindowsPrivateDirectory : ServiceDirectory
         }
         finally { File.Delete(temporary); }
     }
+    internal override void RemovePrivateFile(string name) => RemoveChild(name);
     internal void RemoveChild(string name) => File.Delete(Child(name));
     internal override IServicePackageLease? TryAcquire(string name, bool shared = false) => WindowsFileLease.TryAcquire(this, name, shared);
     internal override bool IsLeaseHeld(string name) => WindowsFileLease.IsHeldElsewhere(this, name);

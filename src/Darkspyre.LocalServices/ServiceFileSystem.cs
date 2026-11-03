@@ -35,6 +35,9 @@ internal abstract class ServiceDirectory : IDisposable
 {
     internal abstract string Path { get; }
     internal abstract byte[]? ReadPrivateFile(string name);
+    // Checks a regular private file without reading potentially unbounded attempt output.
+    internal abstract bool HasPrivateFile(string name);
+    internal abstract void RemovePrivateFile(string name);
     internal abstract void PublishPrivateFile(string name, ReadOnlySpan<byte> bytes);
     internal abstract IServicePackageLease? TryAcquire(string name, bool shared = false);
     // Whether another open description holds the exclusive lease on the existing file; false when it is missing. Creates nothing.

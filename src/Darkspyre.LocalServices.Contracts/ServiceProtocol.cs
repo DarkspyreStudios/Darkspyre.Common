@@ -5,6 +5,8 @@ public static class ServiceProtocol
 {
     /// <summary>The supported wire protocol version.</summary>
     public const int Version = 5;
+    /// <summary>A request with no deadline; caller cancellation, authority revocation and subscription lifetime still apply.</summary>
+    public const int NoDeadlineMilliseconds = 0;
     /// <summary>The maximum frame payload size in bytes: the JSON message, or a chunk header and its bytes.</summary>
     public const int MaximumFrameBytes = 1024 * 1024;
     /// <summary>The maximum body chunk size in bytes: the frame payload less the 93-byte final chunk header, so one chunk fills one frame.</summary>

@@ -64,6 +64,7 @@ public static class ServiceFrameCodec
             return;
         }
 
+        ValidateDeadline(message);
         using var body = new FrameBuffer();
         JsonSerializer.Serialize<ServiceMessage>(body, message, JsonOptions);
         byte[] prefix = new byte[sizeof(uint) + 1];
@@ -78,8 +79,10 @@ public static class ServiceFrameCodec
         await stream.ReadExactlyAsync(body, cancellationToken).ConfigureAwait(false);
         try
         {
-            return JsonSerializer.Deserialize<ServiceMessage>(body, JsonOptions)
+            ServiceMessage message = JsonSerializer.Deserialize<ServiceMessage>(body, JsonOptions)
                 ?? throw new InvalidDataException("The service frame has no message.");
+            ValidateDeadline(message);
+            return message;
         }
         catch (JsonException error)
         {
@@ -120,6 +123,13 @@ public static class ServiceFrameCodec
     {
         BinaryPrimitives.WriteUInt32LittleEndian(prefix, checked((uint)length));
         prefix[sizeof(uint)] = kind;
+    }
+
+    private static void ValidateDeadline(ServiceMessage message)
+    {
+        if (message is RequestMessage { DeadlineMilliseconds: < ServiceProtocol.NoDeadlineMilliseconds }
+            or CapabilityRequestMessage { DeadlineMilliseconds: < ServiceProtocol.NoDeadlineMilliseconds })
+            throw new InvalidDataException("A service deadline cannot be negative.");
     }
 
     private static void ValidateChunk(BlobChunkMessage chunk)

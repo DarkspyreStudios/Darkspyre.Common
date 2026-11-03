@@ -40,10 +40,10 @@ internal static class ServiceInstaller
             : files.OpenExistingPrivateDirectory(rootPath) ?? throw NotInstalled(pluginData);
         if (!folders.CreateIfMissing && root.ReadPrivateFile(RegistrationFile) is null) throw NotInstalled(pluginData);
         string cachePath = Path.Combine(rootPath, "packages");
-        using ServicePackageCache cache = ServicePackageCache.Open(files, cachePath);
+        using ServicePackageCache cache = folders.CreateIfMissing ? ServicePackageCache.Open(files, cachePath) : ServicePackageCache.OpenExisting(files, cachePath);
         using IServicePackageLease catalog = await cache.AcquireCatalogAsync(cancellationToken).ConfigureAwait(false);
-        using ServicePackagePin pin = await cache.InstallLockedAsync(installation.PackageDirectory,
-            installation.Manifest, installation.ServiceBuildDigest, cancellationToken).ConfigureAwait(false);
+        using ServicePackagePin? pin = folders.CreateIfMissing ? await cache.InstallLockedAsync(installation.PackageDirectory,
+            installation.Manifest, installation.ServiceBuildDigest, cancellationToken).ConfigureAwait(false) : null;
         string? modelFiles = folders.ModelFiles is { } named ? Path.GetFullPath(named) : null;
         string storePath = Path.Combine(pluginData, "store");
         byte[]? bytes = root.ReadPrivateFile(RegistrationFile);
@@ -61,20 +61,28 @@ internal static class ServiceInstaller
             stored = Parse(bytes);
             if (stored.LayoutId != installation.LayoutId)
                 throw new ServiceProtocolException(ServiceErrorCode.IncompatibleProtocol);
-            if (modelFiles is not null && !string.Equals(modelFiles, stored.ModelPath, StringComparison.Ordinal))
+            if (folders.CreateIfMissing && modelFiles is not null && !string.Equals(modelFiles, stored.ModelPath, StringComparison.Ordinal))
             {
                 // The next launch passes this folder. A running service keeps the one it started with.
                 stored = stored with { ModelPath = modelFiles };
                 root.PublishPrivateFile(RegistrationFile, JsonSerializer.SerializeToUtf8Bytes(stored, Json));
             }
         }
-        await cache.SetPreferredLockedAsync(pin.BuildDigest, cancellationToken).ConfigureAwait(false);
-        // Builds no launch can select any more leave the cache; a running service's pinned build stays.
-        cache.CollectUnpreferredLocked();
+        if (folders.CreateIfMissing)
+        {
+            if (installation.StartupStateToClear is { } clear) ServiceStartupFiles.ClearState(root, clear);
+            if (installation.StartupState is { } startup) ServiceStartupFiles.PublishState(root, startup);
+            await cache.SetPreferredLockedAsync(pin!.BuildDigest, cancellationToken).ConfigureAwait(false);
+            // Only an owner changes the selection and collects cache builds.
+            cache.CollectUnpreferredLocked();
+        }
         string runtime = Path.Combine(rootPath, "runtime");
         string scratch = ScratchDirectory(installation.Family, pluginData, rootPath, userTemporaryDirectory);
-        using (files.OpenPrivateDirectory(runtime)) { }
-        using (files.OpenPrivateDirectory(scratch)) { }
+        if (folders.CreateIfMissing)
+        {
+            using (files.OpenPrivateDirectory(runtime)) { }
+            using (files.OpenPrivateDirectory(scratch)) { }
+        }
         Guid storeId = stored.StoreId;
         string layoutId = stored.LayoutId;
         return new(installation.Family, runtime, cachePath, storeId, layoutId, installation.ClientBuildDigest, userHome,

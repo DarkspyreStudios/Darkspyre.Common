@@ -14,7 +14,11 @@ namespace Darkspyre.LocalServices;
 /// <param name="BuildArguments">Constructs launch arguments from a pinned package and reserved attempt.</param>
 public sealed record ServiceRegistration(ServiceFamily Family, string RuntimePath, string PackageCachePath,
     Guid StoreId, string LayoutId, string ClientBuildDigest, string UserHome, string ScratchDirectory,
-    Func<ServicePackagePin, Guid, IReadOnlyList<string>> BuildArguments);
+    Func<ServicePackagePin, Guid, IReadOnlyList<string>> BuildArguments)
+{
+    /// <summary>The exact owner payload required for a successful data connection, or null for a joiner.</summary>
+    public string? RequiredBuildDigest { get; init; }
+}
 /// <summary>Registered identity passed to a detached backend at launch.</summary>
 /// <param name="Family">The fixed service family.</param>
 /// <param name="StoreId">The durable store identity.</param>
@@ -50,7 +54,13 @@ public sealed record ServiceFolders(string PluginData, string? ModelFiles, bool 
 /// <gotcha>An exception <paramref name="StoreIdentity"/> throws fails the installation, and no registration is written.</gotcha>
 public sealed record ServicePackageInstallation(ServiceFamily Family, string LayoutId, string ClientBuildDigest,
     string PackageDirectory, ServicePackageManifest Manifest, string ServiceBuildDigest, ServiceFolders Folders,
-    Func<string, Guid?>? StoreIdentity = null);
+    Func<string, Guid?>? StoreIdentity = null)
+{
+    /// <summary>Opaque startup input published before selecting this payload; null changes nothing.</summary>
+    public ServiceStartupState? StartupState { get; init; }
+    /// <summary>The matching completed or aborted startup input to clear atomically with payload selection.</summary>
+    public Guid? StartupStateToClear { get; init; }
+}
 /// <summary>Native installation, connection and ownership operations selected at build time.</summary>
 public interface IServicePlatform
 {
@@ -58,6 +68,10 @@ public interface IServicePlatform
     Task<ServiceRegistration> InstallAsync(ServicePackageInstallation installation, CancellationToken cancellationToken = default);
     /// <summary>Opens native resources for an installed subscriber registration.</summary>
     IServiceInstallation OpenInstallation(ServiceRegistration registration);
+    /// <summary>Acquires the existing family/store leases without launching or publishing; null means an owner is active.</summary>
+    Task<IServiceStoreInspection?> TryInspectStoppedStoreAsync(ServiceRegistration registration, CancellationToken cancellationToken = default);
+    /// <summary>Publishes the validated attempt's safe summary through the platform's private file owner.</summary>
+    Task WriteStartupFailureAsync(ServiceStart start, ServiceStartupFailure failure, CancellationToken cancellationToken = default);
     /// <summary>Adopts the launch pin and acquires family then store ownership before storage opens.</summary>
     Task<IServiceOwner?> TryOwnAsync(ServiceStart start, CancellationToken cancellationToken = default);
     /// <summary>Completes once no process owns the service whose owner folder is <paramref name="pluginData"/>; at once
@@ -81,6 +95,10 @@ public interface IServiceInstallation : IDisposable
     Task RecordExitAsync(Guid attemptId, bool normalExit, CancellationToken cancellationToken = default);
     /// <summary>Resets accounting on an explicit retry.</summary>
     Task ResetCrashBudgetAsync(CancellationToken cancellationToken = default);
+    /// <summary>Reads copied failure evidence for the named launched attempt, or null when no summary exists.</summary>
+    Task<ServiceStartupFailure?> ReadStartupFailureAsync(Guid attemptId, CancellationToken cancellationToken = default);
+    /// <summary>Compare-clears only the matching completed or aborted startup input.</summary>
+    Task ClearStartupStateAsync(Guid id, CancellationToken cancellationToken = default);
 }
 /// <summary>Backend ownership retained until domain work and all peers close.</summary>
 public interface IServiceOwner : IAsyncDisposable
@@ -91,13 +109,40 @@ public interface IServiceOwner : IAsyncDisposable
     string StorePath { get; }
     /// <summary>The private directory for transient request bodies.</summary>
     string StagingPath { get; }
-    /// <summary>Publishes authenticated discovery after storage initialization succeeds.</summary>
+    /// <summary>The immutable startup input captured under the catalog lock when ownership was acquired.</summary>
+    ServiceStartupState? StartupState { get; }
+    /// <summary>Compare-clears only this completed or aborted input.</summary>
+    Task ClearStartupStateAsync(Guid id, CancellationToken cancellationToken = default);
+    /// <summary>Publishes authenticated transport discovery. Domain readiness belongs to the service protocol.</summary>
     Task PublishAsync(CancellationToken cancellationToken = default);
     /// <summary>Accepts a peer after native identity and capability authentication.</summary>
     Task<ServicePeer> AcceptAsync(CancellationToken cancellationToken = default);
     /// <summary>Removes discovery, records normal exit and releases ownership after domain cleanup.</summary>
     Task CompleteAsync(CancellationToken cancellationToken = default);
 }
+/// <summary>Exclusive stopped-store inspection without a launch pin or discovery publication.</summary>
+public interface IServiceStoreInspection : IAsyncDisposable
+{
+    /// <summary>The durable registered store identity.</summary>
+    Guid StoreId { get; }
+    /// <summary>The private store path, accessible only while this lease is held.</summary>
+    string StorePath { get; }
+}
+/// <summary>Opaque owner startup input, copied at the LocalServices boundary.</summary>
+/// <param name="Id">The owner's operation identity, used for compare-clear.</param>
+/// <param name="Value">The copied owner payload; LocalServices never interprets its fields.</param>
+public sealed record ServiceStartupState(Guid Id, ReadOnlyMemory<byte> Value);
+/// <summary>Safe copied failure evidence for one launched payload; owner evidence remains opaque to LocalServices.</summary>
+/// <param name="AttemptId">The observed launch identity.</param>
+/// <param name="BuildDigest">The verified launched payload digest.</param>
+/// <param name="Stage">The owner's startup stage.</param>
+/// <param name="ErrorCode">The owned safe error code.</param>
+/// <param name="ErrorType">The diagnostic type name without an exception object.</param>
+/// <param name="Message">The owner's fixed safe cause, with no user content or credentials.</param>
+/// <param name="OutputPath">The private prepared output of this exact attempt.</param>
+/// <param name="OwnerEvidence">Copied owner evidence; only that owner decodes it.</param>
+public sealed record ServiceStartupFailure(Guid AttemptId, string BuildDigest, string Stage, string ErrorCode,
+    string ErrorType, string Message, string OutputPath, ReadOnlyMemory<byte>? OwnerEvidence);
 /// <summary>An OS-held lease keeping an immutable package alive.</summary>
 public interface IServicePackageLease : IDisposable
 {

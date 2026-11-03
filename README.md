@@ -779,8 +779,32 @@ The application Host does not register, install or start the service.
 The package cache copies a payload into a staging folder and syncs each file with `ServiceFileSystem.SyncFile`. It then
 flushes the device once with `ServiceFileSystem.FlushDevice` and only after that publishes the build by rename. On macOS
 the one flush is F_FULLFSYNC; on Linux and Windows the per-file sync already flushes the device.
-Every installation selects its build as preferred and then removes each other cached build that no launch or running
-service pins. A subscriber whose build was removed copies it in again when it next installs.
+Only an owner installation selects its build as preferred and removes cached builds that no launch or running service
+pins. A join-only installation reads the registration without installing, selecting, changing Model files or collecting.
+An owner whose cached build was removed reinstalls it from its complete immutable source.
+
+`RequiredBuildDigest` constrains successful data connections to the paired payload. Stop still authenticates the same
+store/layout with any digest so the existing drain can release a different owner. A startup input is opaque copied bytes
+in the separate private `startup-state.json`, published under the catalog lock before preferred selection. A new process
+acquires family/store ownership, validates its digest is still preferred and captures the input under that lock. Completion
+compare-clears only the named operation. Null input never deletes state, and registration.json keeps its original shape.
+
+The platform installation prepares a private per-attempt stdout/stderr file before launch. Standard input stays detached.
+A private attempt identity under runtime/attempts records its digest and start time. Only the actual native Completion
+marks exit observed; budget accounting and backend Complete do not. The catalog-locked cleanup preserves active/unknown
+attempts and the latest complete failure pair per digest, even after disposable cache collection. A valid typed failure
+wins over an exit code of zero. Cleanup failure retains attribution and never replaces the process result.
+`WriteStartupFailureAsync` publishes a safe typed summary for the validated start through one `ServiceStartupFiles` writer.
+The writer derives its destination and validates attempt, build and output identity, without requiring ownership first.
+`ReadStartupFailureAsync` transports copied owner evidence opaquely. The connector preserves the failed observed attempt's
+stage/code/output and does not substitute an unrelated older attempt. Domain initialization can use the early authenticated
+transport while ordinary domain requests remain fenced by the service.
+
+`TryInspectStoppedStoreAsync` holds the existing family/store leases without launching, publishing or changing preference.
+The service-owned consumer can inspect its database read-only during that lease. An active owner returns no lease.
+Request deadline `ServiceProtocol.NoDeadlineMilliseconds` (0) means caller/subscription lifetime; cancellation, revocation,
+drain and shutdown remain effective. Positive request deadlines retain their meaning, and negative values are invalid.
+Transport setup keeps `ConnectDeadline` and the original connector contract.
 
 ## Darkspyre.LocalServices.Platform.MacOS, Linux and Windows
 

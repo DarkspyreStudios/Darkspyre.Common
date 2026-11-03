@@ -36,6 +36,11 @@ internal static class LinuxDetachedLauncher
                 throw new InvalidDataException("The installed service executable does not match its registered digest.");
         }
 
+        ValidateAbsolute(spec.StartupOutputPath);
+        int outputFd = LinuxNative.Open(spec.StartupOutputPath, 1 | 0x400 | LinuxNative.NoFollow | LinuxNative.CloseOnExec);
+        if (outputFd < 0) throw LinuxNative.Error("open startup output", Marshal.GetLastPInvokeError());
+        using var output = new SafeFileHandle((nint)outputFd, ownsHandle: true);
+        LinuxNative.InspectPrivate(output, directory: false);
         using var arguments = new NativeStrings([spec.ExecutablePath, .. spec.Arguments]);
         List<string> variables = [
             $"HOME={spec.UserHome}", $"TMPDIR={spec.ScratchDirectory}/", "PATH=/usr/bin:/bin:/usr/sbin:/sbin", "LANG=en_US.UTF-8"];
@@ -60,8 +65,9 @@ internal static class LinuxDetachedLauncher
         Marshal.WriteInt64(signals.Value, (1L << 0) | (1L << 1) | (1L << 12) | (1L << 14));
         LinuxSpawn.Check(LinuxSpawn.SetSignalDefaults(attributes.Value, signals.Value), "reset termination signals");
         LinuxSpawn.Check(LinuxSpawn.ChangeDirectory(actions.Value, "/"), "set service working directory");
-        for (int i = 0; i < 3; i++)
-            LinuxSpawn.Check(LinuxSpawn.OpenDescriptor(actions.Value, i, "/dev/null", i == 0 ? 0 : 1, 0), "isolate service stdio");
+        LinuxSpawn.Check(LinuxSpawn.OpenDescriptor(actions.Value, 0, "/dev/null", 0, 0), "detach service stdin");
+        LinuxSpawn.Check(LinuxSpawn.DuplicateDescriptor(actions.Value, output, 1), "capture startup stdout");
+        LinuxSpawn.Check(LinuxSpawn.DuplicateDescriptor(actions.Value, output, 2), "capture startup stderr");
         if (packagePin is not null)
             LinuxSpawn.Check(LinuxSpawn.DuplicateDescriptor(actions.Value, ((LinuxFileLease)packagePin.Lease).Descriptor, LinuxServiceFileSystem.InheritedPinDescriptor), "inherit package pin");
         LinuxSpawn.Check(LinuxSpawn.CloseFrom(actions.Value, packagePin is null ? 3 : 4), "close inherited descriptors");

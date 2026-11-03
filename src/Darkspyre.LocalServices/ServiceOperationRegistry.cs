@@ -88,7 +88,7 @@ public sealed class ServiceOperationRegistry
         {
             Maintain();
             if (request.Epoch != this.epoch) return new(null, ServiceErrorCode.WrongEpoch);
-            if (request.RequestId == Guid.Empty || !ValidOperation(request.Operation) || request.DeadlineMilliseconds <= 0
+            if (request.RequestId == Guid.Empty || !ValidOperation(request.Operation) || request.DeadlineMilliseconds < ServiceProtocol.NoDeadlineMilliseconds
                 || request.Payload.ValueKind == System.Text.Json.JsonValueKind.Undefined)
                 return new(null, ServiceErrorCode.InvalidFrame);
             if (!this.connections.TryGetValue(connectionId, out Connection? connection)
@@ -148,12 +148,14 @@ public sealed class ServiceOperationRegistry
         this.maintainLifecycle?.Invoke();
         long now = this.time.GetTimestamp();
         foreach (ServiceOperationLease lease in this.active.Values)
-            if (this.time.GetElapsedTime(lease.Started, now).TotalMilliseconds >= lease.Request.DeadlineMilliseconds)
+            if (lease.Request.DeadlineMilliseconds != ServiceProtocol.NoDeadlineMilliseconds
+                && this.time.GetElapsedTime(lease.Started, now).TotalMilliseconds >= lease.Request.DeadlineMilliseconds)
                 lease.Stop(ServiceOperationStopReason.DeadlineElapsed);
     }
 
     internal TimeSpan RemainingTime(ServiceOperationLease lease)
     {
+        if (lease.Request.DeadlineMilliseconds == ServiceProtocol.NoDeadlineMilliseconds) return Timeout.InfiniteTimeSpan;
         TimeSpan remaining = TimeSpan.FromMilliseconds(lease.Request.DeadlineMilliseconds) - this.time.GetElapsedTime(lease.Started);
         return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
     }

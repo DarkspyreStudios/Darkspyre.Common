@@ -41,6 +41,11 @@ public static class MacDetachedLauncher
                 throw new InvalidDataException("The installed service executable does not match its registered digest.");
         }
 
+        ValidateAbsolute(spec.StartupOutputPath);
+        int outputFd = MacNative.Open(spec.StartupOutputPath, 1 | 8 | MacNative.NoFollowAny | MacNative.CloseOnExec);
+        if (outputFd < 0) throw MacNative.Error("open startup output", Marshal.GetLastPInvokeError());
+        using var output = new SafeFileHandle((nint)outputFd, ownsHandle: true);
+        MacNative.InspectPrivate(output, directory: false);
         using var arguments = new NativeStrings([spec.ExecutablePath, .. spec.Arguments]);
         List<string> variables = [
             $"HOME={spec.UserHome}", $"TMPDIR={spec.ScratchDirectory}/", "PATH=/usr/bin:/bin:/usr/sbin:/sbin", "LANG=en_US.UTF-8"];
@@ -59,8 +64,9 @@ public static class MacDetachedLauncher
         MacSpawn.Check(MacSpawn.SetSignalMask(ref attributes.Value, ref emptyMask), "clear inherited signal mask");
         MacSpawn.Check(MacSpawn.SetSignalDefaults(ref attributes.Value, ref defaults), "reset termination signals");
         MacSpawn.Check(MacSpawn.ChangeDirectory(ref actions.Value, "/"), "set service working directory");
-        for (int i = 0; i < 3; i++)
-            MacSpawn.Check(MacSpawn.OpenDescriptor(ref actions.Value, i, "/dev/null", i == 0 ? 0 : 1, 0), "isolate service stdio");
+        MacSpawn.Check(MacSpawn.OpenDescriptor(ref actions.Value, 0, "/dev/null", 0, 0), "detach service stdin");
+        MacSpawn.Check(MacSpawn.DuplicateDescriptor(ref actions.Value, output, 1), "capture startup stdout");
+        MacSpawn.Check(MacSpawn.DuplicateDescriptor(ref actions.Value, output, 2), "capture startup stderr");
         if (packagePin is not null)
             MacSpawn.Check(MacSpawn.DuplicateDescriptor(ref actions.Value, ((MacFileLease)packagePin.Lease).Descriptor, MacServiceFileSystem.InheritedPinDescriptor), "inherit package pin");
         // dup2(3, 3) leaves an adopted descriptor close-on-exec. Explicit inheritance keeps the pin through exec.

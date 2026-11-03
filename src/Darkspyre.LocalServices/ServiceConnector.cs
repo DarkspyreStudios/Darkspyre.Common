@@ -38,6 +38,28 @@ public sealed class ServiceConnector : IServiceConnector
         deadline.CancelAfter(ServiceProtocol.ConnectDeadline);
         using IServiceInstallation installation = this.platform.OpenInstallation(this.registration);
         ServiceProtocolException? incompatible = null;
+        List<ServiceLaunchObservation> observed = [];
+        async Task<ServiceProtocolException> FailureAsync()
+        {
+            ServiceLaunchObservation? last = observed.LastOrDefault();
+            if (last is null) return incompatible ?? new ServiceProtocolException(ServiceErrorCode.Unavailable);
+            ServiceStartupFailure? failure = null;
+            try
+            {
+                if (last.Completion.IsCompleted)
+                    failure = await installation.ReadStartupFailureAsync(last.AttemptId, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Text.Json.JsonException) { }
+            if (failure is not null && failure.AttemptId == last.AttemptId && failure.BuildDigest == last.BuildDigest)
+            {
+                ServiceErrorCode code = Enum.TryParse(failure.ErrorCode, out ServiceErrorCode known) && Enum.IsDefined(known) ? known : ServiceErrorCode.Unavailable;
+                return new ServiceProtocolException(code, $"The service failed during {failure.Stage}: {failure.Message} Startup log: {failure.OutputPath}")
+                    { StartupFailure = failure };
+            }
+            string exit = last.Completion.IsCompletedSuccessfully ? $"exit code {last.Completion.Result.ExitCode}, signal {last.Completion.Result.Signal}" : "exit could not be observed";
+            return new ServiceProtocolException(ServiceErrorCode.Unavailable,
+                $"The service startup attempt {last.AttemptId:D} did not reach readiness ({exit}). Startup log: {ServiceStartupFiles.OutputPath(this.registration.RuntimePath, last.AttemptId)}");
+        }
         try
         {
             while (true)
@@ -58,7 +80,7 @@ public sealed class ServiceConnector : IServiceConnector
                 if (connected is not null) return connected;
                 ServiceLaunchReservation reservation = await installation.TryReserveLaunchAsync(deadline.Token).ConfigureAwait(false);
                 if (reservation.Decision == ServiceLaunchDecision.Exhausted)
-                    throw incompatible ?? new ServiceProtocolException(ServiceErrorCode.Unavailable);
+                    throw await FailureAsync().ConfigureAwait(false);
                 if (reservation.Decision == ServiceLaunchDecision.Reserved)
                 {
                     Guid attempt = reservation.AttemptId!.Value;
@@ -67,6 +89,7 @@ public sealed class ServiceConnector : IServiceConnector
                         using ServicePackagePin pin = await installation.PinPreferredAsync(deadline.Token).ConfigureAwait(false);
                         deadline.Token.ThrowIfCancellationRequested();
                         ServiceLaunchObservation launch = installation.Launch(pin, attempt);
+                        observed.Add(launch);
                         this.observeLaunch(launch with { Completion = ObserveExitAsync(launch) });
                     }
                     catch
@@ -80,7 +103,7 @@ public sealed class ServiceConnector : IServiceConnector
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            throw incompatible ?? new ServiceProtocolException(ServiceErrorCode.Unavailable);
+            throw await FailureAsync().ConfigureAwait(false);
         }
     }
 
@@ -97,7 +120,7 @@ public sealed class ServiceConnector : IServiceConnector
         using (IServiceInstallation installation = this.platform.OpenInstallation(this.registration))
         {
             // No owner, or one already draining, gets no frame; the wait below covers both.
-            ServiceSubscription? subscription = await TryConnectAsync(installation, cancellationToken).ConfigureAwait(false);
+            ServiceSubscription? subscription = await TryConnectAsync(installation, cancellationToken, enforceBuild: false).ConfigureAwait(false);
             if (subscription is not null)
             {
                 await using (subscription.ConfigureAwait(false))
@@ -107,14 +130,15 @@ public sealed class ServiceConnector : IServiceConnector
         await this.platform.WaitUntilStoppedAsync(ServiceInstaller.PluginDataOf(this.registration), cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task<ServiceSubscription?> TryConnectAsync(IServiceInstallation installation, CancellationToken cancellationToken)
+    private async Task<ServiceSubscription?> TryConnectAsync(IServiceInstallation installation, CancellationToken cancellationToken, bool enforceBuild = true)
     {
         ServicePeer? peer = null;
         try
         {
             peer = await installation.TryConnectAsync(cancellationToken).ConfigureAwait(false);
             if (peer is null) return null;
-            if (peer.Welcome.LayoutId != this.registration.LayoutId)
+            if (peer.Welcome.LayoutId != this.registration.LayoutId
+                || enforceBuild && this.registration.RequiredBuildDigest is { } required && peer.Welcome.BuildDigest != required)
                 throw new ServiceProtocolException(ServiceErrorCode.IncompatibleProtocol);
             ServicePeer subscribing = peer;
             peer = null; // SubscribeAsync owns disposal even when admission fails.

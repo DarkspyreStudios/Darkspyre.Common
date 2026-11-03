@@ -37,6 +37,19 @@ internal sealed partial class ServicePackageCache : IDisposable
         catch { leases?.Dispose(); builds?.Dispose(); root.Dispose(); throw; }
     }
 
+    internal static ServicePackageCache OpenExisting(ServiceFileSystem files, string path)
+    {
+        ServiceDirectory root = files.OpenExistingPrivateDirectory(path) ?? throw new FileNotFoundException("The service cache is missing.");
+        ServiceDirectory? builds = null, leases = null;
+        try
+        {
+            builds = files.OpenExistingPrivateDirectory(System.IO.Path.Combine(path, "builds")) ?? throw new FileNotFoundException("The service builds are missing.");
+            leases = files.OpenExistingPrivateDirectory(System.IO.Path.Combine(path, "leases")) ?? throw new FileNotFoundException("The service leases are missing.");
+            return new(files, root, builds, leases);
+        }
+        catch { leases?.Dispose(); builds?.Dispose(); root.Dispose(); throw; }
+    }
+
     /// <summary>Copies a complete verified payload and returns a pin. It does not change the preferred build.</summary>
     public async Task<ServicePackagePin> InstallAsync(string sourceDirectory, ServicePackageManifest manifest,
         string expectedBuildDigest, CancellationToken cancellationToken = default)
@@ -168,7 +181,7 @@ internal sealed partial class ServicePackageCache : IDisposable
         }
     }
 
-    private string? Preferred()
+    internal string? Preferred()
     {
         byte[]? bytes = this.root.ReadPrivateFile("preferred");
         return bytes is null ? null : Digest(Encoding.UTF8.GetString(bytes));

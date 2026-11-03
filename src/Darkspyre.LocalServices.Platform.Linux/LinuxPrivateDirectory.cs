@@ -94,6 +94,8 @@ internal sealed class LinuxPrivateDirectory : ServiceDirectory
         try { LinuxNative.InspectPrivate(handle, directory: false); return handle; }
         catch { handle.Dispose(); throw; }
     }
+    internal override bool HasPrivateFile(string name)
+    { using SafeFileHandle? file = OpenExistingPermanentFile(name); return file is not null; }
     internal override byte[]? ReadPrivateFile(string name)
     {
         RequireName(name);
@@ -131,6 +133,7 @@ internal sealed class LinuxPrivateDirectory : ServiceDirectory
         }
         finally { RemoveChild(temporary); }
     }
+    internal override void RemovePrivateFile(string name) => RemoveChild(name);
     internal void RemoveChild(string name)
     {
         RequireName(name);

@@ -8,6 +8,49 @@ subscriber registry, portable connector, handshake and immutable package-cache p
 platform assemblies own native files, transport and detached launch. Neither library
 opens databases.
 
+## Paired owner opening and startup evidence
+
+An owner installation can require an exact service build with `ServiceRegistration.RequiredBuildDigest`. A joiner leaves
+it null and reads the existing registration without installing a payload, changing preference or Model files, or collecting
+cache entries. Stop authenticates the registered store/layout without the exact-build constraint, so the normal drain can
+release a different payload before a new owner selects its pair. Immutable subscriber package contents retain the source;
+cache pins remain launch/runtime leases, not a second durable version owner.
+
+The catalog lock serializes preferred selection and opaque startup input in the separate private `startup-state.json`.
+The owner publishes its copied input before changing preference. A newly launched process takes the family/store locks,
+checks that its digest remains preferred and captures the input under the catalog lock. Completion clears only its matching
+operation id. An absent input never means deletion, and `registration.json` receives no new field. Publication exposes an
+authenticated transport; each service owns the gate from transport readiness to domain readiness.
+
+Before spawn, the platform prepares `startup-<attempt-id>.log` with its private-file/no-follow policy. Standard input stays
+detached; stdout and stderr append to that attempt's output on all three platforms. `IServicePlatform.WriteStartupFailureAsync`
+uses one `ServiceStartupFiles` implementation through that platform's existing private filesystem. It validates start/attempt,
+build and derived output identity before atomically publishing `startup-<attempt-id>.json`. Invalid/unparsed launch strings
+supply no authority to write a summary. The service emits its safe stage/code/type/message and copied opaque owner evidence;
+it does not put user rows, credentials or arbitrary exception messages in the summary. A summary-writing failure never
+replaces the original failure, and an absent summary proves nothing about the store.
+
+The connector reports the failed attempt it actually observed, including exit/output when no summary exists. It never
+uses a prior unrelated attempt as the cause of a later launch. `runtime/attempts/<attemptId:N>.identity.json` records only
+attempt/build/start and observed exit. Preparation and cleanup use the catalog lock. The actual native Completion alone
+marks ExitObserved. Launch-budget completion, prelaunch exceptions and the backend's CompleteAsync never prove that
+output is inactive. A failed observation leaves the identity unknown.
+
+Cleanup removes successful ended output only without a valid typed failure. It retains the newest ended complete failure
+pair by StartedUtc and AttemptId per digest before removing older confirmed-ended failures. Active, missing and malformed
+identities remain untouched. A typed failure wins over a zero exit code. Each removed identity goes last, so partial cleanup
+can retry. Cache/preferred/retained-slot absence grants no deletion authority; a kept payload's latest failure survives cache
+collection. No public retirement signal, second store lease or retention-count setting owns these diagnostics.
+
+`TryInspectStoppedStoreAsync` uses the existing family/store
+ownership locks without launching, publishing discovery or selecting a package. Its consumer may inspect the returned store
+path only during the lease; an active owner yields no lease.
+
+Request deadline `ServiceProtocol.NoDeadlineMilliseconds` (0) has no deadline timer. Slot waiting, wire decoding and server
+expiry retain that meaning through the complete request. Caller cancellation, subscription close, capability revocation,
+drain and shutdown still apply. Positive deadlines are unchanged and negative deadlines are invalid. Only Search's prepared
+opening and its import use 0. Transport connection setup retains its existing deadline and connector signature.
+
 ## Frames
 
 A frame contains a four-byte unsigned little-endian length, a one-byte kind and a payload. The length counts

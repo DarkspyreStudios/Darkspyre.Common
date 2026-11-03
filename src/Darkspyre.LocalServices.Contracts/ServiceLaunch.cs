@@ -7,7 +7,11 @@ namespace Darkspyre.LocalServices;
 /// <param name="UserHome">The resolved user home for the detached service.</param>
 /// <param name="ScratchDirectory">The service-owned scratch directory.</param>
 public sealed record ServiceLaunchSpec(string ExecutablePath, string ExecutableSha256, IReadOnlyList<string> Arguments,
-    string UserHome, string ScratchDirectory);
+    string UserHome, string ScratchDirectory)
+{
+    /// <summary>The private per-attempt stdout/stderr file prepared by the installation owner.</summary>
+    public required string StartupOutputPath { get; init; }
+}
 
 /// <summary>The observed detached service process exit.</summary>
 /// <param name="ProcessId">The detached process identity.</param>

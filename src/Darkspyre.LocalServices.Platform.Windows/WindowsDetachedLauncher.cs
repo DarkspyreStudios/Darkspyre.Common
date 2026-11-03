@@ -23,7 +23,12 @@ internal static class WindowsDetachedLauncher
         using SafeFileHandle inherited = ((WindowsFileLease)pin.Lease).DuplicateForChild();
         using SafeFileHandle nullFile = OpenNull();
         if (!WindowsNative.SetHandleInformation(nullFile, 1, 1)) throw WindowsNative.Error("prepare isolated standard streams");
-        nint[] handles = [inherited.DangerousGetHandle(), nullFile.DangerousGetHandle()];
+        using SafeFileHandle checkedOutput = WindowsPrivateDirectory.OpenPath(spec.StartupOutputPath, directory: false);
+        WindowsFileSecurity.Inspect(checkedOutput, directory: false);
+        using SafeFileHandle output = WindowsPrivateDirectory.OpenNative(spec.StartupOutputPath, 0x4 | WindowsNative.ReadControl, 3, 3, directory: false);
+        WindowsFileSecurity.Inspect(output, directory: false);
+        if (!WindowsNative.SetHandleInformation(output, 1, 1)) throw WindowsNative.Error("inherit startup output");
+        nint[] handles = [inherited.DangerousGetHandle(), nullFile.DangerousGetHandle(), output.DangerousGetHandle()];
         nuint size = 0;
         WindowsSpawn.InitializeProcThreadAttributeList(0, 1, 0, ref size);
         if (size == 0) throw WindowsNative.Error("size inherited handle list");
@@ -56,8 +61,8 @@ internal static class WindowsDetachedLauncher
                         Size = (uint)Marshal.SizeOf<WindowsSpawn.StartupInfoEx>(),
                         Flags = 0x100,
                         Input = nullFile.DangerousGetHandle(),
-                        Output = nullFile.DangerousGetHandle(),
-                        Error = nullFile.DangerousGetHandle()
+                        Output = output.DangerousGetHandle(),
+                        Error = output.DangerousGetHandle()
                     },
                     Attributes = attributes,
                 };

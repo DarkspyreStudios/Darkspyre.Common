@@ -26,6 +26,25 @@ public sealed partial class ServicePlatform
     }
 
     /// <inheritdoc />
+    public Task WriteStartupFailureAsync(ServiceStart start, ServiceStartupFailure failure, CancellationToken cancellationToken = default)
+        => ServiceStartupFiles.WriteFailureAsync(new MacServiceFileSystem(), start, failure, cancellationToken);
+    /// <inheritdoc />
+    public Task<IServiceStoreInspection?> TryInspectStoppedStoreAsync(ServiceRegistration registration, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ServiceInstaller.RequireInstalled(new MacServiceFileSystem(), registration);
+        string store = Path.Combine(ServiceInstaller.PluginDataOf(registration), "store");
+        MacServiceOwner? lease = MacServiceOwner.TryAcquire(registration.RuntimePath, store);
+        return Task.FromResult<IServiceStoreInspection?>(lease is null ? null : new Inspection(registration.StoreId, store, lease));
+    }
+    private sealed class Inspection(Guid id, string path, MacServiceOwner lease) : IServiceStoreInspection
+    {
+        public Guid StoreId => id;
+        public string StorePath => path;
+        public ValueTask DisposeAsync() { lease.Dispose(); return ValueTask.CompletedTask; }
+    }
+
+    /// <inheritdoc />
     public Task WaitUntilStoppedAsync(string pluginData, CancellationToken cancellationToken = default)
         => ServiceInstaller.WaitUntilStoppedAsync(new MacServiceFileSystem(), pluginData, cancellationToken);
 }
