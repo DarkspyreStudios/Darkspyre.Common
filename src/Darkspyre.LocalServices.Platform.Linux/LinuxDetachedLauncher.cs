@@ -39,6 +39,12 @@ internal static class LinuxDetachedLauncher
         using var arguments = new NativeStrings([spec.ExecutablePath, .. spec.Arguments]);
         List<string> variables = [
             $"HOME={spec.UserHome}", $"TMPDIR={spec.ScratchDirectory}/", "PATH=/usr/bin:/bin:/usr/sbin:/sbin", "LANG=en_US.UTF-8"];
+        // The one inherited variable (DSA-1307): the user's runtime root, so a service this child launches in turn, such
+        // as Search starting PostgreSQL, selects the same $XDG_RUNTIME_DIR scratch root as a service the application
+        // launches itself. An absent or empty value is not invented; the installer fails that nested installation instead.
+        // Every other service only inherits it and keeps its own paths.
+        if (Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR") is { Length: > 0 } runtimeDirectory)
+            variables.Add($"XDG_RUNTIME_DIR={runtimeDirectory}");
         if (packagePin is not null)
         {
             variables.Add($"{LinuxServiceFileSystem.InheritedPinVariable}={LinuxServiceFileSystem.InheritedPinDescriptor}");

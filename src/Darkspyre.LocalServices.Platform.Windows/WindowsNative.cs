@@ -33,6 +33,28 @@ internal static partial class WindowsNative
     internal static partial uint GetSecurityDescriptorLength(nint descriptor);
     [LibraryImport("kernel32.dll")]
     internal static partial nint LocalFree(nint memory);
+    [LibraryImport("shell32.dll")]
+    private static partial int SHGetKnownFolderPath(in Guid folderId, uint flags, nint token, out nint path);
+    [LibraryImport("ole32.dll")]
+    private static partial void CoTaskMemFree(nint memory);
+
+    /// <summary>
+    /// The user's Temp folder under the shell's LocalAppData known folder (FOLDERID_LocalAppData). The shell call is
+    /// made directly: Environment.GetFolderPath falls back to the LOCALAPPDATA variable when that call fails, and a
+    /// nested subscriber's TEMP is never read. A failed call is an installation failure, never a fallback.
+    /// </summary>
+    internal static string UserTemporaryDirectory()
+    {
+        Guid localAppData = new("F1B32785-6FBA-4FCF-9D55-7B8E7F157091");
+        int result = SHGetKnownFolderPath(in localAppData, 0, 0, out nint path);
+        if (result != 0) throw new IOException($"Local service user temporary directory lookup failed (HRESULT 0x{result:X8}).", Marshal.GetExceptionForHR(result));
+        try
+        {
+            string folder = Marshal.PtrToStringUni(path) ?? throw new IOException("The shell returned no LocalAppData folder.");
+            return Path.Combine(folder, "Temp");
+        }
+        finally { CoTaskMemFree(path); }
+    }
     internal static IOException Error(string operation, int? code = null)
     {
         int error = code ?? Marshal.GetLastPInvokeError();

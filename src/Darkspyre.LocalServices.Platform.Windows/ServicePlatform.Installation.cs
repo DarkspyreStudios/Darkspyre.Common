@@ -11,7 +11,10 @@ public sealed partial class ServicePlatform
         string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         try
         {
-            return await ServiceInstaller.InstallAsync(new WindowsServiceFileSystem(), installation, home, cancellationToken).ConfigureAwait(false);
+            // PostgreSQL's scratch root is the user's LocalAppData\Temp, read from the shell so a nested subscriber's own
+            // TEMP never selects it; a failed read is an installation failure, never a fallback.
+            string userTemporaryDirectory = installation.Family == ServiceFamily.PostgreSql ? WindowsNative.UserTemporaryDirectory() : string.Empty;
+            return await ServiceInstaller.InstallAsync(new WindowsServiceFileSystem(), installation, home, userTemporaryDirectory, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
         catch (ServiceProtocolException) { throw; }

@@ -10,3 +10,5 @@ using System.Runtime.Versioning;
 [assembly: InternalsVisibleTo("Darkspyre.Chromium.SandboxTests")]
 
 [assembly: InternalsVisibleTo("Darkspyre.LocalServices.Packaging")]
+
+[assembly: InternalsVisibleTo("Darkspyre.PostgreSQL.Inline.Runtime")]

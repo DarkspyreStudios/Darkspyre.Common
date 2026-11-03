@@ -80,6 +80,8 @@ public enum ServiceFamily
     HostTools,
     /// <summary>The Chromium service family, which runs the panel browser's CEF engine for the Chromium plugin.</summary>
     Chromium,
+    /// <summary>The shared inline PostgreSQL service family.</summary>
+    PostgreSql,
 }
 
 /// <summary>The service process lifecycle.</summary>

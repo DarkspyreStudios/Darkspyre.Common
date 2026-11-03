@@ -745,6 +745,14 @@ connection point and scratch in the private `<PluginData>/service` the library c
 Model files folder, and each launch passes it as `--model-path`. Only the owner creates the folder. A program that
 joins passes `CreateIfMissing` false and gets `NotInstalled` when no registration is there, and every installation
 operation refuses the same way once the registration is gone.
+The families are `ServiceFamily.Memory`, `Tickets`, `HostTools`, `Chromium` and `PostgreSql`. The PostgreSQL family's
+owner folder is the data folder the application names when it starts `Darkspyre.PostgreSQL.Inline`; its cluster lives
+under `<PluginData>/store`. Two families keep their temporary folder outside `<PluginData>/service/scratch`:
+Chromium on Linux and PostgreSQL on every platform, each under a short user runtime root because of the `AF_UNIX`
+address limit; `docs/local-services.md` names the roots and the native calls that supply them. On Linux the detached
+launcher forwards a nonempty `XDG_RUNTIME_DIR` so a nested service selects the same root. The first-subscriber,
+connect and drain deadlines are the same for every family; a backend whose store opens slowly publishes control first
+and reports its store state itself.
 The registration holds the store identity that the subscriber's hello and the service's store check compare. When the
 owner's install creates the registration, it calls `ServicePackageInstallation.StoreIdentity` with `<PluginData>/store`.
 A store already there keeps the identity it records, so the service does not refuse it with `StoreMismatch`. A folder

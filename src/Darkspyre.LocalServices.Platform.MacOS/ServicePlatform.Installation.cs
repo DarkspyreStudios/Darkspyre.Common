@@ -12,7 +12,10 @@ public sealed partial class ServicePlatform
         if (home.Length == 0) home = Environment.GetEnvironmentVariable("HOME") ?? string.Empty;
         try
         {
-            return await ServiceInstaller.InstallAsync(new MacServiceFileSystem(), installation, home, cancellationToken).ConfigureAwait(false);
+            // PostgreSQL's scratch root is the OS user temporary directory, read from the OS so a nested subscriber's own
+            // TMPDIR never selects it; a failed read is an installation failure, never a fallback.
+            string userTemporaryDirectory = installation.Family == ServiceFamily.PostgreSql ? MacNative.UserTemporaryDirectory() : string.Empty;
+            return await ServiceInstaller.InstallAsync(new MacServiceFileSystem(), installation, home, userTemporaryDirectory, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
         catch (ServiceProtocolException) { throw; }

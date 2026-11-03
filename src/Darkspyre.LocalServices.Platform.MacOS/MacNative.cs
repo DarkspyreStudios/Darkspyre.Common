@@ -34,6 +34,26 @@ internal static partial class MacNative
     internal static partial int MakeDirectoryAt(SafeFileHandle directory, string name, uint mode);
     [LibraryImport(LibSystem, EntryPoint = "fsync", SetLastError = true)]
     internal static partial int Fsync(SafeFileHandle descriptor);
+    [LibraryImport(LibSystem, EntryPoint = "confstr", SetLastError = true)]
+    private static partial nuint ConfigurationString(int name, [Out] byte[] buffer, nuint length);
+
+    /// <summary>
+    /// The user's temporary directory from confstr(_CS_DARWIN_USER_TEMP_DIR), without its trailing slash. The caller's
+    /// TMPDIR is not read. The OS reports it under "/var", which is a symlink to "/private/var" that a no-follow open
+    /// refuses, so that one system alias is rewritten to its target; nothing else in the path is resolved.
+    /// </summary>
+    internal static string UserTemporaryDirectory()
+    {
+        const int DarwinUserTempDir = 65537; // _CS_DARWIN_USER_TEMP_DIR
+        byte[] buffer = new byte[1024]; // PATH_MAX
+        nuint length = ConfigurationString(DarwinUserTempDir, buffer, (nuint)buffer.Length);
+        if (length == 0) throw Error("confstr(_CS_DARWIN_USER_TEMP_DIR)", Marshal.GetLastPInvokeError());
+        if (length > (nuint)buffer.Length) throw new IOException("The user temporary directory is longer than PATH_MAX.");
+        string path = System.Text.Encoding.UTF8.GetString(buffer, 0, (int)length - 1).TrimEnd('/');
+        if (path.StartsWith("/var/", StringComparison.Ordinal)) path = "/private" + path;
+        if (!Path.IsPathFullyQualified(path)) throw new IOException("The user temporary directory is not an absolute path.");
+        return path;
+    }
     // fcntl is variadic; F_FULLFSYNC takes no third argument, so the fixed two-argument form matches the ABI.
     [LibraryImport(LibSystem, EntryPoint = "fcntl", SetLastError = true)]
     private static partial int FcntlWithoutArgument(SafeFileHandle descriptor, int command);

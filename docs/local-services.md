@@ -61,7 +61,11 @@ returns the resulting state and removed identities. The connection owner must re
 of every identity in `RemovedSubscribers`, including removals returned by a rejected operation.
 
 The states are Starting, Active, Draining and Exited. The first subscription must arrive within 15
-seconds. A successful first subscription enters Active. A subscriber stays until its connection ends; no
+seconds, counted from when the backend publishes its control host, which is when clients can subscribe. Control
+readiness is not store readiness: a backend whose store takes long to open or convert, such as the PostgreSQL
+service's cluster initialization or major-version conversion, publishes control first and reports its own store
+state through its business operations, so a subscriber joins within the connect deadline and then waits for the
+store without any generic deadline changing. A successful first subscription enters Active. A subscriber stays until its connection ends; no
 timer removes a live subscriber. Duplicate subscriptions are refused. Another surviving subscriber keeps the
 registry Active. The final removal enters Draining immediately. A new subscription cannot revive Draining or
 Exited. Concurrent last-removal/admission calls serialize through the same lock.
@@ -135,7 +139,11 @@ and trusted regular-file permissions, and uses `posix_spawn` with a new session 
 default. It does not execute a shell or resolve an executable through PATH. Standard descriptors point
 to `/dev/null`; the backend owns its diagnostic sink. The child starts in `/` with only explicit HOME,
 TMPDIR, PATH and LANG values. Caller provider credentials, build variables and dynamic-loader overrides
-are not inherited. A pinned package launch adds only the cache identity, build digest and inherited
+are not inherited. `LinuxDetachedLauncher` adds one optional inherited value: the launching process's nonempty
+`XDG_RUNTIME_DIR`, so a service that launches another service in turn, such as Search's detached backend starting
+PostgreSQL, selects the same user runtime root that the application would (DSA-1307). An absent or empty value is
+not invented, and no other variable is forwarded. Every existing service only inherits it; their own scratch paths,
+arguments, package pins and protocol are unchanged. A pinned package launch adds only the cache identity, build digest and inherited
 lease descriptor markers. Termination signals have default dispositions and an empty inherited mask.
 
 The returned observation reports exit code or termination signal and reaps the child without owning
@@ -363,6 +371,21 @@ bytes and CEF aborted with `FATAL chrome/browser/process_singleton_posix.cc:315 
 rendered (maelstrom 0.11.4978). Chromium's Linux AppArmor grant (`CheckSandbox`) needs no change for
 this: its one rule, `userns,`, is scoped under `flags=(unconfined)`, which mediates only the user-namespace capability
 and names no file path.
+
+A second exception (DSA-1307): the PostgreSQL service family's temporary folder, which holds the PostgreSQL socket, is
+`<runtime root>/darkspyre-pg-<first 16 characters of P's sha256>` on every platform, created mode 0700 like every other
+service folder. The runtime root is `$XDG_RUNTIME_DIR` on Linux, with the same `Unavailable` failure and no `/tmp`
+fallback as Chromium; on macOS the directory `confstr(_CS_DARWIN_USER_TEMP_DIR)` returns, with its `/var` alias
+rewritten to `/private/var` because the installer opens it without following links; on Windows
+`SHGetKnownFolderPath(FOLDERID_LocalAppData)` with `Temp` appended. The macOS and Windows platform installers resolve
+that root natively and pass it to `ServiceInstaller.InstallAsync` as `userTemporaryDirectory`; every other family
+passes an empty string, which nothing reads, and Linux reads the variable inside the installer. The root is never the
+installing process's `TMPDIR` or `TEMP`, because a nested subscriber such as Search's detached backend has its own
+long service scratch folder there. The hash is truncated for the same reason as Chromium's: PostgreSQL binds
+`<folder>/.s.PGSQL.5432` and Darwin's `AF_UNIX` address holds 104 bytes, so the standard macOS root
+`/private/var/folders/<2>/<30>/T` plus this folder and the socket name is about 101 bytes. A native lookup that fails
+is an installation failure reported as `Unavailable`, never a fallback. The Inline repository's sandbox checks verify
+the actual socket path on each platform.
 
 The library creates its own `service` folder because a Plugin data folder need not be private. `registration.json` is
 `{"storeId":"…","layoutId":"…","modelPath":"…"|null}`. It holds no folder path except the Model files folder, so the

@@ -13,3 +13,5 @@ using System.Runtime.CompilerServices;
 
 
 [assembly: InternalsVisibleTo("Darkspyre.LocalServices")]
+
+[assembly: InternalsVisibleTo("Darkspyre.PostgreSQL.Inline.Runtime")]

@@ -13,3 +13,5 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Darkspyre.Search.Tests")]
 
 [assembly: InternalsVisibleTo("Darkspyre.LocalServices.Packaging")]
+
+[assembly: InternalsVisibleTo("Darkspyre.PostgreSQL.Inline.Runtime")]

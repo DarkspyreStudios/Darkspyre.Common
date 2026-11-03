@@ -11,7 +11,8 @@ public sealed partial class ServicePlatform
         string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         try
         {
-            return await ServiceInstaller.InstallAsync(new LinuxServiceFileSystem(), installation, home, cancellationToken).ConfigureAwait(false);
+            // Linux reads $XDG_RUNTIME_DIR inside the installer for PostgreSQL, so no platform-resolved temporary root is passed.
+            return await ServiceInstaller.InstallAsync(new LinuxServiceFileSystem(), installation, home, string.Empty, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
         catch (ServiceProtocolException) { throw; }

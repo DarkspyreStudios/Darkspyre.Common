@@ -9,9 +9,12 @@ namespace Darkspyre.LocalServices;
 // Registration and preferred selection share the cache catalog lock on every platform. Every path derives from the owner's
 // Plugin data folder <P>: the store is <P>/store, and the library keeps the registration, package cache, runtime and scratch
 // in the private <P>/service it creates. The registration records no folder except Model files, so the folder can move.
-// One exception (DSA-1291): on Linux, Chromium's own temporary folder goes under $XDG_RUNTIME_DIR instead, because its
-// third-party singleton socket has an 108-byte AF_UNIX limit a long Plugin data folder can exceed. Every other service,
-// and Chromium itself on macOS and Windows, keeps its temporary folder under Plugin data with everything else.
+// Two exceptions. On Linux, Chromium's own temporary folder goes under $XDG_RUNTIME_DIR instead (DSA-1291), because its
+// third-party singleton socket has an 108-byte AF_UNIX limit a long Plugin data folder can exceed. PostgreSQL's temporary
+// folder, which holds its socket, goes under the user's runtime root on every platform (DSA-1307): $XDG_RUNTIME_DIR on
+// Linux, and the OS user temporary directory the platform installer resolves natively on macOS and Windows, because
+// Darwin's socket address holds 104 bytes and the PostgreSQL socket name is fixed. Every other service, and Chromium
+// itself on macOS and Windows, keeps its temporary folder under Plugin data with everything else.
 internal static class ServiceInstaller
 {
     private const string RegistrationFile = "registration.json";
@@ -24,8 +27,10 @@ internal static class ServiceInstaller
         PropertyNameCaseInsensitive = false,
     };
 
+    // userTemporaryDirectory is the OS user temporary directory a PostgreSql installation's platform resolved natively;
+    // every other family passes an empty string, which nothing reads.
     internal static async Task<ServiceRegistration> InstallAsync(ServiceFileSystem files,
-        ServicePackageInstallation installation, string userHome, CancellationToken cancellationToken)
+        ServicePackageInstallation installation, string userHome, string userTemporaryDirectory, CancellationToken cancellationToken)
     {
         ServiceFolders folders = installation.Folders;
         string pluginData = Path.GetFullPath(folders.PluginData);
@@ -67,7 +72,7 @@ internal static class ServiceInstaller
         // Builds no launch can select any more leave the cache; a running service's pinned build stays.
         cache.CollectUnpreferredLocked();
         string runtime = Path.Combine(rootPath, "runtime");
-        string scratch = ScratchDirectory(installation.Family, pluginData, rootPath);
+        string scratch = ScratchDirectory(installation.Family, pluginData, rootPath, userTemporaryDirectory);
         using (files.OpenPrivateDirectory(runtime)) { }
         using (files.OpenPrivateDirectory(scratch)) { }
         Guid storeId = stored.StoreId;
@@ -123,12 +128,26 @@ internal static class ServiceInstaller
 
     private static string ServiceRoot(string pluginData) => Path.Combine(pluginData, "service");
 
-    // The folder the detached launcher gives the service as TMPDIR. Chromium on Linux is the one exception: see the
-    // class comment.
-    internal static string ScratchDirectory(ServiceFamily family, string pluginData, string rootPath)
-        => family == ServiceFamily.Chromium && OperatingSystem.IsLinux()
+    // The folder the detached launcher gives the service as TMPDIR. PostgreSQL everywhere and Chromium on Linux are the
+    // two exceptions: see the class comment.
+    internal static string ScratchDirectory(ServiceFamily family, string pluginData, string rootPath, string userTemporaryDirectory)
+    {
+        if (family == ServiceFamily.PostgreSql)
+        {
+            string root = userTemporaryDirectory;
+            if (OperatingSystem.IsLinux())
+            {
+                root = Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR") ?? string.Empty;
+                if (root.Length == 0)
+                    throw new ServiceProtocolException(ServiceErrorCode.Unavailable,
+                        "The PostgreSQL service needs XDG_RUNTIME_DIR, which this session does not set.");
+            }
+            return PostgreSqlRuntimeScratch(pluginData, root);
+        }
+        return family == ServiceFamily.Chromium && OperatingSystem.IsLinux()
             ? LinuxChromiumRuntimeScratch(pluginData, Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR"))
             : Path.Combine(rootPath, "scratch");
+    }
 
     // Exposed so a test can check the naming and validation without the real OS being Linux. $XDG_RUNTIME_DIR is never
     // read from a fallback such as /tmp, so a session that does not set it fails clearly instead of placing Chromium's
@@ -147,9 +166,19 @@ internal static class ServiceInstaller
         if (string.IsNullOrEmpty(runtimeDirectory))
             throw new ServiceProtocolException(ServiceErrorCode.Unavailable,
                 "The panel browser needs XDG_RUNTIME_DIR, which this session does not set.");
-        string hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(pluginData)));
-        return Path.Combine(runtimeDirectory, "darkspyre-chromium-" + hash[..HashCharacters]);
+        return Path.Combine(runtimeDirectory, "darkspyre-chromium-" + ShortHash(pluginData));
     }
+
+    // PostgreSQL binds "<this folder>/.s.PGSQL.5432" (and pg_upgrade ".s.PGSQL.50432"), and Darwin's AF_UNIX address
+    // holds 104 bytes. The macOS user temporary directory is "/private/var/folders/<2>/<30>/T", so this folder plus the
+    // socket name is about 101 bytes with its terminator; the same 16-character hash keeps that true. The root is never
+    // the caller's TMPDIR/TEMP: a nested subscriber, such as Search's detached service starting PostgreSQL, has its own
+    // long service scratch folder there (DSA-1307).
+    internal static string PostgreSqlRuntimeScratch(string pluginData, string runtimeDirectory)
+        => Path.Combine(runtimeDirectory, "darkspyre-pg-" + ShortHash(pluginData));
+
+    private static string ShortHash(string pluginData)
+        => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(pluginData)))[..HashCharacters];
 
     private static string RootOf(ServiceRegistration registration)
         => Path.GetDirectoryName(registration.RuntimePath) ?? throw new ArgumentException("The service registration has no service folder.", nameof(registration));
