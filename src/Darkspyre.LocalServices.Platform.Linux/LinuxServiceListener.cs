@@ -32,7 +32,7 @@ internal sealed class LinuxServiceListener : IDisposable
         ServiceDiscoveryMetadata.Validate(identity);
         string path = SocketPath(owner.RuntimeDirectory, identity);
         owner.ClaimEndpoint();
-        ServiceDiscovery? stale = ServiceDiscoveryMetadata.Read(owner.RuntimeDirectory.ReadPrivateFile(ServiceDiscoveryMetadata.FileName));
+        ServiceDiscovery? stale = ServiceDiscoveryMetadata.Read(owner.RuntimeDirectory.ReadPrivateFile(ServiceDiscoveryMetadata.FileName, 4096));
         if (stale is not null)
         {
             if (stale.Service != family) throw new ServiceProtocolException(ServiceErrorCode.InvalidState);
@@ -48,8 +48,8 @@ internal sealed class LinuxServiceListener : IDisposable
             socket.Bind(new UnixDomainSocketEndPoint(path));
             File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
             socket.Listen(ServiceProtocol.MaximumConnectionRequests);
-            owner.RuntimeDirectory.PublishPrivateFile(identity.CapabilityName, capability);
-            owner.RuntimeDirectory.PublishPrivateFile(ServiceDiscoveryMetadata.FileName, ServiceDiscoveryMetadata.Serialize(identity));
+            owner.RuntimeDirectory.PublishPrivateFile(identity.CapabilityName, capability, 4096);
+            owner.RuntimeDirectory.PublishPrivateFile(ServiceDiscoveryMetadata.FileName, ServiceDiscoveryMetadata.Serialize(identity), 4096);
             return result;
         }
         catch (Exception failure)
@@ -91,7 +91,7 @@ internal sealed class LinuxServiceListener : IDisposable
         {
             Attempt(() =>
             {
-                if (ServiceDiscoveryMetadata.Read(this.owner.RuntimeDirectory.ReadPrivateFile(ServiceDiscoveryMetadata.FileName))?.Epoch == this.Identity.Epoch)
+                if (ServiceDiscoveryMetadata.Read(this.owner.RuntimeDirectory.ReadPrivateFile(ServiceDiscoveryMetadata.FileName, 4096))?.Epoch == this.Identity.Epoch)
                     this.owner.RuntimeDirectory.RemoveChild(ServiceDiscoveryMetadata.FileName);
             });
             Attempt(() => this.owner.RuntimeDirectory.RemoveChild($"{this.Identity.Epoch:N}.sock"));

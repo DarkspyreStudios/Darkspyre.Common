@@ -96,7 +96,7 @@ internal sealed class LinuxPrivateDirectory : ServiceDirectory
     }
     internal override bool HasPrivateFile(string name)
     { using SafeFileHandle? file = OpenExistingPermanentFile(name); return file is not null; }
-    internal override byte[]? ReadPrivateFile(string name)
+    internal override byte[]? ReadPrivateFile(string name, int? maximumBytes)
     {
         RequireName(name);
         int fd = LinuxNative.OpenAt(this.Handle, name, LinuxNative.NoFollow | LinuxNative.CloseOnExec | 0x800);
@@ -109,16 +109,16 @@ internal sealed class LinuxPrivateDirectory : ServiceDirectory
         using var file = new SafeFileHandle((nint)fd, ownsHandle: true);
         LinuxNative.InspectPrivate(file, directory: false);
         using var stream = new FileStream(file, FileAccess.Read);
-        if (stream.Length is <= 0 or > 4096) throw new InvalidDataException("A private metadata file is outside its size limit.");
+        if (stream.Length <= 0 || (maximumBytes is not null && stream.Length > maximumBytes)) throw new InvalidDataException("A private metadata file is outside its size limit.");
         byte[] bytes = new byte[(int)stream.Length];
         stream.ReadExactly(bytes);
         if (stream.Length != bytes.Length) throw new IOException("The private metadata changed during reading.");
         return bytes;
     }
-    internal override void PublishPrivateFile(string name, ReadOnlySpan<byte> bytes)
+    internal override void PublishPrivateFile(string name, ReadOnlySpan<byte> bytes, int? maximumBytes)
     {
         RequireName(name);
-        if (bytes.Length is 0 or > 4096) throw new InvalidDataException("A private metadata file is outside its size limit.");
+        if (bytes.Length == 0 || (maximumBytes is not null && bytes.Length > maximumBytes)) throw new InvalidDataException("A private metadata file is outside its size limit.");
         string temporary = ".publish-" + Guid.NewGuid().ToString("N");
         int fd = LinuxNative.OpenAt(this.Handle, temporary, LinuxNative.ReadWrite | LinuxNative.Create | LinuxNative.Exclusive | LinuxNative.NoFollow | LinuxNative.CloseOnExec, 0x180);
         if (fd < 0) throw LinuxNative.Error("create private metadata", Marshal.GetLastPInvokeError());
@@ -130,6 +130,8 @@ internal sealed class LinuxPrivateDirectory : ServiceDirectory
             RandomAccess.FlushToDisk(file);
             if (LinuxNative.RenameAt(this.Handle, temporary, this.Handle, name, 0) != 0)
                 throw LinuxNative.Error("publish private metadata", Marshal.GetLastPInvokeError());
+            // Flush the directory so the renamed entry is durable before the caller is told publish succeeded.
+            if (LinuxNative.Fsync(this.Handle) != 0) throw LinuxNative.Error("fsync directory after publish", Marshal.GetLastPInvokeError());
         }
         finally { RemoveChild(temporary); }
     }

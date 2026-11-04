@@ -38,7 +38,7 @@ internal static class ServiceInstaller
         // A joiner creates nothing: a missing service folder or registration fails before anything is written.
         using ServiceDirectory root = folders.CreateIfMissing ? files.OpenPrivateDirectory(rootPath)
             : files.OpenExistingPrivateDirectory(rootPath) ?? throw NotInstalled(pluginData);
-        if (!folders.CreateIfMissing && root.ReadPrivateFile(RegistrationFile) is null) throw NotInstalled(pluginData);
+        if (!folders.CreateIfMissing && root.ReadPrivateFile(RegistrationFile, 4096) is null) throw NotInstalled(pluginData);
         string cachePath = Path.Combine(rootPath, "packages");
         using ServicePackageCache cache = folders.CreateIfMissing ? ServicePackageCache.Open(files, cachePath) : ServicePackageCache.OpenExisting(files, cachePath);
         using IServicePackageLease catalog = await cache.AcquireCatalogAsync(cancellationToken).ConfigureAwait(false);
@@ -46,7 +46,7 @@ internal static class ServiceInstaller
             installation.Manifest, installation.ServiceBuildDigest, cancellationToken).ConfigureAwait(false) : null;
         string? modelFiles = folders.ModelFiles is { } named ? Path.GetFullPath(named) : null;
         string storePath = Path.Combine(pluginData, "store");
-        byte[]? bytes = root.ReadPrivateFile(RegistrationFile);
+        byte[]? bytes = root.ReadPrivateFile(RegistrationFile, 4096);
         Registration stored;
         if (bytes is null)
         {
@@ -54,7 +54,7 @@ internal static class ServiceInstaller
             // A store that is already there keeps its identity: the service refuses a store whose identity differs from the
             // registration's (StoreMismatch).
             stored = new(installation.StoreIdentity?.Invoke(storePath) ?? Guid.NewGuid(), installation.LayoutId, modelFiles);
-            root.PublishPrivateFile(RegistrationFile, JsonSerializer.SerializeToUtf8Bytes(stored, Json));
+            root.PublishPrivateFile(RegistrationFile, JsonSerializer.SerializeToUtf8Bytes(stored, Json), 4096);
         }
         else
         {
@@ -65,7 +65,7 @@ internal static class ServiceInstaller
             {
                 // The next launch passes this folder. A running service keeps the one it started with.
                 stored = stored with { ModelPath = modelFiles };
-                root.PublishPrivateFile(RegistrationFile, JsonSerializer.SerializeToUtf8Bytes(stored, Json));
+                root.PublishPrivateFile(RegistrationFile, JsonSerializer.SerializeToUtf8Bytes(stored, Json), 4096);
             }
         }
         if (folders.CreateIfMissing)
@@ -194,7 +194,7 @@ internal static class ServiceInstaller
     private static Registration ReadRegistration(ServiceFileSystem files, string rootPath)
     {
         using ServiceDirectory? root = files.OpenExistingPrivateDirectory(rootPath);
-        byte[]? bytes = root?.ReadPrivateFile(RegistrationFile);
+        byte[]? bytes = root?.ReadPrivateFile(RegistrationFile, 4096);
         return bytes is null ? throw NotInstalled(Path.GetDirectoryName(rootPath) ?? rootPath) : Parse(bytes);
     }
 

@@ -31,8 +31,8 @@ internal static class ServiceStartupFiles
     {
         if (attempt == Guid.Empty) throw new ArgumentException("A startup attempt is required.", nameof(attempt));
         ServicePackageManifest.ValidateDigest(digest);
-        runtime.PublishPrivateFile(LogFile(attempt), "\n"u8);
-        identities.PublishPrivateFile(IdentityFile(attempt), JsonSerializer.SerializeToUtf8Bytes(new Attempt(attempt, digest, started, false, null), IdentityJson));
+        runtime.PublishPrivateFile(LogFile(attempt), "\n"u8, 4096);
+        identities.PublishPrivateFile(IdentityFile(attempt), JsonSerializer.SerializeToUtf8Bytes(new Attempt(attempt, digest, started, false, null), IdentityJson), 4096);
         return OutputPath(runtime.Path, attempt);
     }
 
@@ -62,7 +62,7 @@ internal static class ServiceStartupFiles
         Attempt? identity = ReadIdentity(identities, IdentityFile(attempt));
         if (identity is null) return;
         identity = identity with { ExitObserved = true, NormalExit = exit.ExitCode == 0 };
-        identities.PublishPrivateFile(IdentityFile(attempt), JsonSerializer.SerializeToUtf8Bytes(identity, IdentityJson));
+        identities.PublishPrivateFile(IdentityFile(attempt), JsonSerializer.SerializeToUtf8Bytes(identity, IdentityJson), 4096);
         Collect(runtime, identities);
     }
     private static void Collect(ServiceDirectory runtime, ServiceDirectory identities)
@@ -95,7 +95,7 @@ internal static class ServiceStartupFiles
             || !Guid.TryParseExact(file.AsSpan(0, file.Length - ".identity.json".Length), "N", out Guid named)) return null;
         try
         {
-            byte[]? bytes = identities.ReadPrivateFile(file);
+            byte[]? bytes = identities.ReadPrivateFile(file, 4096);
             Attempt? value = bytes is null ? null : JsonSerializer.Deserialize<Attempt>(bytes, IdentityJson);
             return value is not null && value.AttemptId == named && named != Guid.Empty && value.StartedUtc != default
                 && value.BuildDigest is { Length: 64 } && value.BuildDigest.All(Uri.IsHexDigit)
@@ -112,7 +112,7 @@ internal static class ServiceStartupFiles
 
     internal static ServiceStartupState? ReadState(ServiceDirectory root)
     {
-        byte[]? bytes = root.ReadPrivateFile(StateFile);
+        byte[]? bytes = root.ReadPrivateFile(StateFile, 4096);
         if (bytes is null) return null;
         State state = JsonSerializer.Deserialize<State>(bytes, Json) ?? throw new InvalidDataException("The startup input is missing.");
         if (state.Id == Guid.Empty) throw new InvalidDataException("The startup input has no operation identity.");
@@ -121,7 +121,7 @@ internal static class ServiceStartupFiles
     internal static void PublishState(ServiceDirectory root, ServiceStartupState state)
     {
         if (state.Id == Guid.Empty) throw new ArgumentException("A startup operation is required.", nameof(state));
-        root.PublishPrivateFile(StateFile, JsonSerializer.SerializeToUtf8Bytes(new State(state.Id, Convert.ToBase64String(state.Value.Span)), Json));
+        root.PublishPrivateFile(StateFile, JsonSerializer.SerializeToUtf8Bytes(new State(state.Id, Convert.ToBase64String(state.Value.Span)), Json), 4096);
     }
     internal static void ClearState(ServiceDirectory root, Guid id)
     { if (ReadState(root)?.Id == id) root.RemovePrivateFile(StateFile); }
@@ -148,7 +148,7 @@ internal static class ServiceStartupFiles
             || failure.BuildDigest != start.BuildDigest || failure.OutputPath != OutputPath(start.RuntimePath, start.AttemptId))
             throw new ArgumentException("The startup summary does not match its attempt.", nameof(failure));
         ServicePackageManifest.ValidateDigest(start.BuildDigest);
-        directory.PublishPrivateFile(FailureFile(start.AttemptId), JsonSerializer.SerializeToUtf8Bytes(failure, Json));
+        directory.PublishPrivateFile(FailureFile(start.AttemptId), JsonSerializer.SerializeToUtf8Bytes(failure, Json), 4096);
     }
     internal static Task<ServiceStartupFailure?> ReadFailureAsync(ServiceFileSystem files, string runtime, Guid attempt, CancellationToken token)
     {
@@ -158,7 +158,7 @@ internal static class ServiceStartupFiles
     }
     private static ServiceStartupFailure? ReadFailure(ServiceDirectory directory, Guid attempt)
     {
-        byte[]? bytes = directory.ReadPrivateFile(FailureFile(attempt));
+        byte[]? bytes = directory.ReadPrivateFile(FailureFile(attempt), 4096);
         ServiceStartupFailure? failure = bytes is null ? null : JsonSerializer.Deserialize<ServiceStartupFailure>(bytes, Json);
         if (failure is not null && (failure.AttemptId != attempt || failure.OutputPath != OutputPath(directory.Path, attempt)))
             throw new InvalidDataException("The startup summary does not match its attempt.");

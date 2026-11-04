@@ -111,7 +111,7 @@ internal sealed partial class ServicePackageCache : IDisposable
     internal async Task SetPreferredLockedAsync(string digest, CancellationToken cancellationToken)
     {
         using ServicePackagePin pin = await PinLockedAsync(digest, cancellationToken).ConfigureAwait(false);
-        this.root.PublishPrivateFile("preferred", Encoding.ASCII.GetBytes(digest));
+        this.root.PublishPrivateFile("preferred", Encoding.ASCII.GetBytes(digest), 4096);
     }
 
     public async Task<ServicePackagePin> PinPreferredAsync(CancellationToken cancellationToken = default)
@@ -183,7 +183,7 @@ internal sealed partial class ServicePackageCache : IDisposable
 
     internal string? Preferred()
     {
-        byte[]? bytes = this.root.ReadPrivateFile("preferred");
+        byte[]? bytes = this.root.ReadPrivateFile("preferred", 4096);
         return bytes is null ? null : Digest(Encoding.UTF8.GetString(bytes));
     }
 

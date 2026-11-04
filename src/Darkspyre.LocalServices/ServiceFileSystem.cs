@@ -34,11 +34,13 @@ internal abstract class ServiceFileSystem
 internal abstract class ServiceDirectory : IDisposable
 {
     internal abstract string Path { get; }
-    internal abstract byte[]? ReadPrivateFile(string name);
+    // maximumBytes: null = owner-supplied opaque value with no upper bound; non-null = enforced upper bound in bytes.
+    internal abstract byte[]? ReadPrivateFile(string name, int? maximumBytes);
     // Checks a regular private file without reading potentially unbounded attempt output.
     internal abstract bool HasPrivateFile(string name);
     internal abstract void RemovePrivateFile(string name);
-    internal abstract void PublishPrivateFile(string name, ReadOnlySpan<byte> bytes);
+    // maximumBytes: null = owner-supplied opaque value with no upper bound; non-null = enforced upper bound in bytes.
+    internal abstract void PublishPrivateFile(string name, ReadOnlySpan<byte> bytes, int? maximumBytes);
     internal abstract IServicePackageLease? TryAcquire(string name, bool shared = false);
     // Whether another open description holds the exclusive lease on the existing file; false when it is missing. Creates nothing.
     internal abstract bool IsLeaseHeld(string name);

@@ -11,12 +11,12 @@ internal static class WindowsServiceClient
     internal static async Task<ServicePeer> ConnectAsync(WindowsPrivateDirectory runtime, ServiceFamily family,
         Guid expectedStoreId, string clientBuildDigest, CancellationToken cancellationToken)
     {
-        ServiceDiscovery discovery = ServiceDiscoveryMetadata.Read(runtime.ReadPrivateFile(ServiceDiscoveryMetadata.FileName))
+        ServiceDiscovery discovery = ServiceDiscoveryMetadata.Read(runtime.ReadPrivateFile(ServiceDiscoveryMetadata.FileName, 4096))
             ?? throw new ServiceProtocolException(ServiceErrorCode.Unavailable);
         if (discovery.Service != family || discovery.ProtocolVersion != ServiceProtocol.Version)
             throw new ServiceProtocolException(ServiceErrorCode.IncompatibleProtocol);
         if (discovery.StoreId != expectedStoreId) throw new ServiceProtocolException(ServiceErrorCode.StoreMismatch);
-        byte[] capability = runtime.ReadPrivateFile(discovery.CapabilityName) ?? throw new ServiceProtocolException(ServiceErrorCode.Unavailable);
+        byte[] capability = runtime.ReadPrivateFile(discovery.CapabilityName, 4096) ?? throw new ServiceProtocolException(ServiceErrorCode.Unavailable);
         NamedPipeClientStream? pipe = null;
         try
         {

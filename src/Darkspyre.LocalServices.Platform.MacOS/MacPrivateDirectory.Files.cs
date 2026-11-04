@@ -6,7 +6,7 @@ namespace Darkspyre.LocalServices.Platform.MacOS;
 
 public sealed partial class MacPrivateDirectory
 {
-    internal byte[]? ReadPrivateFile(string name)
+    internal byte[]? ReadPrivateFile(string name, int? maximumBytes)
     {
         RequireChildName(name);
         int fd = MacNative.OpenAt(this.handle, name, MacNative.NoFollow | MacNative.CloseOnExec);
@@ -19,7 +19,7 @@ public sealed partial class MacPrivateDirectory
         using var file = new SafeFileHandle((nint)fd, ownsHandle: true);
         MacNative.InspectPrivate(file, directory: false);
         long length = RandomAccess.GetLength(file);
-        if (length is <= 0 or > 4096) throw new InvalidDataException("A discovery file is outside its size limit.");
+        if (length <= 0 || (maximumBytes is not null && length > maximumBytes)) throw new InvalidDataException("A discovery file is outside its size limit.");
         byte[] bytes = new byte[(int)length];
         int offset = 0;
         while (offset < bytes.Length)
@@ -33,10 +33,10 @@ public sealed partial class MacPrivateDirectory
     }
 
     /// <summary>The family owner publishes only after acquiring ownership. Readers see an entire old or new file.</summary>
-    internal void PublishPrivateFile(string name, ReadOnlySpan<byte> bytes)
+    internal void PublishPrivateFile(string name, ReadOnlySpan<byte> bytes, int? maximumBytes)
     {
         RequireChildName(name);
-        if (bytes.Length is 0 or > 4096) throw new InvalidDataException("A discovery file is outside its size limit.");
+        if (bytes.Length == 0 || (maximumBytes is not null && bytes.Length > maximumBytes)) throw new InvalidDataException("A discovery file is outside its size limit.");
         byte[] template = Encoding.UTF8.GetBytes(".publish-XXXXXX\0");
         int fd = MacNative.CreateTemporaryAt(this.handle, template, 0, MacNative.CloseOnExec);
         if (fd < 0) throw MacNative.Error("create discovery file", Marshal.GetLastPInvokeError());
@@ -51,6 +51,8 @@ public sealed partial class MacPrivateDirectory
             RandomAccess.FlushToDisk(file);
             if (MacNative.RenameAt(this.handle, temporaryName, this.handle, name, 0) != 0)
                 throw MacNative.Error("publish discovery file", Marshal.GetLastPInvokeError());
+            // Flush the directory's write cache so the renamed entry is durable before the caller is told publish succeeded.
+            MacNative.FullFsync(this.handle);
             published = true;
         }
         catch (Exception error) { failure = error; }

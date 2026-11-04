@@ -24,6 +24,9 @@ internal static partial class WindowsNative
     internal static partial bool SetHandleInformation(SafeFileHandle handle, uint mask, uint flags);
     [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool FlushFileBuffers(SafeFileHandle handle);
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool DuplicateHandle(nint sourceProcess, SafeFileHandle source, nint targetProcess, out SafeFileHandle target, uint access, [MarshalAs(UnmanagedType.Bool)] bool inherit, uint options);
     [LibraryImport("kernel32.dll")]
     internal static partial nint GetCurrentProcess();

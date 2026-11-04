@@ -27,6 +27,8 @@ internal static partial class LinuxNative
     internal static partial int UnlinkAt(SafeFileHandle directory, string name, int flags);
     [LibraryImport(LibC, EntryPoint = "flock", SetLastError = true)]
     internal static partial int Flock(SafeFileHandle descriptor, int operation);
+    [LibraryImport(LibC, EntryPoint = "fsync", SetLastError = true)]
+    internal static partial int Fsync(SafeFileHandle descriptor);
     [LibraryImport(LibC, EntryPoint = "fcntl", SetLastError = true)]
     internal static partial int SetDescriptorFlags(SafeFileHandle descriptor, int command, int flags);
     [LibraryImport(LibC, EntryPoint = "fstat", SetLastError = true)]
