@@ -80,7 +80,7 @@ internal sealed class ServiceLaunchBudget : IDisposable
 
     private List<Attempt> Read()
     {
-        byte[]? bytes = this.runtime.ReadPrivateFile(FileName);
+        byte[]? bytes = this.runtime.ReadPrivateFile(FileName, 4096);
         if (bytes is null) return [];
         Ledger? ledger;
         try { ledger = JsonSerializer.Deserialize<Ledger>(bytes, Json); }
@@ -94,7 +94,7 @@ internal sealed class ServiceLaunchBudget : IDisposable
     }
 
     private void Write(List<Attempt> attempts) => this.runtime.PublishPrivateFile(FileName,
-        JsonSerializer.SerializeToUtf8Bytes(new Ledger(1, [.. attempts]), Json));
+        JsonSerializer.SerializeToUtf8Bytes(new Ledger(1, [.. attempts]), Json), 4096);
 
     private async Task<IServicePackageLease> AcquireAsync(CancellationToken cancellationToken)
     {

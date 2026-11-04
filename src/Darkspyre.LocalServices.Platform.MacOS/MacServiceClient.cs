@@ -15,14 +15,14 @@ public static class MacServiceClient
         Guid expectedStoreId, string clientBuildDigest, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(runtime);
-        ServiceDiscovery discovery = ServiceDiscoveryMetadata.Read(runtime.ReadPrivateFile(ServiceDiscoveryMetadata.FileName))
+        ServiceDiscovery discovery = ServiceDiscoveryMetadata.Read(runtime.ReadPrivateFile(ServiceDiscoveryMetadata.FileName, 4096))
             ?? throw new ServiceProtocolException(ServiceErrorCode.Unavailable);
         if (discovery.Service != family || discovery.ProtocolVersion != ServiceProtocol.Version)
             throw new ServiceProtocolException(ServiceErrorCode.IncompatibleProtocol);
         if (discovery.StoreId != expectedStoreId) throw new ServiceProtocolException(ServiceErrorCode.StoreMismatch);
         if (clientBuildDigest is not { Length: 64 } || !clientBuildDigest.All(Uri.IsHexDigit))
             throw new ArgumentException("A SHA256 client build identity is required.", nameof(clientBuildDigest));
-        byte[] capability = runtime.ReadPrivateFile(discovery.CapabilityName)
+        byte[] capability = runtime.ReadPrivateFile(discovery.CapabilityName, 4096)
             ?? throw new ServiceProtocolException(ServiceErrorCode.Unavailable);
         Socket? socket = null;
         try

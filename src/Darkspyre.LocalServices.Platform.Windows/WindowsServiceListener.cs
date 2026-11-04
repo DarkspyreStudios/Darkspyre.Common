@@ -27,7 +27,7 @@ internal sealed class WindowsServiceListener : IDisposable
     {
         var identity = new ServiceDiscovery(family, ServiceProtocol.Version, epoch, storeId, buildDigest, layoutId);
         ServiceDiscoveryMetadata.Validate(identity); owner.ClaimEndpoint();
-        ServiceDiscovery? stale = ServiceDiscoveryMetadata.Read(owner.RuntimeDirectory.ReadPrivateFile(ServiceDiscoveryMetadata.FileName));
+        ServiceDiscovery? stale = ServiceDiscoveryMetadata.Read(owner.RuntimeDirectory.ReadPrivateFile(ServiceDiscoveryMetadata.FileName, 4096));
         if (stale is not null)
         {
             if (stale.Service != family) throw new ServiceProtocolException(ServiceErrorCode.InvalidState);
@@ -38,8 +38,8 @@ internal sealed class WindowsServiceListener : IDisposable
         try
         {
             listener.pending = listener.CreatePipe(first: true);
-            owner.RuntimeDirectory.PublishPrivateFile(identity.CapabilityName, listener.capability);
-            owner.RuntimeDirectory.PublishPrivateFile(ServiceDiscoveryMetadata.FileName, ServiceDiscoveryMetadata.Serialize(identity));
+            owner.RuntimeDirectory.PublishPrivateFile(identity.CapabilityName, listener.capability, 4096);
+            owner.RuntimeDirectory.PublishPrivateFile(ServiceDiscoveryMetadata.FileName, ServiceDiscoveryMetadata.Serialize(identity), 4096);
             return listener;
         }
         catch { listener.Dispose(); throw; }
@@ -90,7 +90,7 @@ internal sealed class WindowsServiceListener : IDisposable
         CryptographicOperations.ZeroMemory(this.capability);
         if (this.owner.IsHeld)
         {
-            if (ServiceDiscoveryMetadata.Read(this.owner.RuntimeDirectory.ReadPrivateFile(ServiceDiscoveryMetadata.FileName))?.Epoch == this.Identity.Epoch)
+            if (ServiceDiscoveryMetadata.Read(this.owner.RuntimeDirectory.ReadPrivateFile(ServiceDiscoveryMetadata.FileName, 4096))?.Epoch == this.Identity.Epoch)
                 this.owner.RuntimeDirectory.RemoveChild(ServiceDiscoveryMetadata.FileName);
             this.owner.RuntimeDirectory.RemoveChild(this.Identity.CapabilityName);
         }

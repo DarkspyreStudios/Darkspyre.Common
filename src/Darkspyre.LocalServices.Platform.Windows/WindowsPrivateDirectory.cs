@@ -15,9 +15,9 @@ internal sealed class WindowsPrivateDirectory : ServiceDirectory
         WindowsFileSecurity.Inspect(handle, directory: true);
         this.Identity = WindowsNative.Inspect(handle, directory: true);
     }
-    internal static WindowsPrivateDirectory OpenOrCreate(string path)
+    internal static WindowsPrivateDirectory OpenOrCreate(string path, bool allowDelete = false)
     {
-        SafeFileHandle handle = OpenPath(path, directory: true, createDirectories: true);
+        SafeFileHandle handle = OpenPath(path, directory: true, createDirectories: true, allowDelete: allowDelete);
         try { return new(System.IO.Path.GetFullPath(path), handle); }
         catch { handle.Dispose(); throw; }
     }
@@ -30,7 +30,7 @@ internal sealed class WindowsPrivateDirectory : ServiceDirectory
         try { return new(System.IO.Path.GetFullPath(path), handle); }
         catch { handle.Dispose(); throw; }
     }
-    internal static SafeFileHandle OpenPath(string path, bool directory, bool createDirectories = false)
+    internal static SafeFileHandle OpenPath(string path, bool directory, bool createDirectories = false, bool allowDelete = false)
     {
         if (!OperatingSystem.IsWindows()) throw new PlatformNotSupportedException("This local service driver requires Windows.");
         string full = ValidatePath(path);
@@ -46,10 +46,13 @@ internal sealed class WindowsPrivateDirectory : ServiceDirectory
             for (int index = 0; index < parts.Length; index++)
             {
                 bool isDirectory = index < parts.Length - 1 || directory;
+                bool isFinal = index == parts.Length - 1;
                 next = System.IO.Path.Combine(next, parts[index]);
                 parents.Add(current); current = null;
                 if (createDirectories && isDirectory) new DirectoryInfo(next).Create((DirectorySecurity)WindowsFileSecurity.Create(directory: true));
-                current = OpenNative(next, isDirectory ? WindowsNative.ReadControl : WindowsNative.Read, 3, 3, isDirectory);
+                // isFinal && allowDelete: share with FILE_SHARE_DELETE (4) so held-open removal is permitted by callers that need it.
+                uint sharing = isFinal && allowDelete ? 7u : 3u;
+                current = OpenNative(next, isDirectory ? WindowsNative.ReadControl : WindowsNative.Read, sharing, 3, isDirectory);
                 WindowsNative.Inspect(current, isDirectory);
             }
             if (!string.Equals(WindowsNative.FinalPath(current).TrimEnd('\\'), full.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
@@ -99,7 +102,7 @@ internal sealed class WindowsPrivateDirectory : ServiceDirectory
         catch (IOException error) when (error.InnerException is System.ComponentModel.Win32Exception { NativeErrorCode: WindowsNative.Missing }) { return false; }
         using (file) { WindowsFileSecurity.Inspect(file, directory: false); return true; }
     }
-    internal override byte[]? ReadPrivateFile(string name)
+    internal override byte[]? ReadPrivateFile(string name, int? maximumBytes)
     {
         SafeFileHandle file;
         try { file = OpenNative(Child(name), WindowsNative.Read, 7, 3, directory: false); }
@@ -108,16 +111,16 @@ internal sealed class WindowsPrivateDirectory : ServiceDirectory
         {
             WindowsFileSecurity.Inspect(file, directory: false);
             using var stream = new FileStream(file, FileAccess.Read);
-            if (stream.Length is <= 0 or > 4096) throw new InvalidDataException("A private metadata file is outside its size limit.");
+            if (stream.Length <= 0 || (maximumBytes is not null && stream.Length > maximumBytes)) throw new InvalidDataException("A private metadata file is outside its size limit.");
             byte[] bytes = new byte[(int)stream.Length]; stream.ReadExactly(bytes);
             if (stream.Length != bytes.Length) throw new IOException("The private metadata changed during reading.");
             return bytes;
         }
     }
-    internal override void PublishPrivateFile(string name, ReadOnlySpan<byte> bytes)
+    internal override void PublishPrivateFile(string name, ReadOnlySpan<byte> bytes, int? maximumBytes)
     {
         string destination = Child(name);
-        if (bytes.Length is 0 or > 4096) throw new InvalidDataException("A private metadata file is outside its size limit.");
+        if (bytes.Length == 0 || (maximumBytes is not null && bytes.Length > maximumBytes)) throw new InvalidDataException("A private metadata file is outside its size limit.");
         string temporary = Child(".publish-" + Guid.NewGuid().ToString("N"));
         try
         {
@@ -127,6 +130,9 @@ internal sealed class WindowsPrivateDirectory : ServiceDirectory
                 RandomAccess.Write(file, bytes, 0); RandomAccess.FlushToDisk(file);
             }
             File.Move(temporary, destination, overwrite: true);
+            // Flush the directory entry to durable storage. Opens a fresh write handle because this.Handle carries READ_CONTROL only.
+            using SafeFileHandle dir = OpenNative(this.Path, WindowsNative.Write, 3, 3, directory: true);
+            if (!WindowsNative.FlushFileBuffers(dir)) throw WindowsNative.Error("flush directory after publish");
         }
         finally { File.Delete(temporary); }
     }
