@@ -11,7 +11,7 @@ internal static class ServiceStoreStateFiles
         using ServiceDirectory store = files.OpenExistingPrivateDirectory(storePath)
             ?? throw new DirectoryNotFoundException("The owned store directory is missing.");
         byte[]? bytes = store.ReadPrivateFile(FileName, maximumBytes: null);
-        return Task.FromResult<ReadOnlyMemory<byte>?>(bytes is null ? null : bytes.AsMemory());
+        return Task.FromResult<ReadOnlyMemory<byte>?>(bytes is null ? (ReadOnlyMemory<byte>?)null : bytes.AsMemory());
     }
 
     internal static Task RemoveOwnerFolderAsync(ServiceFileSystem files, string ownerPath, CancellationToken cancellationToken)
