@@ -21,20 +21,20 @@ internal sealed class WindowsServiceOwner : IDisposable
     public bool IsHeld => this.familyLease.IsHeld && this.storeLease.IsHeld;
 
     /// <summary>Returns null for an existing family owner. A store owned outside this family is an explicit conflict.</summary>
-    public static WindowsServiceOwner? TryAcquire(string runtimePath, string storePath)
+    public static WindowsServiceOwner? TryAcquire(string runtimePath, string storePath, bool allowRemoval = false)
     {
-        WindowsPrivateDirectory runtime = WindowsPrivateDirectory.OpenOrCreate(runtimePath);
+        WindowsPrivateDirectory runtime = WindowsPrivateDirectory.OpenOrCreate(runtimePath, allowDelete: allowRemoval);
         WindowsFileLease? familyLease = null;
         WindowsPrivateDirectory? store = null;
         WindowsFileLease? storeLease = null;
         try
         {
-            familyLease = WindowsFileLease.TryAcquire(runtime, "owner.lock");
+            familyLease = WindowsFileLease.TryAcquire(runtime, "owner.lock", allowDelete: allowRemoval);
             if (familyLease is null) return null;
-            store = WindowsPrivateDirectory.OpenOrCreate(storePath);
+            store = WindowsPrivateDirectory.OpenOrCreate(storePath, allowDelete: allowRemoval);
             if (runtime.Identity.SameFile(store.Identity))
                 throw new ArgumentException("Runtime discovery and store data require distinct directories.", nameof(storePath));
-            storeLease = WindowsFileLease.TryAcquire(store, "store.lock");
+            storeLease = WindowsFileLease.TryAcquire(store, "store.lock", allowDelete: allowRemoval);
             if (storeLease is null) throw new StoreInUseException();
             var result = new WindowsServiceOwner(runtime, familyLease, store, storeLease);
             runtime = null!;

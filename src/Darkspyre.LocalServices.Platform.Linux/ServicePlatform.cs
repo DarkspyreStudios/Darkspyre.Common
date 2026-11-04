@@ -117,6 +117,16 @@ public sealed partial class ServicePlatform : IServicePlatform
         public Guid Epoch { get; } = Guid.NewGuid();
         public string StorePath => this.start.StorePath;
         public string StagingPath { get; }
+        public Task<ReadOnlyMemory<byte>?> ReadStoreStateAsync(CancellationToken cancellationToken = default)
+        {
+            ObjectDisposedException.ThrowIf(this.disposed, this);
+            return ServiceStoreStateFiles.ReadAsync(new LinuxServiceFileSystem(), this.StorePath, cancellationToken);
+        }
+        public Task PublishStoreStateAsync(ReadOnlyMemory<byte> state, CancellationToken cancellationToken = default)
+        {
+            ObjectDisposedException.ThrowIf(this.disposed, this);
+            return ServiceStoreStateFiles.PublishAsync(new LinuxServiceFileSystem(), this.StorePath, state, cancellationToken);
+        }
         public Task PublishAsync(CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();

@@ -46,6 +46,19 @@ collection. No public retirement signal, second store lease or retention-count s
 ownership locks without launching, publishing discovery or selecting a package. Its consumer may inspect the returned store
 path only during the lease; an active owner yields no lease.
 
+`IServiceOwner` and `IServiceStoreInspection` read the same copied opaque `store/owner-state.json` through
+`ReadStoreStateAsync`. Only the owner publishes it, through `PublishStoreStateAsync`. `ServiceStoreStateFiles` derives
+that fixed destination and delegates to the existing native private-file reader and publisher. Publication flushes the
+file, atomically replaces the destination and makes the directory replacement durable before acknowledging success.
+Owned-state bytes have no discovery-size cap; existing untrusted discovery, registration and startup limits remain explicit
+at their callers. Cancellation is checked before publication starts and never interrupts its replacement after that point.
+
+`RemoveOwnerFolderAsync` removes only the exact registered owner root covered by a stopped inspection, through the existing
+native `RemoveTree` implementation while the inspection retains its leases. The caller must suppress new subscriptions and
+authorize that root as retired. No listing, missing payload or absent state entry authorizes deletion. The Windows stopped
+inspection shares deletion on its directory and exclusive ownership-lock handles; normal ownership and package pins keep
+their existing sharing. A repeated removal of that same absent root succeeds. This operation never selects another root.
+
 Request deadline `ServiceProtocol.NoDeadlineMilliseconds` (0) has no deadline timer. Slot waiting, wire decoding and server
 expiry retain that meaning through the complete request. Caller cancellation, subscription close, capability revocation,
 drain and shutdown still apply. Positive deadlines are unchanged and negative deadlines are invalid. Only Search's prepared

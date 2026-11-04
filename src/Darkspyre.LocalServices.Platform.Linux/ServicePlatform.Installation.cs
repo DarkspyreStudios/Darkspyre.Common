@@ -32,12 +32,22 @@ public sealed partial class ServicePlatform
         ServiceInstaller.RequireInstalled(new LinuxServiceFileSystem(), registration);
         string store = Path.Combine(ServiceInstaller.PluginDataOf(registration), "store");
         LinuxServiceOwner? lease = LinuxServiceOwner.TryAcquire(registration.RuntimePath, store);
-        return Task.FromResult<IServiceStoreInspection?>(lease is null ? null : new Inspection(registration.StoreId, store, lease));
+        return Task.FromResult<IServiceStoreInspection?>(lease is null ? null : new Inspection(registration.StoreId, store, ServiceInstaller.PluginDataOf(registration), lease));
     }
-    private sealed class Inspection(Guid id, string path, LinuxServiceOwner lease) : IServiceStoreInspection
+    private sealed class Inspection(Guid id, string path, string ownerPath, LinuxServiceOwner lease) : IServiceStoreInspection
     {
         public Guid StoreId => id;
         public string StorePath => path;
+        public Task<ReadOnlyMemory<byte>?> ReadStoreStateAsync(CancellationToken cancellationToken = default)
+        {
+            ObjectDisposedException.ThrowIf(!lease.IsHeld, this);
+            return ServiceStoreStateFiles.ReadAsync(new LinuxServiceFileSystem(), path, cancellationToken);
+        }
+        public Task RemoveOwnerFolderAsync(CancellationToken cancellationToken = default)
+        {
+            ObjectDisposedException.ThrowIf(!lease.IsHeld, this);
+            return ServiceStoreStateFiles.RemoveOwnerFolderAsync(new LinuxServiceFileSystem(), ownerPath, cancellationToken);
+        }
         public ValueTask DisposeAsync() { lease.Dispose(); return ValueTask.CompletedTask; }
     }
 

@@ -802,6 +802,13 @@ transport while ordinary domain requests remain fenced by the service.
 
 `TryInspectStoppedStoreAsync` holds the existing family/store leases without launching, publishing or changing preference.
 The service-owned consumer can inspect its database read-only during that lease. An active owner returns no lease.
+Both the live owner and stopped inspection read copied opaque committed state through `ReadStoreStateAsync`.
+The owner alone publishes the complete `store/owner-state.json` through `PublishStoreStateAsync`. The existing private-file
+publisher flushes data, atomically replaces the record and makes the directory replacement durable before acknowledging it.
+The record has no discovery-size cap. Existing discovery, registration and startup callers retain their explicit size limits.
+An inspection removes its exact retired owner folder through `RemoveOwnerFolderAsync` while retaining its native leases.
+The caller must prevent new subscriptions and authorize that root's retirement. Windows stopped inspections share deletion
+on their ownership handles for this operation; normal ownership and package-pin sharing stay unchanged.
 Request deadline `ServiceProtocol.NoDeadlineMilliseconds` (0) means caller/subscription lifetime; cancellation, revocation,
 drain and shutdown remain effective. Positive request deadlines retain their meaning, and negative values are invalid.
 Transport setup keeps `ConnectDeadline` and the original connector contract.

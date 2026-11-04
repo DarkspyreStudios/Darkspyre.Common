@@ -35,12 +35,22 @@ public sealed partial class ServicePlatform
         ServiceInstaller.RequireInstalled(new MacServiceFileSystem(), registration);
         string store = Path.Combine(ServiceInstaller.PluginDataOf(registration), "store");
         MacServiceOwner? lease = MacServiceOwner.TryAcquire(registration.RuntimePath, store);
-        return Task.FromResult<IServiceStoreInspection?>(lease is null ? null : new Inspection(registration.StoreId, store, lease));
+        return Task.FromResult<IServiceStoreInspection?>(lease is null ? null : new Inspection(registration.StoreId, store, ServiceInstaller.PluginDataOf(registration), lease));
     }
-    private sealed class Inspection(Guid id, string path, MacServiceOwner lease) : IServiceStoreInspection
+    private sealed class Inspection(Guid id, string path, string ownerPath, MacServiceOwner lease) : IServiceStoreInspection
     {
         public Guid StoreId => id;
         public string StorePath => path;
+        public Task<ReadOnlyMemory<byte>?> ReadStoreStateAsync(CancellationToken cancellationToken = default)
+        {
+            ObjectDisposedException.ThrowIf(!lease.IsHeld, this);
+            return ServiceStoreStateFiles.ReadAsync(new MacServiceFileSystem(), path, cancellationToken);
+        }
+        public Task RemoveOwnerFolderAsync(CancellationToken cancellationToken = default)
+        {
+            ObjectDisposedException.ThrowIf(!lease.IsHeld, this);
+            return ServiceStoreStateFiles.RemoveOwnerFolderAsync(new MacServiceFileSystem(), ownerPath, cancellationToken);
+        }
         public ValueTask DisposeAsync() { lease.Dispose(); return ValueTask.CompletedTask; }
     }
 

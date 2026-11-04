@@ -113,6 +113,11 @@ public interface IServiceOwner : IAsyncDisposable
     ServiceStartupState? StartupState { get; }
     /// <summary>Compare-clears only this completed or aborted input.</summary>
     Task ClearStartupStateAsync(Guid id, CancellationToken cancellationToken = default);
+    /// <summary>Reads this store owner's opaque committed state, or null before its first publication.</summary>
+    Task<ReadOnlyMemory<byte>?> ReadStoreStateAsync(CancellationToken cancellationToken = default);
+    /// <summary>Durably and atomically publishes this store owner's complete opaque state.</summary>
+    /// <gotcha>Only this owner may publish. This does not publish service discovery or interpret the bytes.</gotcha>
+    Task PublishStoreStateAsync(ReadOnlyMemory<byte> state, CancellationToken cancellationToken = default);
     /// <summary>Publishes authenticated transport discovery. Domain readiness belongs to the service protocol.</summary>
     Task PublishAsync(CancellationToken cancellationToken = default);
     /// <summary>Accepts a peer after native identity and capability authentication.</summary>
@@ -127,6 +132,11 @@ public interface IServiceStoreInspection : IAsyncDisposable
     Guid StoreId { get; }
     /// <summary>The private store path, accessible only while this lease is held.</summary>
     string StorePath { get; }
+    /// <summary>Reads a copied opaque store state while this existing-store inspection lease is held.</summary>
+    Task<ReadOnlyMemory<byte>?> ReadStoreStateAsync(CancellationToken cancellationToken = default);
+    /// <summary>Removes the explicitly retired owner folder covered by this stopped-store inspection.</summary>
+    /// <gotcha>This removes durable data. The caller must prevent new subscriptions and authorize this exact root's retirement.</gotcha>
+    Task RemoveOwnerFolderAsync(CancellationToken cancellationToken = default);
 }
 /// <summary>Opaque owner startup input, copied at the LocalServices boundary.</summary>
 /// <param name="Id">The owner's operation identity, used for compare-clear.</param>

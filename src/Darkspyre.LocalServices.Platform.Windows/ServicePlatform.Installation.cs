@@ -33,13 +33,23 @@ public sealed partial class ServicePlatform
         cancellationToken.ThrowIfCancellationRequested();
         ServiceInstaller.RequireInstalled(new WindowsServiceFileSystem(), registration);
         string store = Path.Combine(ServiceInstaller.PluginDataOf(registration), "store");
-        WindowsServiceOwner? lease = WindowsServiceOwner.TryAcquire(registration.RuntimePath, store);
-        return Task.FromResult<IServiceStoreInspection?>(lease is null ? null : new Inspection(registration.StoreId, store, lease));
+        WindowsServiceOwner? lease = WindowsServiceOwner.TryAcquire(registration.RuntimePath, store, allowRemoval: true);
+        return Task.FromResult<IServiceStoreInspection?>(lease is null ? null : new Inspection(registration.StoreId, store, ServiceInstaller.PluginDataOf(registration), lease));
     }
-    private sealed class Inspection(Guid id, string path, WindowsServiceOwner lease) : IServiceStoreInspection
+    private sealed class Inspection(Guid id, string path, string ownerPath, WindowsServiceOwner lease) : IServiceStoreInspection
     {
         public Guid StoreId => id;
         public string StorePath => path;
+        public Task<ReadOnlyMemory<byte>?> ReadStoreStateAsync(CancellationToken cancellationToken = default)
+        {
+            ObjectDisposedException.ThrowIf(!lease.IsHeld, this);
+            return ServiceStoreStateFiles.ReadAsync(new WindowsServiceFileSystem(), path, cancellationToken);
+        }
+        public Task RemoveOwnerFolderAsync(CancellationToken cancellationToken = default)
+        {
+            ObjectDisposedException.ThrowIf(!lease.IsHeld, this);
+            return ServiceStoreStateFiles.RemoveOwnerFolderAsync(new WindowsServiceFileSystem(), ownerPath, cancellationToken);
+        }
         public ValueTask DisposeAsync() { lease.Dispose(); return ValueTask.CompletedTask; }
     }
 

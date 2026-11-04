@@ -8,14 +8,15 @@ internal sealed class WindowsFileLease(SafeFileHandle handle) : IServicePackageL
 {
     internal SafeFileHandle Handle { get; } = handle;
     public bool IsHeld => !this.Handle.IsClosed && !this.Handle.IsInvalid;
-    internal static WindowsFileLease? TryAcquire(WindowsPrivateDirectory directory, string name, bool shared = false)
+    internal static WindowsFileLease? TryAcquire(WindowsPrivateDirectory directory, string name, bool shared = false, bool allowDelete = false)
     {
         SafeFileHandle file;
         try
         {
             // A shared pin denies write/delete opens for the lifetime of every inherited handle.
+            // Only a stopped-store inspection shares deletion while retaining the exclusive ownership lock.
             file = WindowsPrivateDirectory.OpenNative(directory.Child(name), shared ? WindowsNative.Read : WindowsNative.Read | WindowsNative.Write,
-                shared ? 1u : 3u, 4, directory: false);
+                shared ? 1u : allowDelete ? 7u : 3u, 4, directory: false);
         }
         catch (IOException error) when (error.InnerException is Win32Exception { NativeErrorCode: WindowsNative.SharingViolation }) { return null; }
         try
