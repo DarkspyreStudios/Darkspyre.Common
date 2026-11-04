@@ -9,13 +9,14 @@ public static class ServicePackageBuild
         CancellationToken cancellationToken = default)
         => new ServicePackageFiles(PackagingPlatform.Files()).CaptureAsync(payloadDirectory, entryPoint, cancellationToken);
 
-    /// <summary>Refreshes bundled service manifests and returns the absolute paths of files it rewrites.</summary>
+    /// <summary>Refreshes bundled service manifests deepest-first and returns the absolute paths of files it rewrites.</summary>
     /// <gotcha>The caller signs returned manifests before sealing the containing package or app.</gotcha>
     public static async Task<string[]> RefreshManifestsAsync(string directory, CancellationToken cancellationToken = default)
     {
         List<string> manifests = [], changed = [];
         Inspect(Path.GetFullPath(directory));
-        foreach (string path in manifests.Order(StringComparer.Ordinal))
+        foreach (string path in manifests.OrderByDescending(path => path.Count(character => character == Path.DirectorySeparatorChar))
+            .ThenBy(path => path, StringComparer.Ordinal))
         {
             byte[] previous = await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
             ServicePackageManifest manifest = ServicePackageManifest.Parse(previous);

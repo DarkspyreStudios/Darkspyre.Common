@@ -846,7 +846,9 @@ Its portable DLL selects the running OS inside its composition and needs no Harn
 The tool runs during builds/signing and is excluded from subscriber payloads.
 
 Mac signers sign inner files first, then refresh each `service/manifest.json` from its sibling
-`service/payload/`. The helper writes changed canonical inventories only and returns their paths.
+`service/payload/`. The helper processes deepest paths first, with an ordinal tie-break, so each enclosing inventory
+measures the final bytes of the manifests nested in its payload. It writes changed canonical inventories only and
+returns their paths in that order.
 The signer signs those manifests before sealing/verifying the containing package. Unchanged retained
 copies keep their bytes and signatures. Runtime installation verifies the final manifest and every
 payload file through the existing immutable cache. This ordering follows
