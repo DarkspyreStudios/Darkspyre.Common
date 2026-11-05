@@ -7,6 +7,8 @@ internal static class TranscriptLayout
     {
         internal bool Live { get; init; }
 
+        internal bool TimeHeader { get; init; }
+
         /// <summary>The absolute position of the row's first message.</summary>
         internal int Position { get; init; }
     }
@@ -26,6 +28,7 @@ internal static class TranscriptLayout
         IEnumerable<TranscriptMessage> shown = liveReasoning.Length == 0 ? messages
             : messages.Append(new TranscriptMessage(TranscriptMessage.ReasoningRole, liveReasoning, null, null, null, false, null, [], [], null, null));
         int index = offset - 1;
+        DateTimeOffset? previous = null;
         foreach (TranscriptMessage message in shown)
         {
             index = message.Sequence is { } sequence ? sequence : index + 1;
@@ -34,6 +37,15 @@ internal static class TranscriptLayout
             // A response or tool result with no text keeps its position but has no row. A prompt or response with no
             // text that holds attachment previews still has a row, which shows them.
             if (message.Text.Length == 0 && (message.Previews.Count == 0 || IsActivity(message))) continue;
+            if (message.Created is { } at)
+            {
+                if (TranscriptTimeHeader.BeginsGroup(previous, at))
+                {
+                    activity = null;
+                    rows.Add(new(("time", index), message, null) { Position = index, TimeHeader = true });
+                }
+                previous = at;
+            }
             if (!IsActivity(message))
             {
                 activity = null;

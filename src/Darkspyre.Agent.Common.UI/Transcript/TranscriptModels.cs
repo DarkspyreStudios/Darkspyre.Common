@@ -161,6 +161,9 @@ public sealed record TranscriptMessage(string Role, string Text, Guid? Id, int? 
     bool CanAskAgain, TranscriptCall? Call, IReadOnlyList<TranscriptOutput> Outputs,
     IReadOnlyList<TranscriptPreview> Previews, string? ActivityTitle, string? ActivityText)
 {
+    /// <summary>When the owner added the message, or null when no recorded time exists.</summary>
+    public DateTimeOffset? Created { get; init; }
+
     /// <summary>Existing owner-supported text/PDF document actions; empty keeps the main row unchanged.</summary>
     public IReadOnlyList<TranscriptDocumentAction> Documents { get; init; } = [];
 

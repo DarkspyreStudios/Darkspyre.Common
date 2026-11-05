@@ -62,6 +62,7 @@ public interface ITranscriptMarkdown : IDisposable
 /// <param name="OpenLink">Opens a target through the captured owner, never the controller's filesystem.</param>
 /// <param name="Save">Saves retained content through the owner's existing picker and file permission path.</param>
 /// <param name="Warn">Reports an owner-operation failure.</param>
+/// <param name="FormatTime">Formats a time of day through the owner's local-time service.</param>
 public sealed record TranscriptContext(Func<string, bool, ITranscriptMarkdown> Markdown,
     AttachmentPreviewImages Images, IMarkdownLinkSource? Links, Func<string, Control, Task> OpenLink,
-    Func<string, ReadOnlyMemory<byte>, Task> Save, Func<string, Task> Warn);
+    Func<string, ReadOnlyMemory<byte>, Task> Save, Func<string, Task> Warn, Func<DateTimeOffset, string> FormatTime);

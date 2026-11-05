@@ -59,6 +59,13 @@
       </Animation>
     </Style.Animations>
   </Style>
+  <Style Selector="TextBlock.transcript-time">
+    <Setter Property="Margin" Value="0,0,0,20" />
+    <Setter Property="TextAlignment" Value="Center" />
+    <Setter Property="Foreground" Value="{DynamicResource muted.brush}" />
+    <Setter Property="FontFamily" Value="{DynamicResource font-secondary}" />
+    <Setter Property="FontSize" Value="{DynamicResource font-size-secondary}" />
+  </Style>
   <Style Selector="TextBlock.transcript-older-loading">
     <Setter Property="Margin" Value="0,0,0,20" />
     <Setter Property="TextAlignment" Value="Center" />

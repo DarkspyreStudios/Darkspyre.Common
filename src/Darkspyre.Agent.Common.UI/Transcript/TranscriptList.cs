@@ -32,6 +32,9 @@ public enum TranscriptRowKind
 
     /// <summary>A prompt waiting in the queue.</summary>
     Queued,
+
+    /// <summary>A local-day and time header before a timed message or work stretch.</summary>
+    TimeHeader,
 }
 
 /// <summary>
@@ -56,7 +59,7 @@ public sealed class TranscriptRow(string key, TranscriptRowKind kind)
     /// <summary>The absolute position of the row's first message; <see cref="int.MaxValue"/> for the streaming reply and queued prompts.</summary>
     internal int Position { get; set; }
 
-    /// <summary>The stored message of a message row.</summary>
+    /// <summary>The stored message of a message row or the message a time header precedes.</summary>
     public TranscriptMessage? Message { get; private set; }
 
     /// <summary>The messages of a work stretch.</summary>
@@ -95,6 +98,8 @@ public sealed class TranscriptRow(string key, TranscriptRowKind kind)
 
     private QueuedDraft? editing;
 
+    internal string TimeHeader { get; private set; } = string.Empty;
+
     // A removed row or released pane cannot accept a late queue hold.
     internal bool Available { get; set; } = true;
 
@@ -102,6 +107,13 @@ public sealed class TranscriptRow(string key, TranscriptRowKind kind)
     public event EventHandler? Changed;
 
     internal void ShowMessage(TranscriptMessage message) => this.Set(this.Message == message, () => this.Message = message);
+
+    internal void ShowTimeHeader(TranscriptMessage message, string text) =>
+        this.Set(this.Message == message && this.TimeHeader == text, () =>
+        {
+            this.Message = message;
+            this.TimeHeader = text;
+        });
 
     internal void ShowActivity(IReadOnlyList<TranscriptMessage> messages, bool live, string progress) =>
         this.Set(this.Activity.SequenceEqual(messages) && this.Live == live && this.Progress == progress, () =>
@@ -198,9 +210,20 @@ public sealed class TranscriptList : UserControl
         List<(string Key, TranscriptRowKind Kind, Action<TranscriptRow> Fill)> wanted = [];
         // The stored replies by the response they finish, for the streaming row that showed them.
         Dictionary<Guid, string> replies = [];
+        DateTimeOffset now = DateTimeOffset.Now;
         foreach (TranscriptLayout.Row row in TranscriptLayout.Build(messages, reasoning, busy, offset))
         {
-            if (row.Activity is { } activity)
+            if (row.TimeHeader)
+            {
+                TranscriptMessage message = row.Message!;
+                string text = TranscriptTimeHeader.Format(message.Created!.Value, now, this.context.FormatTime);
+                wanted.Add((RowId(row.Key), TranscriptRowKind.TimeHeader, item =>
+                {
+                    item.Position = row.Position;
+                    item.ShowTimeHeader(message, text);
+                }));
+            }
+            else if (row.Activity is { } activity)
             {
                 // Only the stretch the turn is working on now shimmers.
                 List<TranscriptMessage> shown = [.. activity];
@@ -353,6 +376,9 @@ public sealed class TranscriptRowView : UserControl
         this.drawn = this.row.Version;
         switch (this.row.Kind)
         {
+            case TranscriptRowKind.TimeHeader:
+                this.Content = Forms.Text(this.row.TimeHeader, "transcript-time");
+                break;
             case TranscriptRowKind.Activity:
                 if (this.activity is null)
                 {
