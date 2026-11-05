@@ -14,8 +14,8 @@ internal static class TranscriptLayout
     }
 
     /// <summary>
-    /// Rows in transcript order. Consecutive reasoning, tool calls and tool output form one activity row, so
-    /// each stretch of work between replies collapses to one line. Output addressed to the person is also
+    /// Rows in transcript order. Consecutive reasoning, tool calls and tool output form one activity row until a reply
+    /// or recorded-time header starts another stretch. Output addressed to the person is also
     /// shown as its own row. Reasoning still arriving joins the last activity row, or starts one. A message with no
     /// text has no row unless it is a reply or prompt that holds attachment previews.
     /// Row keys hold absolute turn positions: <paramref name="offset"/> is how many stored turns come before

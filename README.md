@@ -510,6 +510,11 @@ and inline code and code blocks take `font-code` at `font-size-code`. LiveMarkdo
   compares its links with the drawn document's there; the UI thread draws the new document only when a link changed and
   the text is still the one shown. A change that arrives during that parse causes one more. Without a source, links
   follow the allow-list alone.
+  Tables use `FittedTableNode`, registered through `MarkdownNode.Edit` after removing the built-in `TableNode`.
+  Its grid shares the available width between star columns weighted by each column's longest unbroken cell text,
+  limited to 4–40 characters. Every cell is a wrapping `MarkdownTextBlock`; the registered inline renderers preserve
+  emphasis, links and code spans, including an over-long code word. The header class and cell borders use the viewer's
+  existing fonts and palette resources. No horizontal viewer wraps the conversation or its tables.
   Selection, copy, the right-click menu and the Copy and Select All keys come from the enclosing
   `TextSelectionScope`, whose drag crosses from one viewer into the text around it; copied text is the rendered
   text. LiveMarkdown's text block ends its pointer-released handling before Avalonia raises `ContextRequested` for a

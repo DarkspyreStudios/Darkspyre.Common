@@ -152,8 +152,8 @@ public sealed class TranscriptRow(string key, TranscriptRowKind kind)
 }
 
 /// <summary>
-/// The rows of one conversation's transcript, every one drawn at its real height in a plain stack: prompts, replies, tool
-/// output and collapsed work stretches, then the reply still streaming, then the prompts waiting in the queue. The
+/// The rows of one conversation's transcript, every one drawn at its real height in a plain stack: recorded-time headers,
+/// prompts, replies, tool output and collapsed work stretches, then the reply still streaming, then the prompts waiting in the queue. The
 /// session bounds the rows to its shown window, so drawing all of them stays cheap. Rows are keyed, so an update
 /// changes only the rows whose content changed, and a streaming reply updates only its own Markdown view's text. The
 /// stored reply takes over the streaming row of its response, so its Markdown view stays.

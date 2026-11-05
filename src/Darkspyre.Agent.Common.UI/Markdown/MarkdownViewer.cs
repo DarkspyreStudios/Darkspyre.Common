@@ -99,7 +99,7 @@ public sealed class MarkdownViewer : TemplatedControl
     private bool relinking;
     private bool relinkAgain;
 
-    static MarkdownViewer() => MarkdownNode.Register<MermaidNode>();
+    static MarkdownViewer() => MarkdownNode.Edit(builder => builder.Unregister<TableNode>().Register<MermaidNode>().Register<FittedTableNode>());
 
     /// <summary>Creates the viewer.</summary>
     public MarkdownViewer()
@@ -130,6 +130,23 @@ public sealed class MarkdownViewer : TemplatedControl
                 new Setter(TextBlock.FontFamilyProperty, new DynamicResourceExtension("font-body")),
                 new Setter(TextBlock.FontSizeProperty, new DynamicResourceExtension("font-size-body")),
             },
+        });
+        this.Styles.Add(new Style(selector => selector.OfType<Grid>().Class("fitted-table"))
+        {
+            Setters = { new Setter(Grid.HorizontalAlignmentProperty, global::Avalonia.Layout.HorizontalAlignment.Stretch) },
+        });
+        this.Styles.Add(new Style(selector => selector.OfType<Border>().Class("fitted-table-cell"))
+        {
+            Setters =
+            {
+                new Setter(Border.PaddingProperty, new Thickness(4)), new Setter(Border.BorderThicknessProperty, new Thickness(1)),
+                new Setter(Border.BorderBrushProperty, new DynamicResourceExtension("BorderColor")),
+                new Setter(Border.BackgroundProperty, new DynamicResourceExtension("CardBackgroundColor")),
+            },
+        });
+        this.Styles.Add(new Style(selector => selector.OfType<MarkdownTextBlock>().Class("header"))
+        {
+            Setters = { new Setter(TextBlock.FontWeightProperty, FontWeight.SemiBold) },
         });
         // LiveMarkdown classes each heading's text block Heading1 to Heading6, and its list markers ListBlockBullet and
         // ListBlockNumber; these follow the shared text block style so they win over it.
