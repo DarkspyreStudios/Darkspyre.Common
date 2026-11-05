@@ -5,7 +5,7 @@ using Xunit;
 namespace Darkspyre.Common.Avalonia.Tests;
 
 /// <summary>Recorded message times produce the shared transcript's day and gap headers.</summary>
-public sealed class TimeHeadersTests
+public sealed class TranscriptTimeHeaderTests
 {
     /// <summary>Untimed messages do not interrupt the previous recorded time.</summary>
     [Fact]
