@@ -112,12 +112,14 @@ body {
 }
 
 .row-title {
+    display: block;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .row-detail {
+    display: block;
     overflow: hidden;
     color: var(--muted);
     font-size: 13px;

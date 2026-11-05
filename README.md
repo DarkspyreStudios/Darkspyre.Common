@@ -592,6 +592,8 @@ A screen writes `<MarkdownView Text="@text" />`.
 
 ### Behaviour
 
+- A row's `row-body` can shrink between its icons. Its `row-title` and `row-detail` are block lines, so their ellipses
+  end within that body before the trailing marker, including when the lines are spans.
 - `MarkdownView` parses with `MarkdownSafety.CreateBuilder` and a link source that accepts and finds nothing, plus one
   rule of its own: every image becomes its alt text, so no remote image loads. Only http, https and mailto targets stay
   links; every other link or autolink target, relative ones and `javascript:` included, shows as its own text. Raw HTML
