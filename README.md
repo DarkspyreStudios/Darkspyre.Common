@@ -295,7 +295,7 @@ Each folder is its own namespace, `Darkspyre.Agent.Common.UI.<folder>`:
 
 | Namespace | Holds |
 | --- | --- |
-| `.Controls` | `Forms` and `ButtonSize`, `Sizes`, `Badge`, `Spinner`, `LoopingAnimation`, `IconPicker`, `ColorPicker`, `StatusLight` and `StatusLightState`, `QuotaRing`, `TextCopy` and `CopyRequestedEventArgs`, `CopyFeedback`, `TextSelection`, `TextSelectionMode`, `TextSelectionScope`, `SelectionMenu`, `EditCommand`, `IEditCommandTarget`, `ITextEditTarget`, `EditRouting`, `RowCopy`, `Watching<TShown>` and `UiChangeSubscription`, `Remount`, `KeyedViews`, `KeyedChildren`, `UiRefresh`, `ShownList`, `PanelTabs`, `PanelTab` and `PanelTabsOverflow`, `PanelParts` |
+| `.Controls` | `Forms` and `ButtonSize`, `Sizes`, `Badge`, `Spinner`, `LoopingAnimation`, `IconPicker`, `ColorPicker`, `StatusLight` and `StatusLightState`, `QuotaRing`, `TextCopy` and `CopyRequestedEventArgs`, `CopyFeedback`, `TextSelection`, `TextSelectionMode`, `TextSelectionScope`, `SelectionMenu`, `EditCommand`, `IEditCommandTarget`, `ITextEditTarget`, `EditRouting`, `RowCopy`, `Watching<TShown>` and `UiChangeSubscription`, `Remount`, `KeyedViews`, `KeyedChildren`, `UiRefresh`, `ShownList`, `PanelTabs`, `PanelTab` and `PanelTabsOverflow`, `PanelParts`, `ZoomScale` and `ZoomHost` |
 | `.Icons` | `Icon`, `IconSource`, `AppIcons` (including `Refresh` and `Search` for a panel bar's icon buttons, and the Lucide `Goal` (`target`), `Trash` (`trash-2`), `Pause` (`circle-pause`) and `Resume` (`circle-play`) in `ViewBox` `0 0 24 24`), `ProjectIcons`, `PluginPanelIcons`, `AttachmentPreviewIcons` (built from `AttachmentIconPaths` in `Darkspyre.Common.Markdown`) |
 | `.Dialogs` | `ModalLayer`, `Sheet`, `ConfirmDialog`, `PaletteSheet`, `DialogPresenter` with `SheetRequest`, `ISheet` and `ConfirmationRequest`, `DialogSize` and `DialogSizes` |
 | `.Errors` | `UiRegion`, `UiFailure`, `FailureView` |
@@ -315,6 +315,12 @@ Untimed messages do not become the previous timed message. An activity stretch s
 its absolute-position keys. `TranscriptTimeHeader.Format` labels the local day as Today, Yesterday, the weekday within
 six days or the month and day. The required `TranscriptContext.FormatTime` callback formats the time of day through
 the owner's local-time service.
+
+`TranscriptPane.PageUp` and `PageDown` scroll its viewer by a visible page without taking focus. The pane's owner also
+passes one `ZoomScale`, kept for that area's lifetime. `ZoomHost` wraps the transcript with a layout transform and
+handles Ctrl+wheel in the tunnel: each notch changes the scale by 0.1 between 1.0 and 3.0. Plain wheel stays scrolling.
+The same scale can drive a new host after a panel remount; detaching releases the host's change subscription. The scale
+is in memory only, so a new application starts at 1.0 and no setting changes.
 
 agent-ds's `Darkspyre.Agent.Plugin` references the library, so a plugin compiles against it and loads the
 application's copy (agent-ds `SharedLibraries.props` excludes its runtime assets from plugin packages).

@@ -14,10 +14,11 @@ public sealed class TranscriptPane
     private readonly Action release;
     private readonly TranscriptAnchor? start;
     private readonly NewestButton newest;
+    private readonly ScrollViewer pane;
 
-    /// <summary>Creates a transcript pane with owner-provided state and operations.</summary>
+    /// <summary>Creates a transcript pane with owner-provided state, zoom and operations.</summary>
     public TranscriptPane(Guid sessionId, TranscriptContext context, TranscriptActions actions, TranscriptAnchor? start,
-        Action<TranscriptAnchor?> scrolled, Func<CancellationToken, Task<bool>> loadOlder, Action release)
+        Action<TranscriptAnchor?> scrolled, Func<CancellationToken, Task<bool>> loadOlder, Action release, ZoomScale zoom)
     {
         this.SessionId = sessionId;
         this.context = context;
@@ -41,13 +42,14 @@ public sealed class TranscriptPane
         content.Children.Add(this.older);
         content.Children.Add(this.List);
         ScrollViewer pane = new() { HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled, Content = content };
+        this.pane = pane;
         TextSelectionScope selection = new() { Child = pane };
         this.newest = new NewestButton(() => this.Scroll!.Latest());
         this.Scroll = new TranscriptScroll(pane, this.newest, selection);
         Grid layers = new();
         layers.Children.Add(selection);
         layers.Children.Add(this.newest);
-        this.View = layers;
+        this.View = new ZoomHost(zoom) { Child = layers };
     }
 
     /// <summary>The owner's session identity.</summary>
@@ -64,6 +66,10 @@ public sealed class TranscriptPane
     public bool Working { set => this.newest.Working = value; }
     /// <summary>Whether the older-turn loading line is shown.</summary>
     public bool LoadingOlder { set => this.older.IsVisible = value; }
+    /// <summary>Scrolls up one visible page without moving keyboard focus.</summary>
+    public void PageUp() => this.pane.PageUp();
+    /// <summary>Scrolls down one visible page without moving keyboard focus.</summary>
+    public void PageDown() => this.pane.PageDown();
     /// <summary>Places the pane at its initial anchor or newest message.</summary>
     public void Place() => this.Scroll.Attach(this.List, this.SessionId.ToString("D"), this.start, this.scrolled, this.loadOlder, this.release);
 
