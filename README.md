@@ -310,10 +310,11 @@ Each folder is its own namespace, `Darkspyre.Agent.Common.UI.<folder>`:
 `TranscriptPane` draws local and remote transcripts from neutral records. Its owner supplies Markdown bindings, authorized preview reads, file actions and queue operations. A queue hold arriving after its row is removed or pane is released is cancelled through the captured owner. `AttachmentPreviewImages` shares one lazy decoded image per leased key and releases it when no shown row holds it. `FollowLatest` lives in `.Controls` and keeps a scroll viewer at the newest content until the person scrolls away.
 
 `TranscriptMessage.Created` carries the owner's recorded time; null produces no header. The transcript puts a centred,
-muted `transcript-time` header before the first timed message, a local-day change or a gap of at least 15 minutes.
-Every timed message becomes the previous timed message, including an answer folded into its call or a message with
-no row. Those messages do not carry a header. Untimed messages do not advance the predecessor. An activity stretch
-splits at the same boundary, keeping its absolute-position keys. `TranscriptTimeHeader.Format` labels the local day as
+muted `transcript-time` header before the first drawn timed message, a local-day change or a gap of at least 15 minutes.
+The gap compares every timed message, including an answer folded into its call or a message with no row. Those
+messages do not carry a header. The day and first-row rules compare the last drawn timed row, so a folded answer
+cannot consume a new day's header. Untimed messages advance neither predecessor. Headers do not count as loaded
+messages for older-turn prefetch. An activity stretch splits at the same boundary, keeping its absolute-position keys. `TranscriptTimeHeader.Format` labels the local day as
 Today, Yesterday, the weekday within six days or the month and day. The required `TranscriptContext.FormatTime` callback formats the time of day through
 the owner's local-time service.
 

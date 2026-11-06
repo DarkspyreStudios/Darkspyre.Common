@@ -353,14 +353,19 @@ public sealed class TranscriptScroll
         this.pushed = null;
     }
 
-    // How many loaded messages come before the row: one per message row, and each message of a work stretch.
+    // How many loaded messages come before the row: headers count nothing; work stretches count their messages.
     private int MessagesBefore(TranscriptRow target)
     {
         int count = 0;
         foreach (TranscriptRow row in this.list?.Rows ?? [])
         {
             if (ReferenceEquals(row, target)) break;
-            count += row.Kind == TranscriptRowKind.Activity ? row.Activity.Count : 1;
+            count += row.Kind switch
+            {
+                TranscriptRowKind.TimeHeader => 0,
+                TranscriptRowKind.Activity => row.Activity.Count,
+                _ => 1,
+            };
         }
         return count;
     }

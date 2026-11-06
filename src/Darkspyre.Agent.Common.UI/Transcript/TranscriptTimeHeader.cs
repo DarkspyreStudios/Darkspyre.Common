@@ -23,7 +23,7 @@ public static class TranscriptTimeHeader
         return $"{day} {time(at)}";
     }
 
-    internal static bool BeginsGroup(DateTimeOffset? previous, DateTimeOffset at) => previous is not { } before
-        || before.LocalDateTime.Date != at.LocalDateTime.Date
-        || at - before >= TimeSpan.FromMinutes(15);
+    internal static bool BeginsGroup(DateTimeOffset? lastDrawn, DateTimeOffset? previous, DateTimeOffset at) => lastDrawn is not { } drawn
+        || drawn.LocalDateTime.Date != at.LocalDateTime.Date
+        || previous is { } before && at - before >= TimeSpan.FromMinutes(15);
 }

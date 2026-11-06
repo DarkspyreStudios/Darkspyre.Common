@@ -29,6 +29,7 @@ internal static class TranscriptLayout
             : messages.Append(new TranscriptMessage(TranscriptMessage.ReasoningRole, liveReasoning, null, null, null, false, null, [], [], null, null));
         int index = offset - 1;
         DateTimeOffset? previous = null;
+        DateTimeOffset? drawn = null;
         foreach (TranscriptMessage message in shown)
         {
             index = message.Sequence is { } sequence ? sequence : index + 1;
@@ -41,11 +42,12 @@ internal static class TranscriptLayout
             if (message.Text.Length == 0 && (message.Previews.Count == 0 || IsActivity(message))) continue;
             if (message.Created is { } at)
             {
-                if (TranscriptTimeHeader.BeginsGroup(before, at))
+                if (TranscriptTimeHeader.BeginsGroup(drawn, before, at))
                 {
                     activity = null;
                     rows.Add(new(("time", index), message, null) { Position = index, TimeHeader = true });
                 }
+                drawn = at;
             }
             if (!IsActivity(message))
             {

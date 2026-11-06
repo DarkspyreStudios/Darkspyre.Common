@@ -57,6 +57,19 @@ public sealed class TranscriptTimeHeaderTests
         Assert.Equal([("time", 0), ("activity", 0), ("message", 2)], rows.Select(row => row.Key));
     }
 
+    /// <summary>A folded answer cannot consume the first drawn row's new-day header.</summary>
+    [Fact]
+    public void DrawnDayChangesAfterAFoldedTimedAnswer()
+    {
+        DateTimeOffset beforeMidnight = new(DateTime.Today.AddHours(23).AddMinutes(55));
+        TranscriptMessage call = Message("tool", 0, beforeMidnight) with { Call = new("call", "Ask", "{}", false, true, null) };
+        IReadOnlyList<TranscriptLayout.Row> rows = TranscriptLayout.Build([
+            call, Message(TranscriptMessage.AnswerRole, 1, beforeMidnight.AddMinutes(6)),
+            Message("assistant", 2, beforeMidnight.AddMinutes(7)),
+        ]);
+        Assert.Equal([("time", 0), ("activity", 0), ("time", 2), ("message", 2)], rows.Select(row => row.Key));
+    }
+
     /// <summary>The date label uses the owner's time-of-day text without replacing its format.</summary>
     [Fact]
     public void LabelsUseTheOwnersTimeFormatter()
