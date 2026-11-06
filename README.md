@@ -311,14 +311,17 @@ Each folder is its own namespace, `Darkspyre.Agent.Common.UI.<folder>`:
 
 `TranscriptMessage.Created` carries the owner's recorded time; null produces no header. The transcript puts a centred,
 muted `transcript-time` header before the first timed message, a local-day change or a gap of at least 15 minutes.
-Untimed messages do not become the previous timed message. An activity stretch splits at the same boundary, keeping
-its absolute-position keys. `TranscriptTimeHeader.Format` labels the local day as Today, Yesterday, the weekday within
-six days or the month and day. The required `TranscriptContext.FormatTime` callback formats the time of day through
+Every timed message becomes the previous timed message, including an answer folded into its call or a message with
+no row. Those messages do not carry a header. Untimed messages do not advance the predecessor. An activity stretch
+splits at the same boundary, keeping its absolute-position keys. `TranscriptTimeHeader.Format` labels the local day as
+Today, Yesterday, the weekday within six days or the month and day. The required `TranscriptContext.FormatTime` callback formats the time of day through
 the owner's local-time service.
 
-`TranscriptPane.PageUp` and `PageDown` scroll its viewer by a visible page without taking focus. The pane's owner also
-passes one `ZoomScale`, kept for that area's lifetime. `ZoomHost` wraps the transcript with a layout transform and
-handles Ctrl+wheel in the tunnel: each notch changes the scale by 0.1 between 1.0 and 3.0. Plain wheel stays scrolling.
+`TranscriptPane.PageUp` and `PageDown` scroll its viewer by a visible page without taking focus. `TranscriptScroll.Page`
+uses `FollowLatest.Page` to classify the move as the person's input, even when the composer handles the key. Paging
+away stops following; paging to the bottom follows again. Paging up at the top uses the existing older-turn request.
+The pane's owner also passes one `ZoomScale`, kept for that area's lifetime. `ZoomHost` wraps the transcript with a
+layout transform and handles Ctrl+wheel in the tunnel: each notch changes the scale by 0.1 between 1.0 and 3.0. Plain wheel stays scrolling.
 The same scale can drive a new host after a panel remount; detaching releases the host's change subscription. The scale
 is in memory only, so a new application starts at 1.0 and no setting changes.
 

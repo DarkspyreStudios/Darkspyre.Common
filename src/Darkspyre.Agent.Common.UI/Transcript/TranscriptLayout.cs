@@ -32,6 +32,8 @@ internal static class TranscriptLayout
         foreach (TranscriptMessage message in shown)
         {
             index = message.Sequence is { } sequence ? sequence : index + 1;
+            DateTimeOffset? before = previous;
+            if (message.Created is { } recorded) previous = recorded;
             // A human answer that opened a turn shows on the asking call's card, not as a row of its own.
             if (message.Role == TranscriptMessage.AnswerRole) continue;
             // A response or tool result with no text keeps its position but has no row. A prompt or response with no
@@ -39,12 +41,11 @@ internal static class TranscriptLayout
             if (message.Text.Length == 0 && (message.Previews.Count == 0 || IsActivity(message))) continue;
             if (message.Created is { } at)
             {
-                if (TranscriptTimeHeader.BeginsGroup(previous, at))
+                if (TranscriptTimeHeader.BeginsGroup(before, at))
                 {
                     activity = null;
                     rows.Add(new(("time", index), message, null) { Position = index, TimeHeader = true });
                 }
-                previous = at;
             }
             if (!IsActivity(message))
             {

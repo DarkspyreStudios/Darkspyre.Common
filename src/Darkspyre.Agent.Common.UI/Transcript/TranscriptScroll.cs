@@ -184,6 +184,14 @@ public sealed class TranscriptScroll
         this.pane.InvalidateMeasure();
     }
 
+    /// <summary>Pages as the person's input, asking for older turns when paging up at the top.</summary>
+    /// <param name="down">True to page down; false to page up.</param>
+    public void Page(bool down)
+    {
+        if (!down) this.Push();
+        this.follow.Page(down);
+    }
+
     /// <summary>Whether the pane is locked to the latest message.</summary>
     public bool Following => this.follow.Following;
 

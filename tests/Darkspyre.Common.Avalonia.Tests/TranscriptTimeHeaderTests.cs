@@ -45,6 +45,18 @@ public sealed class TranscriptTimeHeaderTests
         Assert.Equal(rows.Select(row => row.Key), extended.Skip(2).Select(row => row.Key));
     }
 
+    /// <summary>A timed answer folded into its call remains the predecessor of the next reply.</summary>
+    [Fact]
+    public void FoldedTimedAnswerIsThePredecessor()
+    {
+        DateTimeOffset nine = new(DateTime.Today.AddHours(9));
+        TranscriptMessage call = Message("tool", 0, nine) with { Call = new("call", "Ask", "{}", false, true, null) };
+        IReadOnlyList<TranscriptLayout.Row> rows = TranscriptLayout.Build([
+            call, Message(TranscriptMessage.AnswerRole, 1, nine.AddMinutes(14)), Message("assistant", 2, nine.AddMinutes(16)),
+        ]);
+        Assert.Equal([("time", 0), ("activity", 0), ("message", 2)], rows.Select(row => row.Key));
+    }
+
     /// <summary>The date label uses the owner's time-of-day text without replacing its format.</summary>
     [Fact]
     public void LabelsUseTheOwnersTimeFormatter()

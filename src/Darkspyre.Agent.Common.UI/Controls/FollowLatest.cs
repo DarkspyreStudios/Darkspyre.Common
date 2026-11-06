@@ -105,6 +105,20 @@ public sealed class FollowLatest
         if (follow && !this.AtLatest) this.ToEnd();
     }
 
+    /// <summary>Pages the pane as the person's scrolling, including a page key handled outside the pane.</summary>
+    /// <param name="down">True to page down; false to page up.</param>
+    public void Page(bool down)
+    {
+        bool before = this.input;
+        this.input = true;
+        try
+        {
+            if (down) this.pane.PageDown();
+            else this.pane.PageUp();
+        }
+        finally { this.input = before; }
+    }
+
     /// <summary>Sets the pane's vertical offset as the owner's own move, which never counts as the person's scrolling.</summary>
     /// <param name="offsetY">The new vertical offset in pixels.</param>
     public void Move(double offsetY)

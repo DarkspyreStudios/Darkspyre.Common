@@ -14,7 +14,6 @@ public sealed class TranscriptPane
     private readonly Action release;
     private readonly TranscriptAnchor? start;
     private readonly NewestButton newest;
-    private readonly ScrollViewer pane;
 
     /// <summary>Creates a transcript pane with owner-provided state, zoom and operations.</summary>
     public TranscriptPane(Guid sessionId, TranscriptContext context, TranscriptActions actions, TranscriptAnchor? start,
@@ -42,7 +41,6 @@ public sealed class TranscriptPane
         content.Children.Add(this.older);
         content.Children.Add(this.List);
         ScrollViewer pane = new() { HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled, Content = content };
-        this.pane = pane;
         TextSelectionScope selection = new() { Child = pane };
         this.newest = new NewestButton(() => this.Scroll!.Latest());
         this.Scroll = new TranscriptScroll(pane, this.newest, selection);
@@ -67,9 +65,9 @@ public sealed class TranscriptPane
     /// <summary>Whether the older-turn loading line is shown.</summary>
     public bool LoadingOlder { set => this.older.IsVisible = value; }
     /// <summary>Scrolls up one visible page without moving keyboard focus.</summary>
-    public void PageUp() => this.pane.PageUp();
+    public void PageUp() => this.Scroll.Page(down: false);
     /// <summary>Scrolls down one visible page without moving keyboard focus.</summary>
-    public void PageDown() => this.pane.PageDown();
+    public void PageDown() => this.Scroll.Page(down: true);
     /// <summary>Places the pane at its initial anchor or newest message.</summary>
     public void Place() => this.Scroll.Attach(this.List, this.SessionId.ToString("D"), this.start, this.scrolled, this.loadOlder, this.release);
 
