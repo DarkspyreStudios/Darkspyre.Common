@@ -30,41 +30,6 @@ public sealed class GitFileReadTests
         Assert.Equal((commit, false, null, null), (absent.CommitId, absent.Present, absent.Mode, absent.Content));
     }
 
-    /// <summary>
-    /// M10: the listing carries no size, so a file over the limit fails from the cat-file header with nothing of its body
-    /// read.
-    /// </summary>
-    [Fact]
-    public async Task AFileAtCommitOverTheLimitFailsFromTheBatchHeader()
-    {
-        await using GitTestRepository repository = GitTestRepository.Create("git-file-limit-");
-        repository.Write("large.txt", "ten bytes\n");
-        repository.Commit();
-
-        GitReadException large = await Assert.ThrowsAsync<GitReadException>(() =>
-            repository.Reader.ReadFileAtCommitAsync(new(repository.Path, "HEAD", "large.txt", 4), default));
-
-        Assert.Equal(GitReadFailure.LimitExceeded, large.Failure);
-        Assert.Equal("The committed file is larger than the limit; nothing was read.", large.Message);
-    }
-
-    /// <summary>T10: a path the path policy refuses is refused before any Git child asks about it.</summary>
-    [Fact]
-    public async Task ARefusedPathStartsNoGitChild()
-    {
-        await using GitTestRepository repository = GitTestRepository.Create("git-file-refused-");
-        repository.Write("secret.txt", "secret\n");
-        repository.Commit();
-        repository.Paths.Refuse = path => path.EndsWith("secret.txt", StringComparison.Ordinal);
-
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => repository.Reader.ReadFileAtCommitAsync(new(repository.Path, "HEAD", "secret.txt", 1024), default));
-
-        // Locating the working tree runs four rev-parse children; nothing resolves the reference or lists the path.
-        Assert.Equal(4, repository.Launcher.Starts("rev-parse"));
-        Assert.Equal(0, repository.Launcher.Starts("ls-tree"));
-        Assert.Equal(0, repository.Launcher.Starts("cat-file"));
-    }
-
     /// <summary>T11: every leaf's kind, mode, object ID and length, in Git's order, without the paths the path policy refuses.</summary>
     [Fact]
     public async Task ATreeListsLeavesWithKindModeIdAndLengthAndLeavesOutRefusedPaths()

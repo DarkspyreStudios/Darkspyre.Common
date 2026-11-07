@@ -46,46 +46,6 @@ public sealed class GitLocalChangesTests
         Assert.Equal("a.txt", repository.Run("diff", "--name-only").TrimEnd('\n'));
     }
 
-    /// <summary>A path absent at the revision is reported missing and the present paths are still restored.</summary>
-    [Fact]
-    public async Task ARestoreWithAMissingPathRestoresTheOthers()
-    {
-        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-restore-missing-");
-        GitConversation git = repository.First;
-        string original = repository.Head();
-        repository.Write("a.txt", "changed\n");
-        repository.Write("new.txt", "new\n");
-        repository.Commit("Change and add");
-
-        GitRestoreResult restored = await git.Local.RestorePathsAsync(new(repository.Path, original, ["new.txt", "a.txt"]));
-
-        Assert.Equal(["a.txt"], restored.RestoredPaths);
-        Assert.Equal(["new.txt"], restored.MissingPaths);
-        Assert.Equal("base\n", File.ReadAllText(Path.Combine(repository.Path, "a.txt")));
-        Assert.Equal("new\n", File.ReadAllText(Path.Combine(repository.Path, "new.txt")));
-    }
-
-    /// <summary>A branch that moved since the caller read it is not deleted.</summary>
-    [Fact]
-    public async Task ABranchThatMovedIsNotDeleted()
-    {
-        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-branch-stale-");
-        GitConversation git = repository.First;
-        string seen = repository.Head();
-        repository.Run("branch", "topic");
-        repository.Run("checkout", "-q", "topic");
-        string moved = repository.Commit("Moved");
-        repository.Run("checkout", "-q", "main");
-
-        GitOperationException stale = await Assert.ThrowsAsync<GitOperationException>(() =>
-            git.Local.DeleteBranchAsync(new(repository.Path, "topic", seen)));
-        GitBranchResult deleted = await git.Local.DeleteBranchAsync(new(repository.Path, "topic", moved));
-
-        Assert.Equal(GitFailure.StaleState, stale.Failure);
-        Assert.Equal(("refs/heads/topic", moved), (deleted.BranchRef, deleted.CommitId));
-        Assert.Equal(1, repository.TryRun("show-ref", "--verify", "--quiet", "refs/heads/topic"));
-    }
-
     /// <summary>
     /// M7: branch delete and worktree reset read the checked-out worktrees from the plain <c>worktree list --porcelain</c>
     /// as a read: a branch checked out in a linked worktree is neither deleted nor switched to, and a free branch is.

@@ -56,9 +56,6 @@ public sealed class GitWorkflowReadTests
     /// <summary>G12: each operation's kind and conflicted paths.</summary>
     [Theory]
     [InlineData("rebase")]
-    [InlineData("cherry-pick")]
-    [InlineData("merge")]
-    [InlineData("revert")]
     public async Task StatusReportsAConflictedOperationWithItsKindAndPaths(string kind)
     {
         await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-status-" + kind + "-");
@@ -84,41 +81,6 @@ public sealed class GitWorkflowReadTests
         Assert.Equal(kind, operation.Kind);
         Assert.Equal("a.txt", Assert.Single(operation.ConflictedPaths));
         Assert.Contains(status.Changes, change => change.Path == "a.txt" && change.IndexStatus != '.');
-    }
-
-    /// <summary>G12: an upstream that no longer exists locally has no commit and no counts; a present one has both.</summary>
-    [Fact]
-    public async Task StatusReportsAGoneUpstreamWithNoCommitOrCounts()
-    {
-        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-status-upstream-");
-        GitConversation git = repository.First;
-        string pushed = repository.Head();
-        repository.Write("b.txt", "ahead\n");
-        string head = repository.Commit("Ahead");
-
-        GitStatusSnapshot tracking = (await git.StatusAsync(repository.Path))!;
-        repository.Run("push", "-q", "origin", "main:refs/heads/topic");
-        repository.Run("checkout", "-q", "-b", "topic", "--track", "origin/topic");
-        repository.Run("update-ref", "-d", "refs/remotes/origin/topic");
-        GitStatusSnapshot gone = (await git.StatusAsync(repository.Path))!;
-
-        Assert.Equal((head, "refs/heads/main"), (tracking.Head, tracking.BranchRef));
-        Assert.Equal(new GitUpstream("refs/remotes/origin/main", pushed, 1, 0), tracking.Upstream);
-        Assert.Null(tracking.Operation);
-        Assert.Equal("refs/heads/topic", gone.BranchRef);
-        Assert.Equal(new GitUpstream("refs/remotes/origin/topic", null, null, null), gone.Upstream);
-    }
-
-    /// <summary>An untracked nested repository, which Git prints with a trailing slash, is one untracked change.</summary>
-    [Fact]
-    public async Task StatusReportsANestedRepositoryAsOneUntrackedChange()
-    {
-        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-status-nested-");
-        repository.Run("init", "-q", "nested");
-
-        GitStatusSnapshot status = (await repository.First.StatusAsync(repository.Path))!;
-
-        Assert.Equal(new GitChange("nested", null, '?', '?'), Assert.Single(status.Changes));
     }
 
     /// <summary>

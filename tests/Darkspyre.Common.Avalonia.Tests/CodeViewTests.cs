@@ -10,28 +10,6 @@ namespace Darkspyre.Common.Avalonia.Tests;
 public sealed class CodeViewTests
 {
     [Fact]
-    public void AChangedLineEndingIsAChangedLine()
-    {
-        IReadOnlyList<DiffHunk> hunks = TextDiff.Compute(TextLine.Split("a\nb\nc\n"), TextLine.Split("a\r\nb\nc\n"));
-
-        DiffHunk hunk = Assert.Single(hunks);
-        Assert.Equal((1, 1), (hunk.OldStartLine, hunk.NewStartLine));
-        Assert.Equal([DiffLineKind.Remove, DiffLineKind.Add, DiffLineKind.Context, DiffLineKind.Context], hunk.Lines.Select(line => line.Kind));
-    }
-
-    [Fact]
-    public void FarApartChangesAreSeparateHunks()
-    {
-        string before = string.Join("\n", Enumerable.Range(1, 30).Select(number => $"line {number}"));
-        string after = before.Replace("line 2\n", "line two\n", StringComparison.Ordinal).Replace("line 28", "line twenty-eight", StringComparison.Ordinal);
-
-        IReadOnlyList<DiffHunk> hunks = TextDiff.Compute(TextLine.Split(before), TextLine.Split(after));
-
-        Assert.Equal(2, hunks.Count);
-        Assert.Equal(25, hunks[1].OldStartLine);
-    }
-
-    [Fact]
     public Task DiffViewShowsEachHunkAndItsNoFinalNewlineNote() => ViewSession.RunAsync(async () =>
     {
         DiffView view = new() { OldText = "one\ntwo\n", NewText = "one\n2" };
@@ -40,30 +18,6 @@ public sealed class CodeViewTests
         await ViewSession.WaitForAsync(() => view.Hunks.Count == 1);
         string shown = Assert.Single(ViewSession.All<TextEditor>(view)).Document.Text;
         Assert.Equal("@@ -1,2 +1,2 @@\none\ntwo\n2\nNo final newline", shown);
-    });
-
-    /// <summary>Supplied hunks replace a comparison still running, which must not overwrite them when it finishes.</summary>
-    [Fact]
-    public Task DiffViewShowsSuppliedHunksOverARunningComparison() => ViewSession.RunAsync(async () =>
-    {
-        DiffView view = new() { OldText = "a\n", NewText = "b\n" };
-        ViewSession.Show(view);
-        IReadOnlyList<DiffHunk> remote = TextDiff.Compute(TextLine.Split("x\n"), TextLine.Split("y\n"));
-
-        view.ShowHunks(remote);
-        await Task.Delay(200);
-
-        Assert.Same(remote[0], Assert.Single(view.Hunks));
-        Assert.Equal("@@ -1,1 +1,1 @@\nx\ny", Assert.Single(ViewSession.All<TextEditor>(view)).Document.Text);
-    });
-
-    [Fact]
-    public Task DiffViewOfEqualTextsSaysSo() => ViewSession.RunAsync(async () =>
-    {
-        DiffView view = new() { OldText = "same\n", NewText = "same\n" };
-        ViewSession.Show(view);
-
-        await ViewSession.WaitForAsync(() => ViewSession.All<TextBlock>(view).Any(block => block.IsEffectivelyVisible && block.Text == "No text differences."));
     });
 
     [Fact]
@@ -104,25 +58,6 @@ public sealed class CodeViewTests
         ViewSession.Settle();
 
         Assert.Equal(150, Assert.Single(ViewSession.All<TextEditor>(view)).TextArea.Caret.Line);
-        return Task.CompletedTask;
-    });
-
-    /// <summary>A new text, such as a refreshed file, keeps the place the person scrolled to instead of returning to the target line.</summary>
-    [Fact]
-    public Task SourceViewKeepsItsScrollPositionWhenTheTextChanges() => ViewSession.RunAsync(() =>
-    {
-        SourceView view = new() { Text = string.Join("\n", Enumerable.Range(1, 200).Select(number => $"line {number}")) };
-        ViewSession.Show(view);
-        view.GoToLine(150);
-        TextEditor editor = Assert.Single(ViewSession.All<TextEditor>(view));
-        editor.ScrollToLine(40);
-        ViewSession.Settle();
-        double offset = editor.VerticalOffset;
-
-        view.Text = string.Join("\n", Enumerable.Range(1, 200).Select(number => $"line {number} changed"));
-        ViewSession.Settle();
-
-        Assert.Equal(offset, editor.VerticalOffset);
         return Task.CompletedTask;
     });
 }

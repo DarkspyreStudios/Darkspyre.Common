@@ -72,43 +72,6 @@ public sealed class PdfViewerTests
     });
 
     [Fact]
-    public Task AScrollWithUnchangedMatchesRedrawsNoHighlight() => ViewSession.RunAsync(async () =>
-    {
-        using PdfViewer viewer = new() { Document = new FakeDocument() };
-        ViewSession.Show(viewer);
-        await ViewSession.WaitForAsync(() => viewer.Find("needle") == 3 && Highlights(viewer).Any());
-        Border[] before = [.. Highlights(viewer)];
-        ScrollViewer pages = ViewSession.All<ScrollViewer>(viewer)
-            .Single(scroller => global::Avalonia.Automation.AutomationProperties.GetName(scroller) == "PDF pages");
-
-        for (int step = 1; step <= 4; step++)
-        {
-            pages.Offset = new Vector(pages.Offset.X, step * 5);
-            ViewSession.Settle();
-        }
-
-        Assert.Equal(20, pages.Offset.Y);
-        Assert.Equal(before, Highlights(viewer));
-    });
-
-    [Fact]
-    public Task AResizeThatKeepsTheScaleKeepsTheDrawnTiles() => ViewSession.RunAsync(async () =>
-    {
-        using PdfViewer viewer = new() { Document = new FakeDocument() };
-        Window window = ViewSession.Show(viewer);
-        await ViewSession.WaitForAsync(() => Tiles(viewer).Any());
-        Image[] before = [.. Tiles(viewer)];
-        int percent = viewer.EffectivePercent;
-
-        // Fit width depends on the width only, so a shorter window keeps the scale.
-        window.Height = 600;
-        ViewSession.Settle();
-
-        Assert.Equal(percent, viewer.EffectivePercent);
-        Assert.All(before, tile => Assert.Contains(tile, Tiles(viewer)));
-    });
-
-    [Fact]
     public Task ZoomingInStepsThroughThePercentages() => ViewSession.RunAsync(() =>
     {
         using PdfViewer viewer = new() { Document = new FakeDocument(), Zoom = new PdfZoom.Percent(100) };

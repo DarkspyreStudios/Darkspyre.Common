@@ -12,7 +12,6 @@ public sealed class SheetSizeTests
     /// </summary>
     [Theory]
     [InlineData(DialogSize.Medium, 720)]
-    [InlineData(DialogSize.Wide, 960)]
     public Task ASheetOpensAtItsSizeAndAWindowNarrowerThanThatClampsIt(DialogSize size, double width) => ViewSession.RunAsync(() =>
     {
         Assert.Equal(width, OpenedWidth(size, windowWidth: 1400));

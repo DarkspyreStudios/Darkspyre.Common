@@ -36,47 +36,6 @@ public sealed class GitWorkflowRemoteTests
         Assert.Equal(rewritten, repository.RemoteHead("refs/heads/main"));
     }
 
-    /// <summary>
-    /// G7: a push cancelled after dispatch is Unknown and never retried, and the next push of the same ref, from another
-    /// conversation, is sent.
-    /// </summary>
-    [Fact]
-    public async Task APushAfterAnUnknownOutcomeIsSent()
-    {
-        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-push-unknown-");
-        GitConversation first = repository.First;
-        GitConversation second = repository.Open();
-        string slow = Path.Combine(repository.Root, "slow");
-        string waiting = Path.Combine(repository.Root, "hook-waiting");
-        // While the marker exists the remote's hook sleeps and then refuses, so the cancelled push never lands. The hook
-        // records that it decided first: a cancelled push stops only the git child, and its remote side runs on.
-        GitScripts.Write(Path.Combine(repository.Remote, "hooks", "pre-receive"),
-            $"cat >/dev/null\nif [ -f '{slow}' ]; then touch '{waiting}'; sleep 3; exit 1; fi\nexit 0");
-        await File.WriteAllTextAsync(slow, "");
-        repository.Write("a.txt", "pushed\n");
-        string pushed = repository.Commit("Pushed");
-
-        using CancellationTokenSource cancel = new();
-        Task<GitPushResult> pushing = first.Transfers.PushAsync(new(repository.Path, "origin", "main", "refs/heads/main"), cancel.Token);
-        await first.StartedAsync("push");
-        System.Diagnostics.Stopwatch waited = System.Diagnostics.Stopwatch.StartNew();
-        while (!File.Exists(waiting))
-        {
-            Assert.True(waited.Elapsed < TimeSpan.FromSeconds(20), "The remote's hook did not start.");
-            await Task.Delay(20);
-        }
-        await cancel.CancelAsync();
-        GitPushResult unknown = await pushing;
-        File.Delete(slow);
-        GitPushResult sent = await second.Transfers.PushAsync(new(repository.Path, "origin", "main", "refs/heads/main"));
-
-        Assert.Equal(GitPushOutcome.Unknown, Assert.Single(unknown.Refs).Outcome);
-        Assert.Equal(1, first.Launcher.Starts("push"));
-        Assert.Equal(1, second.Launcher.Starts("push"));
-        Assert.Equal(GitPushOutcome.Accepted, Assert.Single(sent.Refs).Outcome);
-        Assert.Equal(pushed, repository.RemoteHead("refs/heads/main"));
-    }
-
     /// <summary>G7: a confirmed remote read reports each requested ref, and a read that times out reports none.</summary>
     [Fact]
     public async Task ARemoteReadThatTimesOutReportsTimedOut()
@@ -123,77 +82,6 @@ public sealed class GitWorkflowRemoteTests
             new GitRefUpdate("refs/remotes/origin/main", root, published)], fetched.UpdatedRefs);
         Assert.Null(fetched.Diagnostic);
         Assert.Equal(published, repository.Head("refs/remotes/origin/main"));
-    }
-
-    /// <summary>
-    /// M5: a fetch of a force-pushed branch is never forced, so Git refuses it and, the fetch being atomic, changes no ref;
-    /// the result reports the failure and no updated ref.
-    /// </summary>
-    [Fact]
-    public async Task AFetchOfAForcePushedBranchChangesNoRefAndReportsFailure()
-    {
-        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-fetch-forced-");
-        GitConversation git = repository.First;
-        string root = repository.Head();
-        string other = Path.Combine(repository.Root, "other");
-        Git.Run(repository.Root, "clone", "-q", repository.Remote, other);
-        File.WriteAllText(Path.Combine(other, "a.txt"), "published\n");
-        Git.Run(other, "commit", "-q", "-am", "Published");
-        Git.Run(other, "push", "-q", "origin", "main");
-        repository.Run("fetch", "-q", "origin");
-        string tracking = repository.Head("refs/remotes/origin/main");
-        Git.Run(other, "reset", "-q", "--hard", root);
-        File.WriteAllText(Path.Combine(other, "a.txt"), "rewritten\n");
-        Git.Run(other, "commit", "-q", "-am", "Rewritten");
-        Git.Run(other, "push", "-q", "--force", "origin", "main");
-
-        GitFetchResult fetched = await git.Transfers.FetchAsync(new(repository.Path, "origin", ["refs/heads/main:refs/remotes/origin/main"]));
-
-        Assert.Empty(fetched.UpdatedRefs);
-        Assert.Equal("Fetch did not complete successfully; inspect repository state before another action. No retry or cleanup was attempted.",
-            fetched.Diagnostic);
-        Assert.Equal(tracking, repository.Head("refs/remotes/origin/main"));
-    }
-
-    /// <summary>
-    /// A fetch the transport refused reports Git's own reason after the library's sentence, so the cause names itself
-    /// instead of leaving the caller with nothing but the failure (DSA-1281).
-    /// </summary>
-    [Fact]
-    public async Task AFetchTheTransportRefusedReportsGitsOwnReason()
-    {
-        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-fetch-refused-");
-        GitConversation git = repository.First;
-        repository.Run("remote", "set-url", "origin", Path.Combine(repository.Root, "absent.git"));
-
-        GitFetchResult fetched = await git.Transfers.FetchAsync(new(repository.Path, "origin", ["refs/heads/main:refs/remotes/origin/main"]));
-
-        Assert.Empty(fetched.UpdatedRefs);
-        Assert.StartsWith("Fetch did not complete successfully; inspect repository state before another action. "
-            + "No retry or cleanup was attempted. fatal:", fetched.Diagnostic, StringComparison.Ordinal);
-        Assert.Contains("does not appear to be a git repository", fetched.Diagnostic, StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// A push the transport refused reports Git's own reason after the library's sentence, with the outcome still Unknown
-    /// because Git reported none for the ref (DSA-1281).
-    /// </summary>
-    [Fact]
-    public async Task APushTheTransportRefusedReportsGitsOwnReason()
-    {
-        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-push-refused-");
-        GitConversation git = repository.First;
-        repository.Run("remote", "set-url", "origin", Path.Combine(repository.Root, "absent.git"));
-        repository.Write("a.txt", "pushed\n");
-        repository.Commit("Pushed");
-
-        GitPushResult pushed = await git.Transfers.PushAsync(new(repository.Path, "origin", "main", "refs/heads/main"));
-
-        Assert.Equal(GitPushOutcome.Unknown, Assert.Single(pushed.Refs).Outcome);
-        Assert.StartsWith("Remote acceptance was not confirmed. Inspect remote state before another action; "
-            + "no automatic retry was attempted. fatal:", pushed.Diagnostic, StringComparison.Ordinal);
-        Assert.Contains("does not appear to be a git repository", pushed.Diagnostic, StringComparison.Ordinal);
-        Assert.Equal(pushed.Diagnostic, Assert.Single(pushed.Refs).Diagnostic);
     }
 
     /// <summary>

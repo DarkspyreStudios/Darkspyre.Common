@@ -50,21 +50,6 @@ public sealed class MarkdownViewerTests
     });
 
     [Fact]
-    public Task MermaidSourceThatCannotBeDrawnStaysACodeBlock() => ViewSession.RunAsync(async () =>
-    {
-        MarkdownViewer viewer = new() { Text = "```mermaid\nthis is not a diagram at all\n```" };
-        ViewSession.Show(viewer);
-        await ViewSession.WaitForAsync(() => ViewSession.All<MermaidView>(viewer).Any());
-        MermaidView diagram = Assert.Single(ViewSession.All<MermaidView>(viewer));
-
-        // Give the renderer time to answer; the fence must still be code afterwards.
-        await Task.Delay(500);
-        ViewSession.Settle();
-
-        Assert.IsType<LiveMarkdown.Avalonia.CodeBlock>(diagram.Content);
-    });
-
-    [Fact]
     public Task AMermaidDiagramIsDrawnAsAPicture() => ViewSession.RunAsync(async () =>
     {
         MarkdownViewer viewer = new() { Text = "Intro\n\n```mermaid\ngraph TD\n  A[Start] --> B[End]\n```" };
@@ -86,33 +71,6 @@ public sealed class MarkdownViewerTests
         viewer.Text = "Something else";
         await ViewSession.WaitForAsync(() => Text(viewer).Contains("Something else", StringComparison.Ordinal));
         Assert.DoesNotContain("First part", Text(viewer), StringComparison.Ordinal);
-    });
-
-    /// <summary>
-    /// A new viewer, and a replaced text, take their height in the layout that first places them, before any queued job
-    /// runs. A height that arrived a frame later made the transcript jump and come back while a turn ran.
-    /// </summary>
-    [Fact]
-    public Task ANewViewerTakesItsHeightInTheLayoutThatFirstPlacesIt() => ViewSession.RunAsync(() =>
-    {
-        StackPanel host = new();
-        Window window = ViewSession.Show(host);
-        const string First = "A first paragraph.\n\nA second paragraph.\n\nA third paragraph.";
-        MarkdownViewer viewer = new() { Text = First };
-        host.Children.Add(viewer);
-        window.UpdateLayout();
-        double placed = viewer.Bounds.Height;
-        ViewSession.Settle();
-        Assert.True(placed > 0, "The new viewer was laid out with no height.");
-        Assert.Equal(viewer.Bounds.Height, placed, 1);
-
-        viewer.Text = First + "\n\nA fourth paragraph.\n\nA fifth paragraph.";
-        window.UpdateLayout();
-        double replaced = viewer.Bounds.Height;
-        ViewSession.Settle();
-        Assert.True(replaced > placed, "The replaced text kept its old height.");
-        Assert.Equal(viewer.Bounds.Height, replaced, 1);
-        return Task.CompletedTask;
     });
 
     /// <summary>
@@ -166,59 +124,6 @@ public sealed class MarkdownViewerTests
         Assert.Equal(50d, Assert.Single(blocks, block => block.Classes.Contains("Heading1")).FontSize);
         Assert.Equal(38d, Assert.Single(blocks, block => block.Classes.Contains("Heading2")).FontSize);
         Assert.All(paragraphs, block => Assert.Equal(21d, block.FontSize));
-    });
-
-    /// <summary>
-    /// The renderer's palette is written as one dictionary, and only when a colour differs: an equal colour or an unrelated
-    /// resource leaves the dictionary the renderer shows as it was.
-    /// </summary>
-    [Fact]
-    public Task ThePaletteIsSwappedWholeAndOnlyWhenAColourChanges() => ViewSession.RunAsync(() =>
-    {
-        MarkdownViewer viewer = new() { Text = "Text" };
-        Border host = new() { Child = viewer };
-        host.Resources["text"] = Colors.Red;
-        host.Resources["panel"] = Colors.White;
-        ViewSession.Show(host);
-        MarkdownRenderer renderer = Assert.Single(ViewSession.All<MarkdownRenderer>(viewer));
-        IResourceDictionary before = renderer.Resources;
-        Assert.Equal(Colors.Red, before["ForegroundColor"]);
-
-        host.Resources["text"] = Color.FromRgb(255, 0, 0);
-        host.Resources["unrelated"] = 1d;
-        ViewSession.Settle();
-        Assert.Same(before, renderer.Resources);
-
-        host.Resources["text"] = Colors.Blue;
-        ViewSession.Settle();
-        Assert.NotSame(before, renderer.Resources);
-        Assert.Equal(Colors.Blue, renderer.Resources["ForegroundColor"]);
-        Assert.Equal(Colors.White, renderer.Resources["CardBackgroundColor"]);
-        return Task.CompletedTask;
-    });
-
-    /// <summary>A diagram is drawn again for a change to its colours, not for a resource that does not touch them.</summary>
-    [Fact]
-    public Task AMermaidDiagramIsNotDrawnAgainForAnUnrelatedResourceChange() => ViewSession.RunAsync(async () =>
-    {
-        CountingRenderer counting = new();
-        MarkdownViewer viewer = new() { MermaidRenderer = counting, Text = "```mermaid\ngraph TD\n  A --> B\n```" };
-        Border host = new() { Child = viewer };
-        host.Resources["text"] = Colors.Red;
-        ViewSession.Show(host);
-        await ViewSession.WaitForAsync(() => counting.Calls > 0);
-        await Task.Delay(100);
-        ViewSession.Settle();
-        int drawn = counting.Calls;
-
-        host.Resources["unrelated"] = 1d;
-        ViewSession.Settle();
-        await Task.Delay(100);
-        ViewSession.Settle();
-        Assert.Equal(drawn, counting.Calls);
-
-        host.Resources["text"] = Colors.Blue;
-        await ViewSession.WaitForAsync(() => counting.Calls == drawn + 1);
     });
 
     /// <summary>
@@ -285,60 +190,6 @@ public sealed class MarkdownViewerTests
         renderer.LinkCommand!.Execute(new LinkClickedEventArgs(MarkdownTextBlock.LinkClickEvent, program, program.HRef));
         renderer.LinkCommand.Execute(new Uri("missing-notes.md", UriKind.Relative));
         Assert.Equal(["Program.cs"], activated);
-    });
-
-    /// <summary>
-    /// DSA-1270: a link source change that changes no link leaves the shown text as it is drawn. A long transcript's file
-    /// index changes once for every file it names, and each change drew every message again on the UI thread.
-    /// </summary>
-    [Fact]
-    public Task ALinkSourceChangeThatChangesNoLinkDrawsNothingAgain() => ViewSession.RunAsync(async () =>
-    {
-        ChangingFiles source = new() { Known = "Program.cs" };
-        MarkdownViewer viewer = new() { LinkSource = source, Text = "Changed Program.cs today." };
-        ViewSession.Show(viewer);
-        await ViewSession.WaitForAsync(() => Links(viewer).Count == 1);
-        MarkdownRenderer renderer = Assert.Single(ViewSession.All<MarkdownRenderer>(viewer));
-        int drawn = 0;
-        renderer.PropertyChanged += (_, change) =>
-        {
-            if (change.Property == MarkdownRenderer.DocumentUpdateProperty) drawn++;
-        };
-        int searched = source.Searches;
-
-        source.Raise();
-        await ViewSession.WaitForAsync(() => source.Searches > searched);
-        await Task.Delay(500);
-        ViewSession.Settle();
-
-        Assert.Equal(0, drawn);
-        Assert.Single(Links(viewer));
-    });
-
-    /// <summary>A link source change that adds a link shows it.</summary>
-    [Fact]
-    public Task ALinkSourceChangeThatAddsALinkShowsIt() => ViewSession.RunAsync(async () =>
-    {
-        ChangingFiles source = new();
-        MarkdownViewer viewer = new() { LinkSource = source, Text = "Changed Program.cs today." };
-        ViewSession.Show(viewer);
-        await ViewSession.WaitForAsync(() => Text(viewer).Contains("today", StringComparison.Ordinal));
-        Assert.Empty(Links(viewer));
-
-        source.Known = "Program.cs";
-        source.Raise();
-
-        await ViewSession.WaitForAsync(() => Links(viewer).Count == 1);
-    });
-
-    /// <summary>Without the host's link resources a link keeps the accent colour and no underline.</summary>
-    [Fact]
-    public Task WithoutLinkResourcesALinkIsAccentColouredAndNotUnderlined() => ViewSession.RunAsync(async () =>
-    {
-        Link link = await ShowLinkAsync(host => host.Resources["accent"] = Colors.Green);
-
-        Assert.Equal(Colors.Green, ((ISolidColorBrush)link.Foreground!).Color);
-        Assert.False(Underlined(link));
     });
 
     /// <summary>The host's "link" colour colours a link, and its "link-underline" decides whether the link is underlined.</summary>

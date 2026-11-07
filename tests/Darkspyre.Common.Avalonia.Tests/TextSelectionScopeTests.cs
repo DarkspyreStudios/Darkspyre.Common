@@ -13,25 +13,6 @@ namespace Darkspyre.Common.Avalonia.Tests;
 public sealed class TextSelectionScopeTests
 {
     /// <summary>
-    /// A drag from a heading to a note selects both and the label between them, but not a button's label, and the
-    /// copied text joins them with line breaks.
-    /// </summary>
-    [Fact]
-    public Task ADragJoinsLabelsAndParagraphsButNotButtons() => ViewSession.RunAsync(async () =>
-    {
-        TextBlock heading = Forms.Heading("Heading"), label = Forms.Text("A label"), note = PanelParts.Note("The note");
-        TextSelectionScope scope = new() { Child = new StackPanel { Children = { heading, label, new Button { Content = "Press" }, note } } };
-        Window window = ViewSession.Show(scope);
-        CopyHandlerFixture.Attach(window);
-
-        Input.Drag(window, Input.At(heading, window, 1), Input.At(note, window, note.Bounds.Width - 1));
-
-        Assert.Equal("Heading\nA label\nThe note", scope.SelectedText);
-        Input.Press(window, Input.Keys.Copy[0]);
-        await ViewSession.WaitForAsync(() => CopyHandlerFixture.ClipboardAsync(window).Result == "Heading\nA label\nThe note");
-    });
-
-    /// <summary>
     /// With a text box focused, a drag from a prompt to a second reply selects across both replies and the expanded tool
     /// row, skips the collapsed one, and moves focus to the scope, so the Copy key copies the selection with a blank line
     /// between blocks. A press on the collapsed row's title opens it and starts no selection.

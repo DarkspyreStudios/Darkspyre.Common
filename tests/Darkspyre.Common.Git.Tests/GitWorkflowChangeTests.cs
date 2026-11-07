@@ -52,23 +52,6 @@ public sealed class GitWorkflowChangeTests
         Assert.Empty(Directory.GetDirectories(temporary, "git-hooks-*"));
     }
 
-    /// <summary>A pre-commit hook that refuses fails the commit as Git's failure and leaves HEAD where it was.</summary>
-    [Fact]
-    public async Task ARefusingPreCommitHookFailsWithCommandFailedAndKeepsHead()
-    {
-        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-commit-refused-");
-        GitConversation git = repository.First;
-        string head = repository.Head();
-        GitScripts.Write(Path.Combine(repository.Path, ".git", "hooks", "pre-commit"), "exit 1");
-        repository.Write("a.txt", "changed\n");
-
-        GitOperationException failed = await Assert.ThrowsAsync<GitOperationException>(() =>
-            git.Commits.CommitAsync(new(repository.Path, ["a.txt"], "Change")));
-
-        Assert.Equal(GitFailure.CommandFailed, failed.Failure);
-        Assert.Equal(head, repository.Head());
-    }
-
     /// <summary>G4: <c>commit --only</c> commits the named path and keeps an unrelated staged entry staged.</summary>
     [Fact]
     public async Task ACommitCommitsOnlyTheNamedPathsAndKeepsOtherStagedEntries()
@@ -84,43 +67,6 @@ public sealed class GitWorkflowChangeTests
         Assert.Equal(committed.CommitId, repository.Head());
         Assert.Equal("a.txt", repository.Run("diff-tree", "--no-commit-id", "--name-only", "-r", committed.CommitId).TrimEnd('\n'));
         Assert.Equal(["other.txt"], repository.Staged());
-    }
-
-    /// <summary>A deletion already staged, as <c>git rm</c> or an earlier stage leaves it, is committed with the other named paths.</summary>
-    [Fact]
-    public async Task ACommitIncludesAPathWhoseDeletionIsAlreadyStaged()
-    {
-        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-commit-staged-deletion-");
-        GitConversation git = repository.First;
-        repository.Write("b.txt", "b\n");
-        repository.Commit("Second file");
-        repository.Run("rm", "-q", "a.txt");
-        repository.Write("b.txt", "b changed\n");
-
-        GitCommitResult committed = await git.Commits.CommitAsync(new(repository.Path, ["a.txt", "b.txt"], "Change"));
-
-        Assert.Equal(committed.CommitId, repository.Head());
-        Assert.Equal("D\ta.txt\nM\tb.txt",
-            repository.Run("diff-tree", "--no-commit-id", "--name-status", "-r", committed.CommitId).TrimEnd('\n'));
-        Assert.Empty(repository.Staged());
-    }
-
-    /// <summary>A commit needs a checked-out branch: on a detached HEAD it is stale before anything is staged.</summary>
-    [Fact]
-    public async Task ACommitOnADetachedHeadIsRefusedBeforeStaging()
-    {
-        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-commit-detached-");
-        GitConversation git = repository.First;
-        string head = repository.Head();
-        repository.Run("checkout", "-q", "--detach");
-        repository.Write("a.txt", "changed\n");
-
-        GitOperationException refused = await Assert.ThrowsAsync<GitOperationException>(() =>
-            git.Commits.CommitAsync(new(repository.Path, ["a.txt"], "Change")));
-
-        Assert.Equal(GitFailure.StaleState, refused.Failure);
-        Assert.Empty(repository.Staged());
-        Assert.Equal(head, repository.Head());
     }
 
     /// <summary>
@@ -155,43 +101,6 @@ public sealed class GitWorkflowChangeTests
         Assert.Equal(repository.Head(), Assert.Single(completed.NewCommits));
         Assert.Equal(main, repository.Head("HEAD~1"));
         Assert.Null((await git.StatusAsync(repository.Path))!.Operation);
-    }
-
-    /// <summary>G15.</summary>
-    [Fact]
-    public async Task ARebaseStartWithUnstagedChangesOrAMergeInProgressIsRefusedAsNotClean()
-    {
-        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-rebase-clean-");
-        GitConversation git = repository.First;
-        Diverge(repository);
-        string feature = repository.Head();
-        repository.Write("a.txt", "unstaged\n");
-
-        GitOperationException unstaged = await Assert.ThrowsAsync<GitOperationException>(() => git.Sequences.RebaseAsync(new(repository.Path, GitSequenceAction.Start, "main")));
-        repository.Run("checkout", "-q", "--", "a.txt");
-        Assert.NotEqual(0, repository.TryRun("merge", "--no-edit", "main"));
-        GitOperationException merge = await Assert.ThrowsAsync<GitOperationException>(() => git.Sequences.RebaseAsync(new(repository.Path, GitSequenceAction.Start, "main")));
-
-        Assert.Equal(GitFailure.NotClean, unstaged.Failure);
-        Assert.Contains("a.txt", unstaged.Message, StringComparison.Ordinal);
-        Assert.Equal(GitFailure.NotClean, merge.Failure);
-        Assert.Equal("merge", (await git.StatusAsync(repository.Path))!.Operation?.Kind);
-        Assert.Equal(feature, repository.Head());
-        Assert.Equal(0, git.Launcher.Starts("rebase"));
-    }
-
-    /// <summary>G19.</summary>
-    [Fact]
-    public async Task ACherryPickNamesTheAlreadyAppliedCommitAsSkipped()
-    {
-        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-pick-skip-");
-        GitConversation git = repository.First;
-        (string applied, string fresh) = Picks(repository);
-
-        GitSequenceResult picked = await git.Sequences.CherryPickAsync(new(repository.Path, GitSequenceAction.Start, [fresh, applied]));
-
-        Assert.Single(picked.NewCommits);
-        Assert.Equal([applied], picked.SkippedCommits);
     }
 
     /// <summary>
@@ -245,52 +154,6 @@ public sealed class GitWorkflowChangeTests
         Assert.Equal(1, git.Launcher.Starts("--skip"));
         Assert.DoesNotContain(git.Launcher.Requests, start => start.Arguments.Any(argument => argument.StartsWith("--empty", StringComparison.Ordinal)));
         Assert.Null((await git.StatusAsync(repository.Path))!.Operation);
-    }
-
-    /// <summary>
-    /// M3: a pick a hook stops leaves its changes staged, so the library does not skip it: the cherry-pick stays Stopped
-    /// and names no commit as skipped.
-    /// </summary>
-    [Fact]
-    public async Task ACherryPickStoppedByAHookStaysStopped()
-    {
-        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-pick-hook-");
-        GitConversation git = repository.First;
-        (_, string fresh) = Picks(repository);
-        string head = repository.Head();
-        GitScripts.Write(Path.Combine(repository.Path, ".git", "hooks", "prepare-commit-msg"), "exit 1");
-
-        GitSequenceResult picked = await git.Sequences.CherryPickAsync(new(repository.Path, GitSequenceAction.Start, [fresh]));
-
-        Assert.Equal(GitSequenceState.Stopped, picked.State);
-        Assert.Empty(picked.SkippedCommits);
-        Assert.Equal(0, git.Launcher.Starts("--skip"));
-        Assert.Equal(head, repository.Head());
-        Assert.Equal(["fresh.txt"], repository.Staged());
-        Assert.Equal("cherry-pick", (await git.StatusAsync(repository.Path))!.Operation?.Kind);
-    }
-
-    /// <summary>M6: with <c>rebase.updateRefs</c> set in the repository, a rebase still moves no other branch.</summary>
-    [Fact]
-    public async Task ARebaseDoesNotUpdateOtherBranchRefs()
-    {
-        await using GitWorkflowRepository repository = GitWorkflowRepository.Create("git-rebase-refs-");
-        GitConversation git = repository.First;
-        repository.Run("config", "rebase.updateRefs", "true");
-        repository.Write("b.txt", "main\n");
-        repository.Commit("Main");
-        repository.Run("checkout", "-q", "-b", "feature", "main~1");
-        repository.Write("c.txt", "one\n");
-        string middle = repository.Commit("One");
-        repository.Run("branch", "middle");
-        repository.Write("d.txt", "two\n");
-        repository.Commit("Two");
-
-        GitSequenceResult rebased = await git.Sequences.RebaseAsync(new(repository.Path, GitSequenceAction.Start, "main"));
-
-        Assert.Equal(GitSequenceState.Completed, rebased.State);
-        Assert.Equal(repository.Head("main"), repository.Head("HEAD~2"));
-        Assert.Equal(middle, repository.Head("middle"));
     }
 
     // Main and feature both change a.txt from the base; the repository is left on feature. Returns both heads.

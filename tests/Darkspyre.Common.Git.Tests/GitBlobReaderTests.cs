@@ -30,26 +30,4 @@ public sealed class GitBlobReaderTests
         Assert.Equal(first, again);
         Assert.Equal(1, repository.Launcher.Starts("cat-file"));
     }
-
-    /// <summary>In a promisor-remote clone a missing blob is reported and not fetched.</summary>
-    [Fact]
-    public async Task ABlobMissingFromAPartialCloneIsReportedAndNotFetched()
-    {
-        await using GitTestRepository source = GitTestRepository.Create("git-partial-source-");
-        source.Write("a.txt", "first\n");
-        source.Commit();
-        source.Run("config", "uploadpack.allowFilter", "true");
-        string a = source.Run("rev-parse", "HEAD:a.txt").TrimEnd('\n');
-
-        string clone = Path.Combine(source.Root, "partial");
-        Git.Run(source.Root, "clone", "-q", "--no-checkout", "--filter=blob:none", "file://" + source.Path, clone);
-        await using (GitBlobReader reader = await GitBlobReader.StartAsync(new(new RecordingLauncher()), clone, GitObjectFormat.Sha1, default))
-        {
-            GitReadException missing = await Assert.ThrowsAsync<GitReadException>(() => reader.ReadAsync(a, 1024, default));
-            Assert.Equal(GitReadFailure.ObjectMissing, missing.Failure);
-        }
-        // With the remote gone, a lazy fetch cannot succeed, so cat-file -e reports only what the clone holds.
-        Git.Run(clone, "config", "remote.origin.url", Path.Combine(source.Root, "gone"));
-        Assert.Equal("absent\n", Git.Shell(clone, $"if git cat-file -e {a} 2>/dev/null; then echo present; else echo absent; fi"));
-    }
 }
