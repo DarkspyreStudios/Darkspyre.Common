@@ -134,6 +134,12 @@ public interface IServiceStoreInspection : IAsyncDisposable
     string StorePath { get; }
     /// <summary>Reads a copied opaque store state while this existing-store inspection lease is held.</summary>
     Task<ReadOnlyMemory<byte>?> ReadStoreStateAsync(CancellationToken cancellationToken = default);
+    /// <summary>Durably and atomically replaces the stopped store's complete opaque committed record.</summary>
+    /// <param name="state">The owning domain's replacement record.</param>
+    /// <param name="cancellationToken">Cancels publication before it commits.</param>
+    /// <returns>Completion after atomic publication.</returns>
+    /// <gotcha>Only while stopped and this exclusive lease is held. This replaces the committed record.</gotcha>
+    Task PublishStoreStateAsync(ReadOnlyMemory<byte> state, CancellationToken cancellationToken = default);
     /// <summary>Removes the explicitly retired owner folder covered by this stopped-store inspection.</summary>
     /// <gotcha>This removes durable data. The caller must prevent new subscriptions and authorize this exact root's retirement.</gotcha>
     Task RemoveOwnerFolderAsync(CancellationToken cancellationToken = default);

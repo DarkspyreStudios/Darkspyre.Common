@@ -43,6 +43,12 @@ public sealed partial class ServicePlatform
             ObjectDisposedException.ThrowIf(!lease.IsHeld, this);
             return ServiceStoreStateFiles.ReadAsync(new LinuxServiceFileSystem(), path, cancellationToken);
         }
+        /// <summary>Publishes the domain's committed record under the stopped-store lease.</summary>
+        public Task PublishStoreStateAsync(ReadOnlyMemory<byte> state, CancellationToken cancellationToken = default)
+        {
+            ObjectDisposedException.ThrowIf(!lease.IsHeld, this);
+            return ServiceStoreStateFiles.PublishAsync(new LinuxServiceFileSystem(), path, state, cancellationToken);
+        }
         public Task RemoveOwnerFolderAsync(CancellationToken cancellationToken = default)
         {
             ObjectDisposedException.ThrowIf(!lease.IsHeld, this);
