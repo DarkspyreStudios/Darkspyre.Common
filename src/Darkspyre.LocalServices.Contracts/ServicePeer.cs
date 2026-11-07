@@ -31,11 +31,13 @@ public sealed class ServiceProtocolException : IOException
     public ServiceProtocolException(ServiceError error)
         : this((error ?? throw new ArgumentNullException(nameof(error))).Code, error.Message is { } reason
             ? $"Local service protocol failed: {error.Code}. The service failed {reason}"
-            : $"Local service protocol failed: {error.Code}.") { }
+            : $"Local service protocol failed: {error.Code}.") { this.ServiceReason = error.Message; }
 
     internal ServiceProtocolException(ServiceErrorCode code, string message, Exception? inner = null) : base(message, inner) => this.Code = code;
     /// <summary>The stable failure kind.</summary>
     public ServiceErrorCode Code { get; }
+    /// <summary>The service's reported reason, or null for a locally constructed protocol failure.</summary>
+    public string? ServiceReason { get; }
     /// <summary>The copied failure of the observed startup attempt, when supplied by its owner.</summary>
     public ServiceStartupFailure? StartupFailure { get; init; }
 }

@@ -756,6 +756,9 @@ The independent contract library contains service installation, ownership and su
 wire messages and the shared launch/package/result types. It references .NET only. Consumers can use
 `IServiceConnector`, `IServiceSubscription` and `IServicePlatform` without referencing the implementation,
 Connect, Search or Harness. Existing types retain their namespaces.
+`ServiceProtocolException` preserves the stable `Code` and, when constructed from a reported `ServiceError`, its
+`ServiceReason` unchanged. Consumers compare the reported reason without parsing the formatted exception message.
+A locally constructed failure has no `ServiceReason`.
 
 ## Darkspyre.LocalServices
 
