@@ -297,7 +297,7 @@ Each folder is its own namespace, `Darkspyre.Agent.Common.UI.<folder>`:
 | --- | --- |
 | `.Controls` | `Forms` and `ButtonSize`, `Sizes`, `Badge`, `Spinner`, `LoopingAnimation`, `IconPicker`, `ColorPicker`, `StatusLight` and `StatusLightState`, `QuotaRing`, `TextCopy` and `CopyRequestedEventArgs`, `CopyFeedback`, `TextSelection`, `TextSelectionMode`, `TextSelectionScope`, `SelectionMenu`, `EditCommand`, `IEditCommandTarget`, `ITextEditTarget`, `EditRouting`, `RowCopy`, `Watching<TShown>` and `UiChangeSubscription`, `Remount`, `KeyedViews`, `KeyedChildren`, `UiRefresh`, `ShownList`, `PanelTabs`, `PanelTab` and `PanelTabsOverflow`, `PanelParts`, `ZoomScale` and `ZoomHost` |
 | `.Icons` | `Icon`, `IconSource`, `AppIcons` (including `Refresh` and `Search` for a panel bar's icon buttons, and the Lucide `Goal` (`target`), `Trash` (`trash-2`), `Pause` (`circle-pause`) and `Resume` (`circle-play`) in `ViewBox` `0 0 24 24`), `ProjectIcons`, `PluginPanelIcons`, `AttachmentPreviewIcons` (built from `AttachmentIconPaths` in `Darkspyre.Common.Markdown`) |
-| `.Dialogs` | `ModalLayer`, `Sheet`, `ConfirmDialog`, `PaletteSheet`, `DialogPresenter` with `SheetRequest`, `ISheet` and `ConfirmationRequest`, `DialogSize` and `DialogSizes` |
+| `.Dialogs` | `ModalLayer`, `FocusReturn`, `Sheet`, `ConfirmDialog`, `PaletteSheet`, `DialogPresenter` with `SheetRequest`, `ISheet` and `ConfirmationRequest`, `DialogSize` and `DialogSizes` |
 | `.Errors` | `UiRegion`, `UiFailure`, `FailureView` |
 | `.Composition` | `CompositionTarget`, `CompositionSlot`, `ICompositionPresenter`, `SurfaceScopeContext`, `AppearanceSection`, `IAppearanceSectionRegistry` |
 | `.Themes` | `CommonTheme`, holding `ControlStyles` |
@@ -345,11 +345,21 @@ draw with, the palette, failure-card, quota-ring and status-light styles, and th
 | `CompositionTarget.Presenter` (`ICompositionPresenter`) | Each target entering and leaving a window, and a request for each of its four inline slots | A target shows its own content and empty slots |
 | `AppearanceSection.Registry` (`IAppearanceSectionRegistry`) | Each control joining or leaving a typography section | A section changes no font |
 | `UiRegion.Log` (`Action<UiFailure>`) | Every failure a region shows, and every `UiRegion.Report` no region encloses (`UiRegion.NoRegion`) | Nothing is logged |
+| `FocusReturn.Fallback` (`Func<IInputElement?>`) | A request for the element that takes focus when a closing surface's recorded element can no longer take it | Focus stays where it is |
 
 `ModalLayer.Attach(window)` makes Escape dismiss the topmost dialog of that window. `ModalLayer.Show` puts each
 dialog's view in its own `TextSelectionScope` and focuses the view, so a drag and Select All in a dialog stay in it. It
 first clears the window's selection: the window's adorner layer, which draws plain text's highlight, sits above the
 modal layer, so a highlight left behind would draw over the dialog.
+
+`ModalLayer.Show` records the element the window has focused before the dialog takes focus (`FocusReturn.Capture`).
+`ModalLayer.Close` returns focus only when it was in the closing dialog or nowhere, so focus the person moved elsewhere
+stays. It goes to the recorded element when that is still attached, visible, enabled and focusable, and otherwise to
+`FocusReturn.Fallback`, which the shell sets once. A dialog over another records an element in the dialog below, so
+nested dialogs hand focus back in order. `FocusReturn.Track(surface)` records the element focused before each move into
+a surface from outside it, for a surface outside the modal layer such as a Prompts panel card. Focus moves with
+`NavigationMethod.Unspecified`, so a container that holds focus against moves the person did not ask for still refuses
+it.
 
 The application's clipboard service handles `TextCopy.RequestedEvent` at each window: it writes the text with
 `TextCopy.WriteAsync`, sets the request's `Completion` and shows the one "Copied" feedback. Without a handler, every

@@ -11,11 +11,12 @@ namespace Darkspyre.Agent.Common.UI.Dialogs;
 /// The window's layer for sheets and confirmations, above the shell. Each open dialog shows over a backdrop; Escape or a
 /// click on the backdrop dismisses the topmost one. The shell view places the layer; any view opens a dialog here. Each
 /// dialog's view sits in its own <see cref="TextSelectionScope"/>, so a drag and Select All in it stay in the dialog.
-/// Opening a dialog clears the window's selection, so no highlight of the text behind it draws over the dialog.
+/// Opening a dialog clears the window's selection, so no highlight of the text behind it draws over the dialog. Closing a
+/// dialog that holds focus returns focus to the element focused before it opened (<see cref="FocusReturn"/>).
 /// </summary>
 public sealed class ModalLayer : Panel
 {
-    private readonly List<(Border Backdrop, IModal Dialog)> open = [];
+    private readonly List<(Border Backdrop, IModal Dialog, FocusReturn Returning)> open = [];
 
     /// <summary>Creates the layer, which takes no space and no input while no dialog is open.</summary>
     public ModalLayer()
@@ -28,6 +29,8 @@ public sealed class ModalLayer : Panel
     public void Show(IModal dialog)
     {
         ArgumentNullException.ThrowIfNull(dialog);
+        // Recorded before the dialog takes focus; a dialog over another records the element in the dialog below.
+        FocusReturn returning = FocusReturn.Capture(this);
         // The window's adorner layer, which draws plain text's highlight, sits above this layer.
         if (TopLevel.GetTopLevel(this) is { } window) TextSelection.ClearWindow(window);
         // A dialog stays 24 px inside the window on every side; content that does not fit scrolls inside the dialog. A
@@ -46,7 +49,7 @@ public sealed class ModalLayer : Panel
         backdrop.Child = new TextSelectionScope { Child = content };
         // Subscribed before the backdrop joins the layer: on a layer already in a window, adding it attaches the view at once.
         content.AttachedToVisualTree += (_, _) => (content as InputElement)?.Focus();
-        this.open.Add((backdrop, dialog));
+        this.open.Add((backdrop, dialog, returning));
         this.Children.Add(backdrop);
         this.IsHitTestVisible = true;
     }
@@ -58,7 +61,7 @@ public sealed class ModalLayer : Panel
     /// </summary>
     protected override Size MeasureOverride(Size availableSize)
     {
-        foreach ((Border backdrop, IModal dialog) in this.open)
+        foreach ((Border backdrop, IModal dialog, _) in this.open)
         {
             if (dialog.FillsWindow) continue;
             Control view = dialog.View;
@@ -71,14 +74,21 @@ public sealed class ModalLayer : Panel
     /// <summary>The backdrop of the topmost open dialog, or null when none is open.</summary>
     internal Control? TopDialog => this.open.Count > 0 ? this.open[^1].Backdrop : null;
 
-    /// <summary>Removes <paramref name="dialog"/>; a dialog already gone is ignored.</summary>
+    /// <summary>
+    /// Removes <paramref name="dialog"/>; a dialog already gone is ignored. When focus was in the dialog or nowhere, it
+    /// returns to the element focused before the dialog opened, or to <see cref="FocusReturn.Fallback"/>.
+    /// </summary>
     public void Close(IModal dialog)
     {
         int index = this.open.FindIndex(entry => ReferenceEquals(entry.Dialog, dialog));
         if (index < 0) return;
-        this.Children.Remove(this.open[index].Backdrop);
+        (Border backdrop, _, FocusReturn returning) = this.open[index];
+        // Focus in the dialog, or nowhere, is the dialog's to hand back; focus the person moved elsewhere stays.
+        bool handsBack = FocusReturn.IsWithin(backdrop) || FocusReturn.IsNowhere(backdrop);
+        this.Children.Remove(backdrop);
         this.open.RemoveAt(index);
         this.IsHitTestVisible = this.open.Count > 0;
+        if (handsBack) returning.Restore();
     }
 
     /// <summary>Dismisses the topmost dialog on Escape in <paramref name="window"/>. The application calls it once for its window.</summary>
