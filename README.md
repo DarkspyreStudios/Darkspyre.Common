@@ -345,7 +345,7 @@ draw with, the palette, failure-card, quota-ring and status-light styles, and th
 | `CompositionTarget.Presenter` (`ICompositionPresenter`) | Each target entering and leaving a window, and a request for each of its four inline slots | A target shows its own content and empty slots |
 | `AppearanceSection.Registry` (`IAppearanceSectionRegistry`) | Each control joining or leaving a typography section | A section changes no font |
 | `UiRegion.Log` (`Action<UiFailure>`) | Every failure a region shows, and every `UiRegion.Report` no region encloses (`UiRegion.NoRegion`) | Nothing is logged |
-| `FocusReturn.Fallback` (`Func<IInputElement?>`) | A request for the element that takes focus when a closing surface's recorded element can no longer take it | Focus stays where it is |
+| `FocusReturn.SetFallback(window, Func<IInputElement?>)` | A request, per window, for the element that takes focus there when a closing surface's recorded element can no longer take it and no dialog remains open | Focus stays where it is |
 
 `ModalLayer.Attach(window)` makes Escape dismiss the topmost dialog of that window. `ModalLayer.Show` puts each
 dialog's view in its own `TextSelectionScope` and focuses the view, so a drag and Select All in a dialog stay in it. It
@@ -353,10 +353,13 @@ first clears the window's selection: the window's adorner layer, which draws pla
 modal layer, so a highlight left behind would draw over the dialog.
 
 `ModalLayer.Show` records the element the window has focused before the dialog takes focus (`FocusReturn.Capture`).
-`ModalLayer.Close` returns focus only when it was in the closing dialog or nowhere, so focus the person moved elsewhere
-stays. It goes to the recorded element when that is still attached, visible, enabled and focusable, and otherwise to
-`FocusReturn.Fallback`, which the shell sets once. A dialog over another records an element in the dialog below, so
-nested dialogs hand focus back in order. `FocusReturn.Track(surface)` records the element focused before each move into
+`ModalLayer.Close` moves focus only when it was in the closing dialog or nowhere, so focus the person moved elsewhere,
+such as into the top dialog while one below it closes, stays. While another dialog stays open, focus stays inside the top
+one: on the element the closing dialog recorded when that sits in the top dialog and is still attached, visible, enabled
+and focusable, otherwise on the top dialog's view. Only when no dialog remains does focus go to the recorded element, or
+to the window's fallback. Each window has its own fallback: a surface registers it with `FocusReturn.SetFallback` for
+the window it attaches to and removes it with `FocusReturn.ClearFallback`, which leaves a fallback another surface set
+since. `FocusReturn.Track(surface)` records the element focused before each move into
 a surface from outside it, for a surface outside the modal layer such as a Prompts panel card. Focus moves with
 `NavigationMethod.Unspecified`, so a container that holds focus against moves the person did not ask for still refuses
 it.

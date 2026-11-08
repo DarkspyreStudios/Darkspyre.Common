@@ -76,19 +76,30 @@ public sealed class ModalLayer : Panel
 
     /// <summary>
     /// Removes <paramref name="dialog"/>; a dialog already gone is ignored. When focus was in the dialog or nowhere, it
-    /// returns to the element focused before the dialog opened, or to <see cref="FocusReturn.Fallback"/>.
+    /// stays inside the dialog left on top: on the element the closing dialog recorded when that sits in the top dialog and
+    /// can still take focus, otherwise on the top dialog's view. Only when no dialog remains does focus return to the
+    /// element focused before the dialog opened, or to the window's fallback (<see cref="FocusReturn.SetFallback"/>).
     /// </summary>
     public void Close(IModal dialog)
     {
         int index = this.open.FindIndex(entry => ReferenceEquals(entry.Dialog, dialog));
         if (index < 0) return;
         (Border backdrop, _, FocusReturn returning) = this.open[index];
-        // Focus in the dialog, or nowhere, is the dialog's to hand back; focus the person moved elsewhere stays.
+        // Focus in the dialog, or nowhere, is the dialog's to hand back; focus the person moved elsewhere, including into the
+        // top dialog when a dialog below it closes, stays.
         bool handsBack = FocusReturn.IsWithin(backdrop) || FocusReturn.IsNowhere(backdrop);
         this.Children.Remove(backdrop);
         this.open.RemoveAt(index);
         this.IsHitTestVisible = this.open.Count > 0;
-        if (handsBack) returning.Restore();
+        if (!handsBack) return;
+        if (this.open.Count == 0)
+        {
+            returning.Restore(this);
+            return;
+        }
+        // A dialog is still open, so typing must not reach the window behind it.
+        (Border top, IModal topDialog, _) = this.open[^1];
+        if (!returning.RestoreInside(top)) (topDialog.View as InputElement)?.Focus(NavigationMethod.Unspecified);
     }
 
     /// <summary>Dismisses the topmost dialog on Escape in <paramref name="window"/>. The application calls it once for its window.</summary>
