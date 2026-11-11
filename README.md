@@ -828,6 +828,8 @@ store/layout with any digest so the existing drain can release a different owner
 in the separate private `startup-state.json`, published under the catalog lock before preferred selection. A new process
 acquires family/store ownership, validates its digest is still preferred and captures the input under that lock. Completion
 compare-clears only the named operation. Null input never deletes state, and registration.json keeps its original shape.
+`IServiceOwner.PackageDirectory` publishes the verified immutable payload location from the adopted launch pin.
+Backend readers use that directory for their packaged metadata; they do not derive payload paths from the cache root.
 
 The platform installation prepares a private per-attempt stdout/stderr file before launch. Standard input stays detached.
 A private attempt identity under runtime/attempts records its digest and start time. Only the actual native Completion

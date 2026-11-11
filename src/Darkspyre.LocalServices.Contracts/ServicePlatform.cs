@@ -105,6 +105,8 @@ public interface IServiceOwner : IAsyncDisposable
 {
     /// <summary>The identity of this ownership lifetime.</summary>
     Guid Epoch { get; }
+    /// <summary>The verified immutable payload directory held by this owner's launch pin.</summary>
+    string PackageDirectory { get; }
     /// <summary>The private owned storage directory.</summary>
     string StorePath { get; }
     /// <summary>The private directory for transient request bodies.</summary>

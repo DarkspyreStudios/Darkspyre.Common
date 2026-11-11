@@ -114,6 +114,7 @@ public sealed partial class ServicePlatform : IServicePlatform
         public Task ClearStartupStateAsync(Guid id, CancellationToken cancellationToken = default)
             => ServiceStartupFiles.ClearStateAsync(new WindowsServiceFileSystem(), start.PackageCachePath, start.RuntimePath, id, cancellationToken);
         public Guid Epoch { get; } = Guid.NewGuid();
+        public string PackageDirectory => this.pin.PackageDirectory;
         public string StorePath => this.start.StorePath;
         public string StagingPath { get; }
         public Task<ReadOnlyMemory<byte>?> ReadStoreStateAsync(CancellationToken cancellationToken = default)
