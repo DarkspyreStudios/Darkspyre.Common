@@ -321,8 +321,10 @@ the owner's local-time service.
 A tool call's card takes its times from the same records: `ToolCallItem.Started` is the call message's `Created`, which
 the owner records as the call starts, and `ToolCallItem.Ended` is its result message's `Created`. An open card's body
 starts with a `tool-call-time` line: "Started" and the time of day, then "Running" and the time so far, or "Took" and the
-time the call ran. A card with no recorded start shows no line. The running time counts up each second only while the
-card is open, attached and its call runs; a closed card or a finished call runs no timer.
+time the call ran. A recorded end is final: a call whose result is in shows "Took" even while a question it opened still
+waits, because answering updates that result in place and keeps its time. A card with no recorded start shows no line.
+The running time counts up each second only while the card is open, attached, its call runs and it has no recorded end;
+otherwise no timer runs.
 
 `TranscriptPane.PageUp` and `PageDown` scroll its viewer by a visible page without taking focus. `TranscriptScroll.Page`
 uses `FollowLatest.Page` to classify the move as the person's input, even when the composer handles the key. Paging

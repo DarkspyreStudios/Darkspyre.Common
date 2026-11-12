@@ -36,8 +36,8 @@ public sealed record ToolCallItem(string Title, ToolCallStatus Status, string? I
 /// <summary>
 /// One tool invocation: a summary row with a status dot, the tool's name in the code font, with the files it names as
 /// links, and a status chip; expanded, when the call started and how long it ran, then its input and its output or error,
-/// each with a copy button. While the card is open and its call runs, the time it has run counts up each second; a closed
-/// card or a finished call runs no timer. The card is kept while its call changes, so whether it is open stays.
+/// each with a copy button. While the card is open and its call runs with no recorded end, the time it has run counts up
+/// each second; a recorded end is final, and a closed card or a finished call runs no timer. The card is kept while its call changes, so whether it is open stays.
 /// </summary>
 public sealed class ToolCallCard : UserControl
 {
@@ -128,7 +128,8 @@ public sealed class ToolCallCard : UserControl
     private void RenderTiming()
     {
         bool open = this.expander.IsExpanded && this.shown is { Started: not null };
-        bool live = open && this.shown!.Status == ToolCallStatus.Running && this.IsAttachedToVisualTree();
+        // A recorded end is final: a call whose result is in, such as one waiting on a question, counts no further.
+        bool live = open && this.shown!.Ended is null && this.shown.Status == ToolCallStatus.Running && this.IsAttachedToVisualTree();
         if (live) this.ticking.Start();
         else this.ticking.Stop();
         if (!open)
@@ -139,8 +140,8 @@ public sealed class ToolCallCard : UserControl
         ToolCallItem item = this.shown!;
         DateTimeOffset started = item.Started!.Value;
         string text = "Started " + this.formatTime(started);
-        if (item.Status == ToolCallStatus.Running) text += " · Running " + Elapsed(DateTimeOffset.Now - started);
-        else if (item.Ended is { } ended) text += " · Took " + Elapsed(ended - started);
+        if (item.Ended is { } ended) text += " · Took " + Elapsed(ended - started);
+        else if (item.Status == ToolCallStatus.Running) text += " · Running " + Elapsed(DateTimeOffset.Now - started);
         this.timing.Text = text;
         if (!this.body.Children.Contains(this.timing)) this.body.Children.Insert(0, this.timing);
     }
