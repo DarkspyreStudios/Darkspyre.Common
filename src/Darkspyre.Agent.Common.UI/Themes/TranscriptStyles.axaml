@@ -209,7 +209,7 @@
     <Setter Property="CornerRadius" Value="999" />
     <Setter Property="Background" Value="{DynamicResource color-muted.brush}" />
   </Style>
-  <Style Selector="Border.tool-call-chip > TextBlock, TextBlock.tool-call-label">
+  <Style Selector="Border.tool-call-chip > TextBlock, TextBlock.tool-call-label, TextBlock.tool-call-time">
     <Setter Property="FontFamily" Value="{DynamicResource font-small}" />
     <Setter Property="FontSize" Value="{DynamicResource font-size-small}" />
     <Setter Property="Foreground" Value="{DynamicResource color-muted-foreground.brush}" />

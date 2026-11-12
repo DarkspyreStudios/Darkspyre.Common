@@ -166,8 +166,9 @@ public sealed class ToolActivity : UserControl
             {
                 TranscriptMessage? result = ResultFor(this.messages, call);
                 bool failed = Failed(call, result);
+                // The call's turn is stored as it starts and its result as it ends, so their recorded times bound the call.
                 ToolCallItem card = new(call.Label, StatusFor(call, result), call.Arguments, failed ? null : OutputFor(call, result),
-                    failed ? OutputFor(call, result) ?? "The tool reported a failure." : null);
+                    failed ? OutputFor(call, result) ?? "The tool reported a failure." : null, message.Created, result?.Created);
                 TranscriptOutput? matched = OutputForCall(call, result);
                 TranscriptMessage? inspection = matched is not null && HasRichInspection(matched) ? result! with { Outputs = [matched] } : null;
                 shown.Add(new(key, null, card, RunningProgress(call, result), inspection));

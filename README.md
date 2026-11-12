@@ -318,6 +318,12 @@ messages for older-turn prefetch. An activity stretch splits at the same boundar
 Today, Yesterday, the weekday within six days or the month and day. The required `TranscriptContext.FormatTime` callback formats the time of day through
 the owner's local-time service.
 
+A tool call's card takes its times from the same records: `ToolCallItem.Started` is the call message's `Created`, which
+the owner records as the call starts, and `ToolCallItem.Ended` is its result message's `Created`. An open card's body
+starts with a `tool-call-time` line: "Started" and the time of day, then "Running" and the time so far, or "Took" and the
+time the call ran. A card with no recorded start shows no line. The running time counts up each second only while the
+card is open, attached and its call runs; a closed card or a finished call runs no timer.
+
 `TranscriptPane.PageUp` and `PageDown` scroll its viewer by a visible page without taking focus. `TranscriptScroll.Page`
 uses `FollowLatest.Page` to classify the move as the person's input, even when the composer handles the key. Paging
 away stops following; paging to the bottom follows again. Paging up at the top uses the existing older-turn request.
